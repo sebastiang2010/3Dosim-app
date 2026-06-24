@@ -48,7 +48,7 @@ _VERSION = "v4.0"
 _SLICER_EXE = r"C:\Users\Sebastian\AppData\Local\slicer.org\Slicer 5.8.1\Slicer.exe"
 _MAIN_PIPELINE = os.path.join(_PROJECT_ROOT, "PipelineOrchestrator", "main.py")
 _RUN_DOSIMETRY = os.path.join(_PROJECT_ROOT, "PipelineOrchestrator", "run_dosimetry_from_scene.py")
-_CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config", "pipeline_config.jsonc")
+_CONFIG_PATH = os.path.join(_PROJECT_ROOT, "PipelineOrchestrator", "pipeline_config.jsonc")
 # ── Colores ──
 MOD1_COLOR = "#2196F3"
 MOD2_COLOR = "#FF9800"
@@ -938,7 +938,7 @@ class LauncherWindow(QMainWindow):
         header.addLayout(title_box, 1)
 
         # Version badge
-        ver = QLabel("v3.14")
+        ver = QLabel("v4.0")
         ver.setStyleSheet(f"""
             background: #00897b; color: white;
             padding: 4px 12px; border-radius: 10px;
