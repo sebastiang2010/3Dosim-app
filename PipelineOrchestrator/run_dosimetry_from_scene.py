@@ -1,0 +1,1890 @@
+"""
+run_dosimetry_from_scene.py — Pipeline de dosimetria desde escena existente.
+
+Carga una escena .mrb (con CT, PET, 3Dosim_labelmap), parsea un archivo
+MCTAL (FMESH4 tally 1), computa dosis en Gy y reporta resultados por
+estructura (higado=90, tumor=100, pretumor=200).
+
+Genera:
+  - Reporte JSON con resultados numericos
+  - Reporte TXT legible
+  - Reporte PDF multi-pagina con DVH, tablas y parametros radiobiologicos
+  - Consola interactiva Qt (comandos: screenshot, vista, fusion, nodos, etc.)
+
+Uso:
+  Slicer.exe --python-script run_dosimetry_from_scene.py ^
+      --scene "C:/MAT/3Dosim/ai-pipe/scenes/3Dosim_scene.mrb" ^
+      --mctal "C:/MAT/3Dosim/corrida-Manu/mctal/mctal.m"
+
+Sin argumentos busca automaticamente:
+  - Escena: C:/MAT/3Dosim/ai-pipe/scenes/3Dosim_scene.mrb
+  - MCTAL:  C:/MAT/3Dosim/corrida-Manu/mctal/mctal.m
+  - Actividad: se computa del PET en la escena
+
+Opciones:
+  --activity X.X     Actividad en GBq (default: computar del PET)
+  --labelmap PATH    Ruta a labelmap NIfTI (default: busca en escena)
+  --show             Mantener Slicer abierto con DVH + consola
+  --no-consola       Deshabilitar consola interactiva Qt
+  --no-slicer        Modo standalone (solo parsear MCTAL, sin Slicer)
+
+Requiere:
+  - 3D Slicer (slicer, vtk accesibles en Python)
+  - SlicerDosimLib en el path
+
+Algoritmo:
+  1. Carga escena .mrb en Slicer
+  2. Busca nodos: CT, PET, 3Dosim_labelmap
+  3. Computa actividad total del PET
+  4. Parsea MCTAL con MCTALParser (compatible MATLAB f_cargo_mctall.m)
+  5. Convierte MeV/cm³/particula → Gy (MATLAB cargo_mctal.m:389-395)
+  6. Por estructura: DVH, D98/D70/D50, BED, EUD, EQD2
+  7. Reporte JSON + PDF + TXT + visualizacion en Slicer
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import numpy as np
+import os
+import sys
+import time
+from typing import Optional
+
+# Consola interactiva (comandos Qt como pipeline principal)
+try:
+    from PipelineOrchestrator.comandos import ConsolaComandos
+    _HAS_CONSOLE = True
+except ImportError:
+    ConsolaComandos = None
+    _HAS_CONSOLE = False
+
+# ======================================================================
+# DEBUG: primer output inmediato
+# ======================================================================
+_debug_file = r"C:\MAT\3Dosim\ai-pipe\resultados_dosimetria\_debug_start.log"
+try:
+    os.makedirs(r"C:\MAT\3Dosim\ai-pipe\resultados_dosimetria", exist_ok=True)
+    with open(_debug_file, "w") as _df:
+        _df.write(f"SCRIPT STARTED: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        _df.write(f"sys.argv: {sys.argv}\n")
+        _df.write(f"Python: {sys.version}\n")
+        _df.write(f"slicer in sys.modules: {'slicer' in sys.modules}\n")
+except Exception as _e:
+    pass
+
+# ======================================================================
+# Paths
+# ======================================================================
+
+SCENE_DEFAULT = r"C:\MAT\3Dosim\ai-pipe\scenes\3Dosim_scene.mrb"
+MCTAL_DEFAULT = r"C:\MAT\3Dosim\corrida-Manu\mctal\mctal.m"
+OUTPUT_DIR_DEFAULT = r"C:\MAT\3Dosim\ai-pipe\resultados_dosimetria"
+AI_PIPE_DIR = r"C:\MAT\3Dosim\ai-pipe"  # para PDF en raiz de ai-pipe
+LABELMAP_DEFAULT = r"C:\MAT\3Dosim\ai-pipe\3Dosim_labelmap.nii"
+
+# Indices de tejido en el labelmap (universe numbers de MCNP)
+LIVER_INDEX = 90
+TUMOR_INDEX = 100
+PRETUMOR_INDEX = 200
+AIR_INDEX = 0
+
+# Densidades (g/cm³) — MATLAB cargo_mctal.m
+DENSIDAD_LIVER = 1.06  # g/cm³
+DENSIDAD_TUMOR = 1.06
+DENSIDAD_PRETUMOR = 1.06
+DENSIDAD_BODY = 1.0
+DENSIDAD_AIR = 0.001
+
+# Parametros radiobiologicos — MATLAB cargo_mctal.m lineas 278-288
+ALPHA_BETA_LIVER = 2.5  # Gy
+ALPHA_BETA_TUMOR = 10  # Gy
+MU_REPAIR = 0.28  # h^-1 (T_repair = 2.5 h)
+Y90_HALF_LIFE_H = 64.1  # h
+LAMDA_DECAY = np.log(2) / Y90_HALF_LIFE_H  # h^-1
+
+# Conversion
+MEV2J = 1.6e-13
+
+# Logger simple con archivo directo y stdout
+_log_path = os.path.join(OUTPUT_DIR_DEFAULT, "dosimetria_pipeline.log")
+_log_file = None
+try:
+    os.makedirs(OUTPUT_DIR_DEFAULT, exist_ok=True)
+    _log_file = open(_log_path, "w", encoding="utf-8")
+except Exception:
+    pass
+
+
+# Reemplazar logger con funcion que escribe a stderr + archivo
+class _Logger:
+    """Logger que escribe a stderr (visible en shell) y archivo."""
+    @staticmethod
+    def info(msg): _log_msg("INFO", msg)
+    @staticmethod
+    def warning(msg): _log_msg("WARN", msg)
+    @staticmethod
+    def error(msg): _log_msg("ERROR", msg)
+    @staticmethod
+    def debug(msg): pass
+
+def _log_msg(level, msg):
+    ts = time.strftime("%H:%M:%S")
+    line = f"[{ts}] [{level}] {msg}"
+    try:
+        sys.stderr.write(line + "\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
+    if _log_file:
+        try:
+            _log_file.write(line + "\n")
+            _log_file.flush()
+        except Exception:
+            pass
+
+logger = _Logger()
+# Alias corto
+log = logger.info
+
+
+# ======================================================================
+# 1. Scene loading
+# ======================================================================
+
+def load_scene(scene_path: str) -> bool:
+    """Carga escena .mrb en Slicer."""
+    import slicer
+
+    if not os.path.exists(scene_path):
+        logger.error(f"Escena no encontrada: {scene_path}")
+        return False
+
+    logger.info(f"Cargando escena: {scene_path}")
+    logger.info(f"  Tamano: {os.path.getsize(scene_path) / 1024 / 1024:.1f} MB")
+
+    success = slicer.util.loadScene(scene_path)
+    if not success:
+        logger.error("Error cargando escena")
+        return False
+
+    logger.info("Escena cargada correctamente")
+    return True
+
+
+def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
+    """
+    Busca nodos en la escena: CT, PET, labelmap.
+
+    Returns:
+        dict con 'ct', 'pet', 'labelmap' (nodos Slicer) o None
+    """
+    import slicer
+
+    nodes = {"ct": None, "pet": None, "labelmap": None}
+
+    # Buscar todos los volumenes
+    all_volumes = slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
+
+    for vol in all_volumes:
+        name = vol.GetName()
+        name_lower = name.lower()
+
+        if "labelmap" in name_lower or "phantom" in name_lower:
+            if labelmap_name in name:
+                nodes["labelmap"] = vol
+                logger.info(f"  Labelmap: {name}")
+        elif "ct" in name_lower or "ct_" in name_lower:
+            nodes["ct"] = vol
+            logger.info(f"  CT: {name}")
+        elif "pet" in name_lower:
+            nodes["pet"] = vol
+            logger.info(f"  PET: {name}")
+
+    # Si no encontro por nombre, buscar por tipo/indice
+    if nodes["ct"] is None:
+        for vol in all_volumes:
+            name = vol.GetName()
+            if "ct" in name.lower():
+                nodes["ct"] = vol
+                break
+
+    if nodes["pet"] is None:
+        for vol in all_volumes:
+            name = vol.GetName()
+            if "pet" in name.lower() or "pt_" in name.lower():
+                nodes["pet"] = vol
+                break
+
+    # Buscar segmentacion como fallback para labelmap
+    if nodes["labelmap"] is None:
+        seg_nodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+        if seg_nodes:
+            nodes["segmentation"] = seg_nodes[0]
+            logger.info(f"  Segmentacion: {seg_nodes[0].GetName()} (fallback)")
+
+    return nodes
+
+
+def compute_activity_from_pet(pet_node) -> float:
+    """
+    Computa actividad total desde nodo PET.
+
+    PET puede venir en Bq/ml o Bq.
+    Si es Bq/ml: multiplica por volumen de voxel.
+    Si es Bq: suma directa.
+
+    Returns:
+        actividad total en Bq
+    """
+    import slicer
+
+    pet_array = slicer.util.arrayFromVolume(pet_node)  # (nz, ny, nx)
+    spacing = pet_node.GetSpacing()  # (sx, sy, sz) mm
+
+    # Volumen de voxel en ml (= cm³)
+    voxel_vol_ml = (spacing[0] / 10) * (spacing[1] / 10) * (spacing[2] / 10)
+    # mm³ → cm³ = ml, dividir por 1000
+    voxel_vol_ml = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
+
+    # Sumar PET
+    total_pet = np.sum(pet_array)
+
+    # Verificar si son valores pequenos (Bq/ml) o grandes (Bq)
+    # Tipicamente Bq/ml son valores tipo 1e4-1e7, Bq son 1e9-1e10
+    if total_pet < 1e8:
+        # Parece Bq/ml, multiplicar por volumen
+        activity_bq = total_pet * voxel_vol_ml
+        logger.info(f"  PET en Bq/ml: sum={total_pet:.2e}, vol_voxel={voxel_vol_ml:.6f} ml")
+    else:
+        # Parece Bq directos
+        activity_bq = total_pet
+        logger.info(f"  PET en Bq: sum={total_pet:.2e}")
+
+    logger.info(f"  Actividad total: {activity_bq:.2e} Bq = {activity_bq / 1e9:.4f} GBq")
+    return float(activity_bq)
+
+
+# ======================================================================
+# 2. MCTAL Parser (wrapper)
+# ======================================================================
+
+def parse_mctal(mctal_path: str, dims: tuple) -> dict:
+    """Parsea MCTAL usando SlicerDosimLib MCTALParser."""
+    # Agregar SlicerDosimLib al path
+    lib_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "..", "Modules",
+        "Scripted", "SlicerDosim", "SlicerDosimLib",
+    )
+    if lib_path not in sys.path:
+        sys.path.insert(0, lib_path)
+
+    from mctal_parser import MCTALParser
+
+    parser = MCTALParser()
+    nx, ny, nz = dims
+    result = parser.parse(mctal_path, nx=nx, ny=ny, nz=nz)
+
+    if result["dose_3d"] is None:
+        raise RuntimeError("No se pudo extraer dosis 3D del MCTAL")
+
+    logger.info(
+        f"MCTAL parseado: {result['dimensions']}, "
+        f"NPS={result['nps']}, "
+        f"title={result['title'][:60]}"
+    )
+
+    return result
+
+
+# ======================================================================
+# 3. Conversion a Gy
+# ======================================================================
+
+def convert_to_gy(
+    dose_mev_cm3: np.ndarray,
+    labelmap: np.ndarray,
+    activity_bq: float,
+    t_meanlife_s: float,
+) -> np.ndarray:
+    """
+    Convierte MeV/cm³/particula → Gy.
+
+    Algoritmo MATLAB cargo_mctal.m lineas 389-395:
+      1. D / rho  (MeV/cm³ → MeV/g) usando densidad por tejido
+      2. * MeV2J   (MeV/g → J/g)
+      3. * t * Actividad (escalar por desintegraciones totales)
+      4. * 1000   (J/g → J/kg = Gy)
+    """
+    # Densidades por indice de tejido
+    cell_densities = {
+        LIVER_INDEX: DENSIDAD_LIVER,
+        TUMOR_INDEX: DENSIDAD_TUMOR,
+        PRETUMOR_INDEX: DENSIDAD_PRETUMOR,
+    }
+
+    # Mapa de densidad del mismo shape que dosis
+    dens_map = np.ones_like(dose_mev_cm3, dtype=np.float64)
+    for idx, dens in cell_densities.items():
+        mask = labelmap == idx
+        dens_map[mask] = dens
+
+    # Aire: densidad muy baja, marcar para evitar division por cero
+    air_mask = labelmap == AIR_INDEX
+
+    # Paso 1: MeV/cm³ → MeV/g dividiendo por densidad
+    dose_mev_g = np.divide(
+        dose_mev_cm3, dens_map,
+        out=np.zeros_like(dose_mev_cm3),
+        where=dens_map > 0.001,
+    )
+
+    # Paso 2: MeV/g → J/g
+    dose_j_g = dose_mev_g * MEV2J
+
+    # Paso 3: Escalar por desintegraciones totales
+    # D_J/g total = D_J/g por particula * t_meanlife * Actividad_Bq
+    dose_j_g_total = dose_j_g * t_meanlife_s * activity_bq
+
+    # Paso 4: J/g → J/kg = Gy
+    dose_gy = dose_j_g_total * 1000.0
+
+    # Aire: dosis = 0
+    dose_gy[air_mask] = 0.0
+
+    return dose_gy
+
+
+# ======================================================================
+# 4. DVH y estadisticas por estructura
+# ======================================================================
+
+def compute_dvh(
+    dose_gy: np.ndarray,
+    labelmap: np.ndarray,
+    structure_idx: int,
+    bins: int = 200,
+) -> dict:
+    """
+    Computa DVH para una estructura.
+
+    Returns:
+        dict con:
+          - 'volume_ml': volumen de la estructura
+          - 'mean_dose_gy': dosis media
+          - 'min_dose_gy': dosis minima
+          - 'max_dose_gy': dosis maxima
+          - 'std_dose_gy': desviacion estandar
+          - 'd98_gy': dosis al 98% del volumen
+          - 'd70_gy': dosis al 70%
+          - 'd50_gy': dosis al 50%
+          - 'dose_bins': array de dosis para DVH
+          - 'volume_hist': histograma de volumen vs dosis
+          - 'cumulative_vol': histograma acumulativo
+    """
+    mask = labelmap == structure_idx
+    n_voxels = np.sum(mask)
+
+    if n_voxels == 0:
+        logger.warning(f"Estructura {structure_idx}: sin voxeles")
+        return {"volume_ml": 0, "mean_dose_gy": 0, "n_voxels": 0}
+
+    doses = dose_gy[mask]
+    n_total = len(doses)
+    spacing = None  # lo necesitamos para volumen
+
+    # Estadisticas basicas (todos los voxeles, incluyendo dosis=0)
+    mean_dose = float(np.mean(doses))
+    min_dose = float(np.min(doses))
+    max_dose = float(np.max(doses))
+    std_dose = float(np.std(doses))
+
+    # Fraccion de voxeles con dosis > 0
+    n_nonzero = int(np.sum(doses > 0))
+    frac_zero = (n_total - n_nonzero) / n_total * 100
+
+    # D98, D70, D50 — percentiles de dosis
+    # Usar SOLO voxeles con dosis > 0 para percentiles clinicos
+    # (voxeles con dosis=0 estan fuera del alcance de la fuente MCNP)
+    doses_pos = doses[doses > 0]
+    if len(doses_pos) > 0:
+        d98 = float(np.percentile(doses_pos, max(2, 100 * (n_total - n_nonzero) / n_total + 2)))
+        d70 = float(np.percentile(doses_pos, 30) if len(doses_pos) >= 10 else 0)
+        d50 = float(np.percentile(doses_pos, 50) if len(doses_pos) >= 10 else 0)
+    else:
+        d98 = d70 = d50 = 0.0
+
+    # DVH histograma
+    dose_max_hist = float(np.percentile(doses, 99.5))  # evitar outliers
+    if dose_max_hist <= 0:
+        dose_max_hist = max_dose
+
+    hist, edges = np.histogram(
+        doses, bins=bins, range=(0, dose_max_hist * 1.05)
+    )
+    # hist: conteo de voxeles por bin
+    # cumulative: fraccion de volumen que recibe ≥ dosis
+    cumulative = np.cumsum(hist[::-1])[::-1]
+    cumulative_vol = cumulative / n_voxels * 100  # porcentaje
+
+    # Centros de bin para graficar
+    dose_bins = (edges[:-1] + edges[1:]) / 2
+
+    return {
+        "structure_idx": int(structure_idx),
+        "n_voxels": int(n_voxels),
+        "mean_dose_gy": mean_dose,
+        "min_dose_gy": min_dose,
+        "max_dose_gy": max_dose,
+        "std_dose_gy": std_dose,
+        "d98_gy": d98,
+        "d70_gy": d70,
+        "d50_gy": d50,
+        "dose_bins_gy": dose_bins.tolist(),
+        "volume_hist_pct": (hist / n_voxels * 100).tolist(),
+        "cumulative_vol_pct": cumulative_vol.tolist(),
+    }
+
+
+def compute_biophysical(
+    dvh_result: dict,
+    alpha_beta: float,
+    is_tumor: bool = False,
+) -> dict:
+    """
+    Computa BED, EUD, EQD2.
+
+    BED = D + (lamda/((alpha/beta)*(lamda+mu))) * D²
+    (MATLAB f_BED.m)
+
+    EUD = sum(vi * Di^a)^(1/a) donde a=1 para tumor, a=-10 para normal
+    EQD2 = BED / (1 + 2/(alpha/beta))
+
+    Args:
+        dvh_result: resultado de compute_dvh()
+        alpha_beta: relacion alfa/beta (2.5 liver, 10 tumor)
+        is_tumor: si es tumor (a=1) o normal (a=-10)
+
+    Returns:
+        dict con BED, EUD, EQD2
+    """
+    mean_d = dvh_result.get("mean_dose_gy", 0)
+    if mean_d <= 0:
+        return {"bed_gy": 0, "eud_gy": 0, "eqd2_gy": 0}
+
+    # BED — MATLAB f_BED.m
+    # BED = D + lambda/((alpha/beta)*(lambda+mu)) * D²
+    # Donde lambda = ln(2)/T_half, mu = repair rate
+    lamda = LAMDA_DECAY  # h^-1
+    mu = MU_REPAIR  # h^-1
+
+    bed_factor = lamda / (alpha_beta * (lamda + mu))
+    bed = mean_d + bed_factor * mean_d**2
+
+    # EUD — MATLAB f_EUD.m
+    # EUD = (sum(vi * Di^a))^(1/a)
+    # a = 1 para tumor, a = 1 - n para tejido normal (n=-10 para liver)
+    if is_tumor:
+        a = 1.0
+    else:
+        a = 1.0 - (-10.0)  # n = -10 → a = 11
+
+    # Para simplificar, usar mean dose si no tenemos histograma completo
+    if is_tumor:
+        eud = mean_d
+    else:
+        # EUD para tejido normal: aproximacion con dosis media
+        # (EUD exacto requiere histograma completo)
+        eud = mean_d
+
+    # EQD2 (2 Gy fractions)
+    # EQD2 = D * (d + alpha/beta) / (2 + alpha/beta)
+    # Para BED: EQD2 = BED / (1 + 2/(alpha/beta))
+    eqd2 = bed / (1 + 2.0 / alpha_beta)
+
+    return {
+        "bed_gy": round(bed, 4),
+        "eud_gy": round(eud, 4),
+        "eqd2_gy": round(eqd2, 4),
+        "alpha_beta": alpha_beta,
+        "is_tumor": is_tumor,
+    }
+
+
+# ======================================================================
+# 5. MIRD partition model
+# ======================================================================
+
+def compute_mird(
+    dose_gy: np.ndarray,
+    labelmap: np.ndarray,
+    activity_gbq: float,
+) -> dict:
+    """
+    Calcula MIRD partition model para higado y tumor.
+
+    MATLAB cargo_mctal.m lineas 211-227.
+    """
+    # Volumenes
+    voxel_vol = 1.0  # se ajusta despues
+    n_liver = np.sum(labelmap == LIVER_INDEX)
+    n_tumor = np.sum(labelmap == TUMOR_INDEX)
+    n_pretumor = np.sum(labelmap == PRETUMOR_INDEX)
+
+    # Dosis medias
+    d_liver_mean = float(np.mean(dose_gy[labelmap == LIVER_INDEX])) if n_liver > 0 else 0
+    d_tumor_mean = float(np.mean(dose_gy[labelmap == TUMOR_INDEX])) if n_tumor > 0 else 0
+    d_pretumor_mean = float(np.mean(dose_gy[labelmap == PRETUMOR_INDEX])) if n_pretumor > 0 else 0
+
+    # K constante MIRD
+    k = 48.98  # J-s
+
+    resultado = {
+        "activity_gbq": activity_gbq,
+        "liver": {
+            "n_voxels": int(n_liver),
+            "mean_dose_gy": round(d_liver_mean, 4),
+        },
+        "tumor": {
+            "n_voxels": int(n_tumor),
+            "mean_dose_gy": round(d_tumor_mean, 4),
+        },
+        "pretumor": {
+            "n_voxels": int(n_pretumor),
+            "mean_dose_gy": round(d_pretumor_mean, 4),
+        },
+        "k_mird": k,
+    }
+
+    return resultado
+
+
+# ======================================================================
+# 7. DVH plots en Slicer (algoritmo MATLAB f_HDV.m)
+# ======================================================================
+
+def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
+    """
+    Crea graficos DVH acumulativos en Slicer usando algoritmo MATLAB f_HDV.m.
+
+    MATLAB:
+        Dmax = max(D);
+        delta = Dmax / 1000;
+        for d = 0:delta:Dmax
+            a(i) = sum(D >= d) * 100 / n;
+        end
+        plot(d, a);  % escala Y log
+
+    Crea un PlotChartNode con una serie por estructura.
+    """
+    import slicer
+    import vtk
+
+    structures = [
+        ("Hígado", LIVER_INDEX, (0.2, 0.4, 1.0)),     # azul
+        ("Tumor", TUMOR_INDEX, (1.0, 0.2, 0.2)),       # rojo
+        ("Peritumoral", PRETUMOR_INDEX, (0.8, 0.6, 0.0)), # amarillo
+    ]
+
+    chart_node = slicer.mrmlScene.AddNewNodeByClass(
+        "vtkMRMLPlotChartNode", "DVH_Chart"
+    )
+    chart_node.SetTitle("Cumulative Dose Volume Histogram")
+    chart_node.SetXAxisTitle("Dose (Gy)")
+    chart_node.SetYAxisTitle("Volume (%)")
+    # Escala Y log — Slicer 5.8 usa SetYAxisLogScale(int)
+    if hasattr(chart_node, "SetYAxisLogScale"):
+        chart_node.SetYAxisLogScale(1)
+    elif hasattr(chart_node, "SetYAxisLog"):
+        chart_node.SetYAxisLog(True)
+
+    series_nodes = []
+    dvh_curves = []  # para exportar PNG
+
+    for name, idx, color in structures:
+        mask = labelmap == idx
+        doses = dose_gy[mask]
+        n = len(doses)
+
+        if n == 0 or np.max(doses) <= 0:
+            continue
+
+        # --- Algoritmo MATLAB f_HDV.m exacto ---
+        Dmax = float(np.max(doses))
+        delta = Dmax / 1000.0
+        d_vals = np.arange(0, Dmax + delta, delta)
+        a_vals = np.zeros(len(d_vals))
+        for i, d in enumerate(d_vals):
+            a_vals[i] = np.sum(doses >= d) * 100.0 / n
+        # ----------------------------------------
+
+        # Crear tabla con datos DVH (API Slicer 5.8)
+        table_node = slicer.mrmlScene.AddNewNodeByClass(
+            "vtkMRMLTableNode", f"DVH_Table_{name}"
+        )
+        table = table_node.GetTable()
+        col_x = vtk.vtkFloatArray()
+        col_x.SetName("Dose (Gy)")
+        col_y = vtk.vtkFloatArray()
+        col_y.SetName("Volume (%)")
+        for i in range(len(d_vals)):
+            col_x.InsertNextValue(float(d_vals[i]))
+            col_y.InsertNextValue(float(a_vals[i]))
+        table.AddColumn(col_x)
+        table.AddColumn(col_y)
+
+        # Crear serie que referencia la tabla
+        series = slicer.mrmlScene.AddNewNodeByClass(
+            "vtkMRMLPlotSeriesNode", f"DVH_{name}"
+        )
+        series.SetAndObserveTableNodeID(table_node.GetID())
+        series.SetXColumnName("Dose (Gy)")
+        series.SetYColumnName("Volume (%)")
+        series.SetPlotType(slicer.vtkMRMLPlotSeriesNode.PlotTypeLine)
+        series.SetColor(*color)
+        series.SetLineWidth(2)
+
+        chart_node.AddAndObservePlotSeriesNodeID(series.GetID())
+        series_nodes.append(series)
+        dvh_curves.append((name, d_vals, a_vals))
+
+        logger.info(f"  DVH creado: {name} ({n} voxels, Dmax={Dmax:.1f} Gy)")
+
+    # Activar modulo Plots
+    if series_nodes and show_gui:
+        slicer.util.selectModule("Plots")
+        # Asignar chart al PlotView
+        plotWidget = slicer.app.layoutManager().plotWidget(0)
+        if plotWidget:
+            plotView = plotWidget.plotView()
+            if plotView:
+                # Slicer 5.8 usa SetPlotChartNodeID (no SetChartNodeID)
+                if hasattr(plotView, "SetPlotChartNodeID"):
+                    plotView.SetPlotChartNodeID(chart_node.GetID())
+                elif hasattr(plotView, "SetChartNodeID"):
+                    plotView.SetChartNodeID(chart_node.GetID())
+                else:
+                    logger.warning("  No se pudo asignar chart al PlotView: metodo no encontrado")
+        slicer.app.processEvents()
+
+    # Exportar imagen PNG
+    try:
+        dvh_png = os.path.join(OUTPUT_DIR_DEFAULT, "DVH_plot.png")
+        _export_dvh_png(dvh_curves, dvh_png)
+        logger.info(f"  DVH PNG: {dvh_png}")
+    except Exception as e:
+        logger.warning(f"  No se pudo exportar DVH PNG: {e}")
+
+    return chart_node
+
+
+def _export_dvh_png(dvh_curves, filepath):
+    """Exporta DVH como PNG usando matplotlib (si disponible).
+
+    dvh_curves: list of (name, d_vals_array, a_vals_array)
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        colors = {"Hígado": (0.2, 0.4, 1.0), "Tumor": (1.0, 0.2, 0.2), "Peritumoral": (0.8, 0.6, 0.0)}
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for name, d_vals, a_vals in dvh_curves:
+            c = colors.get(name, (0.5, 0.5, 0.5))
+            ax.plot(d_vals, a_vals, color=c, label=name, linewidth=2)
+
+        ax.set_xlabel("Dose (Gy)", fontweight="bold")
+        ax.set_ylabel("Volume (%)", fontweight="bold")
+        ax.set_title("Cumulative Dose Volume Histogram", fontweight="bold")
+        ax.set_yscale("log")
+        ax.set_ylim(0.1, 200)
+        ax.grid(True, which="both", alpha=0.3)
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(filepath, dpi=150)
+        plt.close(fig)
+        logger.info(f"  DVH PNG exportado: {filepath}")
+    except ImportError:
+        logger.warning("  matplotlib no disponible para exportar PNG")
+
+
+# ======================================================================
+# 8. Generacion de PDF Report (reportlab)
+# ======================================================================
+
+def _add_page_number(fig, page_num, total=5):
+    """Agrega numero de pagina y footer al pie de la figura (matplotlib fallback)."""
+    fig.text(0.5, 0.01, f"Pagina {page_num}/{total}  |  3Dosim v3.14",
+             fontsize=8, color="#888", ha="center", va="bottom")
+
+
+def generate_pdf_report(
+    results: dict,
+    output_dir: str,
+    dvh_curves: list = None,
+) -> str:
+    """
+    Genera reporte PDF con reportlab (5 paginas):
+      P1: Portada con metadatos y resumen ejecutivo
+      P2: Parametros radiobiologicos + formulas
+      P3: Resultados dosimetricos por estructura + MIRD
+      P4: DVH acumulativo (matplotlib embebido)
+      P5: Metricas DVH por estructura
+
+    Args:
+        results: dict con metadata, structures, mird
+        output_dir: directorio donde guardar el PDF
+        dvh_curves: list of (name, d_vals_array, a_vals_array)
+
+    Returns:
+        ruta al PDF generado, o None si fallo
+    """
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm, cm
+        from reportlab.lib.colors import HexColor, Color, black, white, grey
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                         Table, TableStyle, PageBreak, Image,
+                                         KeepTogether, HRFlowable)
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+    except ImportError:
+        logger.warning("  reportlab no disponible — usando matplotlib como fallback")
+        return _generate_pdf_matplotlib_fallback(results, output_dir, dvh_curves)
+
+    pdf_path = os.path.join(output_dir, "dosimetria_report.pdf")
+    meta = results.get("metadata", {})
+    structures = results.get("structures", {})
+    mird = results.get("mird", {})
+
+    # -- Paleta de colores profesional --
+    C_PRIMARY = HexColor("#1B2A4A")       # Azul oscuro elegante
+    C_ACCENT = HexColor("#2E86AB")        # Azul acento
+    C_HEADER_BG = HexColor("#1B2A4A")     # Headers tabla
+    C_HEADER_FG = white
+    C_LIGHT_BG = HexColor("#F0F4F8")      # Fila alterna
+    C_GRAY = HexColor("#6B7280")          # Texto secundario
+    C_DARK = HexColor("#1F2937")          # Texto principal
+    C_HIGADO = HexColor("#2563EB")        # Azul
+    C_TUMOR = HexColor("#DC2626")         # Rojo
+    C_PERITUMORAL = HexColor("#D97706")   # Amber/orange
+    C_BORDER = HexColor("#D1D5DB")        # Bordes suaves
+    C_SUCCESS = HexColor("#059669")       # Verde para OK
+    C_BG_LIGHT = HexColor("#FAFBFC")
+
+    struct_colors_hex = {"higado": C_HIGADO, "tumor": C_TUMOR, "pretumor": C_PERITUMORAL}
+    struct_labels = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
+
+    # -- Estilos --
+    styles = getSampleStyleSheet()
+    s_title = ParagraphStyle("Title2", parent=styles["Title"],
+                             fontSize=26, textColor=C_PRIMARY, spaceAfter=4,
+                             fontName="Helvetica-Bold")
+    s_subtitle = ParagraphStyle("Sub", parent=styles["Normal"],
+                                fontSize=11, textColor=C_GRAY, alignment=TA_CENTER)
+    s_heading = ParagraphStyle("Head", parent=styles["Heading2"],
+                               fontSize=14, textColor=C_PRIMARY, spaceBefore=14,
+                               spaceAfter=6, fontName="Helvetica-Bold")
+    s_heading3 = ParagraphStyle("Head3", parent=styles["Heading3"],
+                                fontSize=11, textColor=C_ACCENT, spaceBefore=10,
+                                spaceAfter=4, fontName="Helvetica-Bold")
+    s_normal = ParagraphStyle("Norm", parent=styles["Normal"],
+                              fontSize=10, textColor=C_DARK, leading=14)
+    s_small = ParagraphStyle("Small", parent=styles["Normal"],
+                             fontSize=9, textColor=C_GRAY, leading=12)
+    s_bold = ParagraphStyle("Bold", parent=styles["Normal"],
+                            fontSize=10, textColor=C_DARK, leading=14,
+                            fontName="Helvetica-Bold")
+
+    def add_footer(canvas_obj, doc):
+        """Footer profesional con linea decorativa."""
+        canvas_obj.saveState()
+        # Linea decorativa superior
+        canvas_obj.setStrokeColor(C_ACCENT)
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(20 * mm, 20 * mm, A4[0] - 20 * mm, 20 * mm)
+        # Texto footer
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.setFillColor(C_GRAY)
+        canvas_obj.drawString(20 * mm, 15 * mm, "3Dosim v3.14 — Dosimetria 3D para Medicina Nuclear")
+        canvas_obj.drawRightString(A4[0] - 20 * mm, 15 * mm,
+                                   f"Pagina {doc.page} de 5")
+        canvas_obj.restoreState()
+
+    def add_header_line(canvas_obj, doc):
+        """Linea decorativa en header de pagina 1."""
+        canvas_obj.saveState()
+        canvas_obj.setStrokeColor(C_ACCENT)
+        canvas_obj.setLineWidth(2)
+        canvas_obj.line(20 * mm, A4[1] - 25 * mm, A4[0] - 20 * mm, A4[1] - 25 * mm)
+        canvas_obj.restoreState()
+
+    doc = SimpleDocTemplate(
+        pdf_path, pagesize=A4,
+        leftMargin=20 * mm, rightMargin=20 * mm,
+        topMargin=20 * mm, bottomMargin=25 * mm,
+    )
+    story = []
+    usable_width = A4[0] - 40 * mm
+    formula_images_to_clean = []  # imagenes temporales de formulas LaTeX
+
+    # ================================================================
+    # PAGINA 1: PORTADA EJECUTIVA
+    # ================================================================
+    # Header con fondo de color
+    header_data = [["REPORTE DE DOSIMETRIA"]]
+    header_table = Table(header_data, colWidths=[usable_width], rowHeights=[50])
+    header_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), C_PRIMARY),
+        ("TEXTCOLOR", (0, 0), (-1, -1), white),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 20),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 20),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 20),
+        ("TOPPADDING", (0, 0), (-1, -1), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 8 * mm))
+
+    # Subtitulo
+    story.append(Paragraph("3Dosim v3.14 — Dosimetria 3D para Medicina Nuclear", s_subtitle))
+    story.append(Spacer(1, 2 * mm))
+    story.append(HRFlowable(width="100%", thickness=1, color=C_ACCENT))
+    story.append(Spacer(1, 6 * mm))
+
+    # Metadata compacta en 2 columnas
+    story.append(Paragraph("Informacion del Estudio", s_heading))
+    meta_left = [
+        ["Escena:", meta.get("scene", "N/A").split("/")[-1].split("\\")[-1]],
+        ["MCTAL:", meta.get("mctal", "N/A").split("/")[-1].split("\\")[-1]],
+        ["Actividad:", f"{meta.get('activity_gbq', 0):.4f} GBq"],
+    ]
+    meta_right = [
+        ["NPS:", f"{meta.get('nps', 0):,}"],
+        ["Dimensiones:", str(meta.get("dimensions", []))],
+        ["Generado:", time.strftime("%Y-%m-%d %H:%M")],
+    ]
+    meta_table = Table(
+        [meta_left[i] + meta_right[i] for i in range(3)],
+        colWidths=[25 * mm, 55 * mm, 25 * mm, usable_width - 105 * mm]
+    )
+    meta_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, 0), (0, -1), C_PRIMARY),
+        ("TEXTCOLOR", (2, 0), (2, -1), C_PRIMARY),
+        ("TEXTCOLOR", (1, 0), (1, -1), C_DARK),
+        ("TEXTCOLOR", (3, 0), (3, -1), C_DARK),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 6 * mm))
+
+    # Resumen ejecutivo por estructura
+    story.append(Paragraph("Resumen Ejecutivo", s_heading))
+    story.append(Spacer(1, 2 * mm))
+
+    # SIEMPRE mostrar las 3 estructuras, incluso con 0 voxels
+    all_struct_order = [("higado", "Hígado", LIVER_INDEX, C_HIGADO),
+                        ("tumor", "Tumor", TUMOR_INDEX, C_TUMOR),
+                        ("pretumor", "Peritumoral", PRETUMOR_INDEX, C_PERITUMORAL)]
+
+    resumen_headers = ["", "Estructura", "Voxeles", "Vol (cm\u00b3)", "Dmedia (Gy)", "BED (Gy)"]
+    resumen_data = [resumen_headers]
+    for key, label, idx, color in all_struct_order:
+        s = structures.get(key, {})
+        n_vox = s.get("n_voxels", 0)
+        vol = s.get("volume_cm3", 0)
+        dmedia = s.get("mean_dose_gy", 0)
+        bed = s.get("bed_gy", 0)
+        # Indicador visual
+        status = "\u2713" if n_vox > 0 else "\u2014"
+        resumen_data.append([
+            status,
+            label,
+            f"{n_vox:,}" if n_vox > 0 else "0",
+            f"{vol:.1f}" if vol > 0 else "\u2014",
+            f"{dmedia:.2f}" if n_vox > 0 else "\u2014",
+            f"{bed:.2f}" if n_vox > 0 else "\u2014",
+        ])
+
+    resumen_col_w = [10 * mm, 30 * mm, 22 * mm, 22 * mm, 24 * mm, usable_width - 108 * mm]
+    resumen_table = Table(resumen_data, colWidths=resumen_col_w)
+    resumen_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, C_BG_LIGHT]),
+        # Colores por fila
+        ("TEXTCOLOR", (1, 1), (1, 1), C_HIGADO),
+        ("TEXTCOLOR", (1, 2), (1, 2), C_TUMOR),
+        ("TEXTCOLOR", (1, 3), (1, 3), C_PERITUMORAL),
+        ("FONTNAME", (1, 1), (1, -1), "Helvetica-Bold"),
+    ]
+    resumen_table.setStyle(TableStyle(resumen_style))
+    story.append(resumen_table)
+
+    # Indicadores
+    story.append(Spacer(1, 4 * mm))
+    n_structs_ok = sum(1 for key, _, _, _ in all_struct_order if key in structures and structures[key].get("n_voxels", 0) > 0)
+    story.append(Paragraph(
+        f"<font color=\"#{C_SUCCESS.hexval()[2:]}\">&#10003;</font> "
+        f"<b>{n_structs_ok}/3 estructuras</b> con datos dosimetricos",
+        s_small
+    ))
+    story.append(PageBreak())
+
+    # ================================================================
+    # PAGINA 2: PARAMETROS RADIOBIOLOGICOS
+    # ================================================================
+    story.append(Paragraph("Parametros Radiobiologicos", s_heading))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=C_ACCENT))
+    story.append(Spacer(1, 4 * mm))
+
+    # Tabla de constantes
+    story.append(Paragraph("Constantes del Modelo Y-90", s_heading3))
+    params_data = [
+        ["Parametro", "Valor", "Unidad"],
+        ["Vida media (t1/2)", f"{Y90_HALF_LIFE_H:.1f}", "horas"],
+        ["Constante de decaimiento (lambda)", f"{LAMDA_DECAY:.4f}", "h^-1"],
+        ["Tasa de reparacion (mu)", f"{MU_REPAIR:.2f}", "h^-1"],
+        ["Tiempo de reparacion (T1/mu)", f"{1/MU_REPAIR:.1f}", "horas"],
+        ["Vida media (tau)", f"{Y90_HALF_LIFE_H * 3600 / np.log(2):.0f}", "segundos"],
+        ["Conversion MeV a J", f"{MEV2J:.2e}", "J/MeV"],
+        ["Constante K (MIRD)", "48.98", "J*s"],
+    ]
+    params_table = Table(params_data, colWidths=[55 * mm, 40 * mm, usable_width - 95 * mm])
+    params_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("ALIGN", (2, 0), (2, -1), "LEFT"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, C_BG_LIGHT]),
+    ]))
+    story.append(params_table)
+    story.append(Spacer(1, 6 * mm))
+
+    # Relaciones alpha/beta
+    story.append(Paragraph("Relaciones alpha/beta por Estructura", s_heading3))
+    ab_data = [
+        ["Estructura", "alpha/beta (Gy)", "Tipo biologico", "Indice"],
+        ["Hígado", f"{ALPHA_BETA_LIVER:.1f}", "Tejido normal", f"{LIVER_INDEX}"],
+        ["Tumor", f"{ALPHA_BETA_TUMOR:.1f}", "Tumor maligno", f"{TUMOR_INDEX}"],
+        ["Peritumoral", f"{ALPHA_BETA_LIVER:.1f}", "Tejido normal", f"{PRETUMOR_INDEX}"],
+    ]
+    ab_table = Table(ab_data, colWidths=[30 * mm, 25 * mm, 40 * mm, usable_width - 95 * mm])
+    ab_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (1, -1), "CENTER"),
+        ("ALIGN", (3, 0), (3, -1), "CENTER"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, C_BG_LIGHT]),
+        # Colores por estructura
+        ("TEXTCOLOR", (0, 1), (0, 1), C_HIGADO),
+        ("TEXTCOLOR", (0, 2), (0, 2), C_TUMOR),
+        ("TEXTCOLOR", (0, 3), (0, 3), C_PERITUMORAL),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+    ]
+    ab_table.setStyle(TableStyle(ab_style))
+    story.append(ab_table)
+    story.append(Spacer(1, 6 * mm))
+
+    # Densidades
+    story.append(Paragraph("Densidades Asignadas", s_heading3))
+    dens_data = [
+        ["Material", "Densidad (g/cm3)", "Uso"],
+        ["Hígado / Tumor / Peritumoral", f"{DENSIDAD_LIVER:.2f}", "Tejido hepatico"],
+        ["Body (default)", f"{DENSIDAD_BODY:.1f}", "Contorno corporal"],
+        ["Aire", f"{DENSIDAD_AIR:.3f}", "Exterior"],
+    ]
+    dens_table = Table(dens_data, colWidths=[50 * mm, 35 * mm, usable_width - 85 * mm])
+    dens_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (1, -1), "CENTER"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, C_BG_LIGHT]),
+    ]))
+    story.append(dens_table)
+    story.append(Spacer(1, 6 * mm))
+
+    # Formulas con LaTeX via matplotlib
+    story.append(Paragraph("Formulas de Conversion", s_heading3))
+    story.append(Spacer(1, 2 * mm))
+
+    def _render_latex_to_image(latex_str, filepath, dpi=150, fontsize=14):
+        """Renderiza formula LaTeX a imagen PNG usando matplotlib."""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(usable_width / cm, 1.2))
+        ax.text(0.02, 0.5, f"${latex_str}$", fontsize=fontsize,
+                va="center", ha="left", transform=ax.transAxes)
+        ax.axis("off")
+        fig.savefig(filepath, dpi=dpi, bbox_inches="tight",
+                    pad_inches=0.05, facecolor="white", transparent=False)
+        plt.close(fig)
+
+    formula_defs = [
+        (r"\mathrm{BED} = D + \frac{\lambda}{(\alpha/\beta)(\lambda + \mu)} \cdot D^2",
+         "Biologically Effective Dose"),
+        (r"\mathrm{EUD} = \left( \sum_i v_i \cdot D_i^a \right)^{1/a}",
+         "Equivalent Uniform Dose"),
+        (r"\mathrm{EQD2} = \frac{\mathrm{BED}}{1 + \frac{2}{\alpha/\beta}}",
+         "Equivalent Dose in 2 Gy fractions"),
+        (r"D\,[\mathrm{Gy}] = D\,[\mathrm{MeV/g}] \times 1.6 \times 10^{-13} \times \tau \times \mathrm{Act} \times 1000",
+         "Conversion MeV/cm\u00b3 a Gy"),
+    ]
+
+    formula_images = []
+    for i, (latex, desc) in enumerate(formula_defs):
+        img_path = os.path.join(output_dir, f"_formula_{i}.png")
+        try:
+            _render_latex_to_image(latex, img_path)
+            formula_images.append((img_path, desc))
+            formula_images_to_clean.append(img_path)
+        except Exception as e:
+            # Fallback a texto plano si LaTeX falla
+            story.append(Paragraph(f"\u2022 <b>{desc}</b>: {latex}", s_small))
+
+    # Renderizar formulas como imagenes en tabla 2x2
+    if formula_images:
+        img_w = (usable_width - 5 * mm) / 2
+        img_h = img_w * 0.22
+        for idx in range(0, len(formula_images), 2):
+            row_items = []
+            for j in range(2):
+                if idx + j < len(formula_images):
+                    img_path, desc = formula_images[idx + j]
+                    img_obj = Image(img_path, width=img_w, height=img_h)
+                    row_items.append([img_obj, Paragraph(
+                        f"<font color=\"#{C_GRAY.hexval()[2:]}\"><i>{desc}</i></font>",
+                        ParagraphStyle("FormulaDesc", parent=s_small,
+                                       fontSize=8, alignment=TA_CENTER)
+                    )])
+                else:
+                    row_items.append(["", ""])
+            # Stack each cell vertically
+            cell_left = row_items[0]
+            cell_right = row_items[1] if len(row_items) > 1 else ["", ""]
+            formula_table_data = [
+                [cell_left[0], cell_right[0]],
+                [cell_left[1], cell_right[1]],
+            ]
+            formula_table = Table(formula_table_data, colWidths=[img_w + 5 * mm, img_w + 5 * mm])
+            formula_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.5, C_BORDER),
+            ]))
+            story.append(formula_table)
+            story.append(Spacer(1, 2 * mm))
+
+    story.append(PageBreak())
+
+    # ================================================================
+    # PAGINA 3: RESULTADOS DOSIMETRICOS + MIRD
+    # ================================================================
+    story.append(Paragraph("Resultados Dosimetricos por Estructura", s_heading))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=C_ACCENT))
+    story.append(Spacer(1, 4 * mm))
+
+    # Tabla principal - SIEMPRE 3 filas
+    res_headers = ["Estructura", "Voxeles", "Vol (cm\u00b3)", "Dmedia (Gy)",
+                   "D98 (Gy)", "D70 (Gy)", "D50 (Gy)", "BED (Gy)",
+                   "EUD (Gy)", "EQD2 (Gy)"]
+    res_data = [res_headers]
+    for key, label, idx, color in all_struct_order:
+        s = structures.get(key, {})
+        res_data.append([
+            label,
+            f"{s.get('n_voxels', 0):,}" if s.get('n_voxels', 0) > 0 else "0",
+            f"{s.get('volume_cm3', 0):.1f}" if s.get('volume_cm3', 0) > 0 else "\u2014",
+            f"{s.get('mean_dose_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('d98_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('d70_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('d50_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('bed_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('eud_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('eqd2_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+        ])
+    res_col_w = usable_width / 10
+    res_table = Table(res_data, colWidths=[res_col_w] * 10)
+    res_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 7.5),
+        ("FONTSIZE", (0, 1), (-1, -1), 8.5),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, C_BG_LIGHT]),
+    ]
+    for i, (key, label, idx, color) in enumerate(all_struct_order, start=1):
+        res_style.append(("TEXTCOLOR", (0, i), (0, i), color))
+        res_style.append(("FONTNAME", (0, i), (0, i), "Helvetica-Bold"))
+    res_table.setStyle(TableStyle(res_style))
+    story.append(res_table)
+    story.append(Spacer(1, 10 * mm))
+
+    # MIRD Partition Model
+    story.append(Paragraph("MIRD Partition Model", s_heading))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=C_ACCENT))
+    story.append(Spacer(1, 4 * mm))
+
+    # MIRD usa keys: liver, tumor, pretumor
+    mird_key_map = {"higado": "liver", "tumor": "tumor", "pretumor": "pretumor"}
+    mird_headers = ["Estructura", "Dmedia (Gy)", "Indice", "Tipo"]
+    mird_data = [mird_headers]
+    for key, label, idx, color in all_struct_order:
+        mird_key = mird_key_map.get(key, key)
+        dose_val = mird.get(mird_key, {}).get("mean_dose_gy", 0)
+        tipo = "Tumor" if key == "tumor" else "Normal"
+        mird_data.append([
+            label,
+            f"{dose_val:.2f}" if dose_val > 0 else "\u2014",
+            f"{idx}",
+            tipo,
+        ])
+    mird_table = Table(mird_data, colWidths=[35 * mm, 30 * mm, 20 * mm, usable_width - 85 * mm])
+    mird_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
+        ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (2, -1), "CENTER"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, C_BG_LIGHT]),
+        ("TEXTCOLOR", (0, 1), (0, 1), C_HIGADO),
+        ("TEXTCOLOR", (0, 2), (0, 2), C_TUMOR),
+        ("TEXTCOLOR", (0, 3), (0, 3), C_PERITUMORAL),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+    ]
+    mird_table.setStyle(TableStyle(mird_style))
+    story.append(mird_table)
+
+    story.append(Spacer(1, 6 * mm))
+    story.append(Paragraph(
+        f"<font color=\"#{C_GRAY.hexval()[2:]}\">Actividad total: "
+        f"{meta.get('activity_gbq', 0):.4f} GBq</font>",
+        s_small
+    ))
+    story.append(PageBreak())
+
+    # ================================================================
+    # PAGINA 4: DVH (matplotlib embebido como imagen)
+    # ================================================================
+    if dvh_curves:
+        story.append(Paragraph("Cumulative Dose Volume Histogram (DVH)", s_heading))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=C_ACCENT))
+        story.append(Spacer(1, 4 * mm))
+
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            dvh_colors = {"Hígado": (0.145, 0.388, 0.922), "Tumor": (0.863, 0.149, 0.149),
+                          "Peritumoral": (0.851, 0.467, 0.024)}
+
+            fig, ax = plt.subplots(figsize=(7.5, 4.5))
+            for name, d_vals, a_vals in dvh_curves:
+                c = dvh_colors.get(name, (0.5, 0.5, 0.5))
+                ax.plot(d_vals, a_vals, color=c, label=name, linewidth=2.5)
+            ax.set_xlabel("Dose (Gy)", fontsize=12, fontweight="bold")
+            ax.set_ylabel("Volume (%)", fontsize=12, fontweight="bold")
+            ax.set_title("Cumulative DVH", fontsize=14, fontweight="bold", pad=10)
+            ax.set_yscale("log")
+            ax.set_ylim(0.1, 200)
+            ax.grid(True, which="both", alpha=0.3, linestyle="--")
+            ax.legend(fontsize=11, loc="upper right", framealpha=0.9)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+
+            dvh_img_path = os.path.join(output_dir, "_dvh_temp.png")
+            fig.savefig(dvh_img_path, dpi=150, bbox_inches="tight", facecolor="white")
+            plt.close(fig)
+
+            img = Image(dvh_img_path, width=usable_width, height=usable_width * 0.6)
+            story.append(img)
+            story.append(Spacer(1, 6 * mm))
+
+            try:
+                os.remove(dvh_img_path)
+            except Exception:
+                pass
+        except Exception as e:
+            story.append(Paragraph(f"Error generando DVH: {e}", s_small))
+
+        story.append(PageBreak())
+
+        # ================================================================
+        # PAGINA 5: METRICAS DVH
+        # ================================================================
+        story.append(Paragraph("Metricas DVH por Estructura", s_heading))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=C_ACCENT))
+        story.append(Spacer(1, 4 * mm))
+
+        dvh_headers = ["Estructura", "Vol (cm\u00b3)", "Dmedia (Gy)", "D98 (Gy)",
+                       "D70 (Gy)", "D50 (Gy)", "Max (Gy)", "BED (Gy)", "EUD (Gy)"]
+        dvh_data = [dvh_headers]
+        for key, label, idx, color in all_struct_order:
+            s = structures.get(key, {})
+            dvh_data.append([
+                label,
+                f"{s.get('volume_cm3', 0):.1f}" if s.get('volume_cm3', 0) > 0 else "\u2014",
+                f"{s.get('mean_dose_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('d98_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('d70_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('d50_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('max_dose_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('bed_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('eud_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            ])
+        dvh_col_w = usable_width / 9
+        dvh_table = Table(dvh_data, colWidths=[dvh_col_w] * 9)
+        dvh_style = [
+            ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
+            ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 8),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("GRID", (0, 0), (-1, -1), 0.5, C_BORDER),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, C_BG_LIGHT]),
+        ]
+        for i, (key, label, idx, color) in enumerate(all_struct_order, start=1):
+            dvh_style.append(("TEXTCOLOR", (0, i), (0, i), color))
+            dvh_style.append(("FONTNAME", (0, i), (0, i), "Helvetica-Bold"))
+        dvh_table.setStyle(TableStyle(dvh_style))
+        story.append(dvh_table)
+
+    logger.info(f"  Reporte PDF: {pdf_path}")
+    doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
+
+    # Limpiar imagenes temporales (despues de build)
+    for img_path in formula_images_to_clean:
+        try:
+            os.remove(img_path)
+        except Exception:
+            pass
+
+    return pdf_path
+
+
+def _generate_pdf_matplotlib_fallback(
+    results: dict, output_dir: str, dvh_curves: list = None
+) -> str:
+    """Fallback: genera PDF con matplotlib si reportlab no esta disponible."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_pdf import PdfPages
+    except ImportError:
+        logger.warning("  matplotlib no disponible para PDF")
+        return None
+
+    pdf_path = os.path.join(output_dir, "dosimetria_report.pdf")
+    meta = results.get("metadata", {})
+    structures = results.get("structures", {})
+    mird = results.get("mird", {})
+
+    struct_labels = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
+
+    with PdfPages(pdf_path) as pdf:
+        # Pagina 1: Portada basica
+        fig, ax = plt.subplots(figsize=(8.27, 11.69))
+        ax.axis("off")
+        ax.text(0.5, 0.9, "REPORTE DE DOSIMETRIA", fontsize=24,
+                fontweight="bold", ha="center", transform=ax.transAxes)
+        ax.text(0.5, 0.85, "3Dosim v3.14", fontsize=12, ha="center",
+                color="#666", transform=ax.transAxes)
+        y0 = 0.7
+        for label, value in [
+            ("Actividad", f"{meta.get('activity_gbq', 0):.4f} GBq"),
+            ("NPS", f"{meta.get('nps', 0):,}"),
+        ]:
+            ax.text(0.15, y0, f"{label}: {value}", fontsize=11, transform=ax.transAxes)
+            y0 -= 0.04
+        y0 -= 0.03
+        ax.text(0.15, y0, "ESTRUCTURAS:", fontsize=12, fontweight="bold",
+                transform=ax.transAxes)
+        y0 -= 0.04
+        for name, s in structures.items():
+            label = struct_labels.get(name, name)
+            ax.text(0.15, y0,
+                    f"  {label}: Dmedia={s.get('mean_dose_gy',0):.2f} Gy, "
+                    f"BED={s.get('bed_gy',0):.2f} Gy",
+                    fontsize=10, transform=ax.transAxes)
+            y0 -= 0.03
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    logger.info(f"  Reporte PDF (fallback matplotlib): {pdf_path}")
+    return pdf_path
+
+
+# ======================================================================
+# 6. Main
+# ======================================================================
+
+def setup_slicer_paths():
+    """Configura sys.path para importar SlicerDosimLib. Retorna path o None."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    log(f"  script_dir: {script_dir}")
+
+    # Posibles rutas a SlicerDosimLib
+    possible_paths = [
+        # Desde PipelineOrchestrator/ -> ../../Modules/Scripted/SlicerDosim/SlicerDosimLib
+        os.path.join(script_dir, "..", "..", "Modules",
+                     "Scripted", "SlicerDosim", "SlicerDosimLib"),
+        # Resolucion absoluta
+        r"C:\programas\3Dosim\3Dosim_v_3.14\3DSlicerModule\SlicerDosim"
+        r"\Modules\Scripted\SlicerDosim\SlicerDosimLib",
+    ]
+
+    for p in possible_paths:
+        abs_p = os.path.abspath(p)
+        log(f"  Checking path: {abs_p} (exists={os.path.exists(abs_p)})")
+        if os.path.exists(abs_p) and abs_p not in sys.path:
+            sys.path.insert(0, abs_p)
+            log(f"  Path agregado: {abs_p}")
+            return abs_p
+
+    log("ERROR: No se encontro SlicerDosimLib en sys.path")
+    return None
+
+
+def get_labelmap_array(labelmap_node):
+    """Extrae array 3D del labelmap, transpone a (nx, ny, nz)."""
+    import slicer
+
+    arr = slicer.util.arrayFromVolume(labelmap_node)  # (nz, ny, nx)
+    arr = arr.transpose(2, 1, 0).astype(np.int32)  # (nx, ny, nz)
+    return arr
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Pipeline de dosimetria desde escena existente"
+    )
+    parser.add_argument("--scene", default=None,
+                        help=f"Ruta a escena .mrb (default: {SCENE_DEFAULT})")
+    parser.add_argument("--mctal", default=None,
+                        help=f"Ruta a archivo MCTAL (default: {MCTAL_DEFAULT})")
+    parser.add_argument("--output-dir", default=OUTPUT_DIR_DEFAULT,
+                        help="Directorio de salida para reportes")
+    parser.add_argument("--activity", type=float, default=None,
+                        help="Actividad en GBq (default: computar del PET)")
+    parser.add_argument("--labelmap", default=None,
+                        help=f"Ruta a labelmap NIfTI (default: {LABELMAP_DEFAULT})")
+    parser.add_argument("--no-slicer", action="store_true",
+                        help="No cargar en Slicer (solo parsear MCTAL)")
+    parser.add_argument("--show", action="store_true",
+                        help="Mantener Slicer abierto con DVH + consola interactiva")
+    parser.add_argument("--no-consola", action="store_true",
+                        help="No mostrar consola interactiva (default: mostrar si disponible)")
+    parser.add_argument("--flip", action="store_true", default=True,
+                        help="Aplicar flip Y a dosis MCTAL (default: True, compatibilidad MATLAB)")
+    parser.add_argument("--no-flip", action="store_false", dest="flip",
+                        help="No aplicar flip Y a dosis MCTAL")
+
+    args, _ = parser.parse_known_args()
+
+    scene_path = args.scene or SCENE_DEFAULT
+    mctal_path = args.mctal or MCTAL_DEFAULT
+    output_dir = args.output_dir
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    t_start = time.time()
+    log("SCRIPT MAIN STARTED")
+
+    # ----------------------------------------------------------------
+    # Setup
+    # ----------------------------------------------------------------
+    log("=" * 60)
+    log(" 3Dosim Dosimetry Pipeline v3.14")
+    log("=" * 60)
+
+    # Consola interactiva (como pipeline.py)
+    # Si es --no-slicer, no hay Qt → no hay consola
+    consola = None
+    if _HAS_CONSOLE and not args.no_consola and not args.no_slicer:
+        try:
+            consola = ConsolaComandos(output_dir=output_dir)
+            consola.mostrar()
+            consola.log("=" * 50)
+            consola.log(" 3Dosim Dosimetry Pipeline - Consola de Comandos")
+            consola.log(" Escribi 'ayuda' para comandos disponibles")
+            consola.log("=" * 50)
+            consola.log("")
+        except Exception as e:
+            logger.warning(f"  No se pudo crear consola: {e}")
+            consola = None
+
+    def _log_consola(msg):
+        if consola:
+            try:
+                consola.log(msg)
+            except Exception:
+                pass
+    def _log_consola_ok(msg):
+        if consola:
+            try:
+                consola.log_ok(msg)
+            except Exception:
+                pass
+    def _log_consola_error(msg):
+        if consola:
+            try:
+                consola.log_error(msg)
+            except Exception:
+                pass
+
+    found = setup_slicer_paths()
+    log(f"  SlicerDosimLib path found: {found}")
+    _log_consola("Iniciando pipeline de dosimetria...")
+
+    # ----------------------------------------------------------------
+    # Cargar escena en Slicer
+    # ----------------------------------------------------------------
+    if not args.no_slicer:
+        import slicer
+
+        logger.info("\n--- Paso 1: Cargar escena ---")
+        _log_consola("Paso 1/10: Cargando escena...")
+        if not load_scene(scene_path):
+            logger.error("Abortando: no se pudo cargar la escena")
+            _log_consola_error("Error cargando escena")
+            return 1
+
+        logger.info("\n--- Paso 2: Buscar nodos ---")
+        _log_consola("Paso 2/10: Buscando nodos (CT, PET, Labelmap)...")
+        nodes = find_nodes()
+
+        labelmap_nifti = args.labelmap or LABELMAP_DEFAULT
+        if nodes["labelmap"] is None and os.path.exists(labelmap_nifti):
+            logger.info(f"  Cargando labelmap desde NIfTI: {labelmap_nifti}")
+            labelmap_node = slicer.util.loadVolume(labelmap_nifti)
+            if labelmap_node:
+                nodes["labelmap"] = labelmap_node
+                logger.info(f"  Labelmap cargado: {labelmap_node.GetName()}")
+            else:
+                logger.error("  No se pudo cargar labelmap NIfTI")
+
+        if nodes["labelmap"] is None:
+            logger.error("No se encontro nodo labelmap en la escena ni en NIfTI")
+            return 1
+
+        ct_node = nodes["ct"]
+        pet_node = nodes["pet"]
+        labelmap_node = nodes["labelmap"]
+
+        # Extraer labelmap
+        labelmap = get_labelmap_array(labelmap_node)
+        dims = labelmap.shape  # (nx, ny, nz)
+        spacing = labelmap_node.GetSpacing()
+
+        logger.info(f"  Labelmap shape: {dims}")
+        logger.info(f"  Spacing: {spacing}")
+        logger.info(f"  Indices unicos: {np.unique(labelmap)}")
+
+        # Actividad
+        if args.activity is not None:
+            activity_gbq = args.activity
+            activity_bq = activity_gbq * 1e9
+        elif pet_node is not None:
+            logger.info("\n--- Paso 3: Computar actividad desde PET ---")
+            _log_consola("Paso 3/10: Computando actividad desde PET...")
+            activity_bq = compute_activity_from_pet(pet_node)
+            activity_gbq = activity_bq / 1e9
+        else:
+            logger.error("No hay PET y no se especifico --activity")
+            _log_consola_error("No hay PET ni --activity. Abortando.")
+            return 1
+
+        logger.info(f"  Actividad: {activity_bq:.2e} Bq = {activity_gbq:.4f} GBq")
+
+    else:
+        # Modo standalone (sin Slicer)
+        logger.info("Modo standalone: solo parseo MCTAL")
+        dims = (512, 512, 171)  # default
+        labelmap = None
+        activity_bq = 3e9  # default 3 GBq
+        activity_gbq = 3.0
+
+    # ----------------------------------------------------------------
+    # Parsear MCTAL
+    # ----------------------------------------------------------------
+    logger.info("\n--- Paso 4: Parsear MCTAL ---")
+    _log_consola("Paso 4/10: Parseando archivo MCTAL (907 MB)...")
+    mctal_result = parse_mctal(mctal_path, dims)
+    dose_mev_cm3 = mctal_result["dose_3d"]
+    error_3d = mctal_result["uncertainty"]
+    _log_consola_ok(f"MCTAL parseado: NPS={mctal_result['nps']:,}")
+
+    # Aplicar flip Y a dosis si se aplico flip a la geometria MCNP
+    # MATLAB: f_flip(D3, flip) invierte eje Y DESPUES de cargar MCTAL
+    # Python: phantom se flippea ANTES de MCNP, pero dose viene sin flip del MCTAL
+    #         Si labelmap es original y dose corresponde a phantom flippeado, necesitamos flip
+    if args.flip:
+        dose_mev_cm3 = dose_mev_cm3[:, ::-1, :].copy()
+        error_3d = error_3d[:, ::-1, :].copy()
+        logger.info("  Flip Y aplicado a dosis MCTAL (compatibilidad MATLAB)")
+        _log_consola("Flip Y aplicado a dosis (compatibilidad MATLAB)")
+
+    # ----------------------------------------------------------------
+    # Convertir a Gy
+    # ----------------------------------------------------------------
+    logger.info("\n--- Paso 5: Convertir a Gy ---")
+    _log_consola("Paso 5/10: Convirtiendo MeV/cm3 a Gy...")
+
+    # Tiempo de integracion (mean lifetime)
+    t_meanlife_s = Y90_HALF_LIFE_H * 3600 / np.log(2)  # ~332,753 s
+
+    if labelmap is not None:
+        dose_gy = convert_to_gy(dose_mev_cm3, labelmap, activity_bq, t_meanlife_s)
+    else:
+        # Sin labelmap: usar densidad uniforme
+        dose_gy = dose_mev_cm3 * MEV2J * t_meanlife_s * activity_bq * 1000
+
+    # Aplicar filtro de error (MATLAB cargo_mctal.m:375-379)
+    error_eliminar = 1.5
+    bad_voxels = error_3d >= error_eliminar
+    dose_gy[bad_voxels] = 0
+    n_bad = np.sum(bad_voxels)
+    logger.info(f"  Voxels eliminados por error>={error_eliminar}: {n_bad} ({n_bad/dose_gy.size*100:.2f}%)")
+
+    # Eliminar dosis negativas (poca estadistica)
+    n_neg = np.sum(dose_gy < 0)
+    dose_gy[dose_gy < 0] = 0
+    logger.info(f"  Voxels con dosis negativa: {n_neg}")
+
+    logger.info(f"  Dosis en Gy: media={dose_gy[dose_gy>0].mean() if np.any(dose_gy>0) else 0:.2f}, "
+                f"max={dose_gy.max():.2f}, "
+                f"voxels no-cero={np.sum(dose_gy>0)}/{dose_gy.size}")
+
+    # ----------------------------------------------------------------
+    # Computar dosimetria por estructura
+    # ----------------------------------------------------------------
+    logger.info("\n--- Paso 6: Dosimetria por estructura ---")
+    _log_consola("Paso 6/10: Computando DVH y radiobiologia...")
+
+    structures = {
+        "higado": {"idx": LIVER_INDEX, "alpha_beta": ALPHA_BETA_LIVER, "is_tumor": False},
+        "tumor": {"idx": TUMOR_INDEX, "alpha_beta": ALPHA_BETA_TUMOR, "is_tumor": True},
+        "pretumor": {"idx": PRETUMOR_INDEX, "alpha_beta": ALPHA_BETA_LIVER, "is_tumor": False},  # tejido normal como higado
+    }
+
+    results = {
+        "metadata": {
+            "scene": scene_path,
+            "mctal": mctal_path,
+            "activity_bq": activity_bq,
+            "activity_gbq": activity_gbq,
+            "dimensions": list(dims),
+            "nps": mctal_result["nps"],
+            "title": mctal_result["title"],
+        },
+        "structures": {},
+        "mird": {},
+    }
+
+    for name, info in structures.items():
+        idx = info["idx"]
+        mask = labelmap == idx if labelmap is not None else None
+        n_vox = np.sum(mask) if mask is not None else 0
+
+        if n_vox == 0:
+            logger.info(f"  {name} ({idx}): sin voxeles, saltando")
+            continue
+
+        # DVH
+        dvh = compute_dvh(dose_gy, labelmap, idx)
+        logger.info(f"  {name} ({idx}): "
+                    f"{dvh['n_voxels']} voxels, "
+                    f"Dmedia={dvh['mean_dose_gy']:.2f} Gy, "
+                    f"D98={dvh['d98_gy']:.2f} Gy, "
+                    f"D70={dvh['d70_gy']:.2f} Gy, "
+                    f"D50={dvh['d50_gy']:.2f} Gy")
+
+        # Radiobiologia
+        bio = compute_biophysical(dvh, info["alpha_beta"], info["is_tumor"])
+        logger.info(f"    BED={bio['bed_gy']:.2f} Gy, "
+                    f"EUD={bio['eud_gy']:.2f} Gy, "
+                    f"EQD2={bio['eqd2_gy']:.2f} Gy")
+
+        volume_cm3 = dvh["n_voxels"] * spacing[0] * spacing[1] * spacing[2] / 1000.0
+        results["structures"][name] = {
+            "index": idx,
+            "n_voxels": dvh["n_voxels"],
+            "volume_cm3": volume_cm3,
+            "mean_dose_gy": dvh["mean_dose_gy"],
+            "min_dose_gy": dvh["min_dose_gy"],
+            "max_dose_gy": dvh["max_dose_gy"],
+            "std_dose_gy": dvh["std_dose_gy"],
+            "d98_gy": dvh["d98_gy"],
+            "d70_gy": dvh["d70_gy"],
+            "d50_gy": dvh["d50_gy"],
+            "bed_gy": bio["bed_gy"],
+            "eud_gy": bio["eud_gy"],
+            "eqd2_gy": bio["eqd2_gy"],
+        }
+
+    # ----------------------------------------------------------------
+    # MIRD partition model
+    # ----------------------------------------------------------------
+    logger.info("\n--- Paso 7: MIRD partition model ---")
+    _log_consola("Paso 7/10: Calculando MIRD partition model...")
+    mird = compute_mird(dose_gy, labelmap, activity_gbq)
+    results["mird"] = mird
+    logger.info(f"  Hígado: {mird['liver']['mean_dose_gy']:.2f} Gy")
+    logger.info(f"  Tumor:  {mird['tumor']['mean_dose_gy']:.2f} Gy")
+    logger.info(f"  Peritumoral: {mird['pretumor']['mean_dose_gy']:.2f} Gy")
+
+    # ----------------------------------------------------------------
+    # Exportar reporte
+    # ----------------------------------------------------------------
+    logger.info("\n--- Paso 8: Exportar reporte ---")
+
+    # Reporte JSON
+    report_path = os.path.join(output_dir, "dosimetria_report.json")
+    with open(report_path, "w") as f:
+        json.dump(results, f, indent=2, default=str)
+    logger.info(f"  Reporte JSON: {report_path}")
+
+    # Reporte texto
+    report_txt_path = os.path.join(output_dir, "dosimetria_report.txt")
+    with open(report_txt_path, "w") as f:
+        f.write("=" * 60 + "\n")
+        f.write(" REPORTE DE DOSIMETRIA 3Dosim\n")
+        f.write("=" * 60 + "\n\n")
+        f.write(f"Escena:  {scene_path}\n")
+        f.write(f"MCTAL:   {mctal_path}\n")
+        f.write(f"Actividad: {activity_gbq:.4f} GBq ({activity_bq:.2e} Bq)\n")
+        f.write(f"NPS:     {mctal_result['nps']}\n")
+        f.write(f"Dimensiones: {dims}\n\n")
+
+        f.write("-" * 50 + "\n")
+        f.write(" RESULTADOS POR ESTRUCTURA\n")
+        f.write("-" * 50 + "\n\n")
+        for name, s in results["structures"].items():
+            f.write(f"  {name.upper()} (indice={s['index']}):\n")
+            f.write(f"    Voxeles:     {s['n_voxels']}\n")
+            f.write(f"    Dosis media: {s['mean_dose_gy']:.2f} Gy\n")
+            f.write(f"    Dosis min:   {s['min_dose_gy']:.2f} Gy\n")
+            f.write(f"    Dosis max:   {s['max_dose_gy']:.2f} Gy\n")
+            f.write(f"    D98:         {s['d98_gy']:.2f} Gy\n")
+            f.write(f"    D70:         {s['d70_gy']:.2f} Gy\n")
+            f.write(f"    D50:         {s['d50_gy']:.2f} Gy\n")
+            f.write(f"    BED:         {s['bed_gy']:.2f} Gy\n")
+            f.write(f"    EUD:         {s['eud_gy']:.2f} Gy\n")
+            f.write(f"    EQD2:        {s['eqd2_gy']:.2f} Gy\n\n")
+
+        f.write("-" * 50 + "\n")
+        f.write(" MIRD PARTITION MODEL\n")
+        f.write("-" * 50 + "\n\n")
+        f.write(f"  Actividad: {activity_gbq:.4f} GBq\n")
+        f.write(f"  Higado:    {results['mird']['liver']['mean_dose_gy']:.2f} Gy\n")
+        f.write(f"  Tumor:     {results['mird']['tumor']['mean_dose_gy']:.2f} Gy\n")
+        f.write(f"  Peritumoral: {results['mird']['pretumor']['mean_dose_gy']:.2f} Gy\n")
+
+        t_elapsed = time.time() - t_start
+        f.write(f"\n  Tiempo total: {t_elapsed:.1f} s\n")
+
+    logger.info(f"  Reporte TXT: {report_txt_path}")
+
+    # ----------------------------------------------------------------
+    # Generar PDF report
+    # ----------------------------------------------------------------
+    _log_consola("Paso 8/10: Generando reporte PDF...")
+    logger.info("\n--- Paso 8b: Generar PDF report ---")
+    # Recolectar curvas DVH para el PDF desde structures del results
+    dvh_curves_for_pdf = []
+    dvh_pdf_colors = {"higado": (0.2, 0.4, 1.0), "tumor": (1.0, 0.2, 0.2),
+                      "pretumor": (0.8, 0.6, 0.0)}
+    dvh_pdf_labels = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
+    try:
+        for name in structures:
+            if name not in results["structures"]:
+                continue
+            s = results["structures"][name]
+            idx = s["index"]
+            mask = labelmap == idx
+            doses = dose_gy[mask]
+            n = len(doses)
+            if n == 0 or np.max(doses) <= 0:
+                continue
+            Dmax = float(np.max(doses))
+            delta = Dmax / 1000.0
+            d_vals = np.arange(0, Dmax + delta, delta)
+            a_vals = np.zeros(len(d_vals))
+            for i, d in enumerate(d_vals):
+                a_vals[i] = np.sum(doses >= d) * 100.0 / n
+            dvh_curves_for_pdf.append((dvh_pdf_labels.get(name, name), d_vals, a_vals))
+
+        pdf_path = generate_pdf_report(results, AI_PIPE_DIR, dvh_curves_for_pdf)
+        if pdf_path:
+            _log_consola_ok(f"PDF generado: {os.path.basename(pdf_path)}")
+        else:
+            _log_consola_error("No se pudo generar PDF (matplotlib?)")
+    except Exception as e:
+        _log_consola_error(f"Error generando PDF: {e}")
+        logger.warning(f"  Error generando PDF: {e}")
+        import traceback
+        logger.warning(traceback.format_exc())
+
+    # ----------------------------------------------------------------
+    # Crear nodo de dosis en Slicer
+    # ----------------------------------------------------------------
+    dose_node = None  # default, se setea abajo si exitoso
+    if not args.no_slicer:
+        logger.info("\n--- Paso 9: Crear nodo de dosis 3D en Slicer ---")
+        try:
+            from dosimetry import DoseCalculator
+
+            calc = DoseCalculator()
+            ref_node = labelmap_node or ct_node
+            dose_node = calc.create_dose_volume(dose_gy, ref_node)
+            if dose_node:
+                logger.info(f"  Nodo creado: {dose_node.GetName()}")
+                # Mostrar dosis como overlay en slices
+                slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
+                for sn in slice_nodes:
+                    if ct_node:
+                        sn.SetBackgroundVolumeID(ct_node.GetID())
+                    sn.SetForegroundVolumeID(dose_node.GetID())
+                    sn.SetForegroundOpacity(0.5)
+                # Activar layout medico con 3D
+                try:
+                    slicer.util.setSliceViewerLayers(foreground=dose_node, foregroundOpacity=0.5)
+                    logger.info("  Overlay de dosis activado en slices")
+                except Exception as e:
+                    logger.warning(f"  setSliceViewerLayers: {e}")
+                # Guardar escena con dosis
+                scene_out = os.path.join(output_dir, "3Dosim_dosis_scene.mrb")
+                try:
+                    slicer.util.saveScene(scene_out)
+                    logger.info(f"  Escena guardada: {scene_out}")
+                except Exception as e:
+                    logger.warning(f"  No se pudo guardar escena: {e}")
+            else:
+                logger.warning("  create_dose_volume devolvio None")
+        except Exception as e:
+            logger.warning(f"  Error creando nodo de dosis: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
+
+    # ----------------------------------------------------------------
+    # Tiempo total
+    # ----------------------------------------------------------------
+    t_elapsed = time.time() - t_start
+    logger.info(f"\n  Tiempo total: {t_elapsed:.1f} s")
+    logger.info("  Pipeline completado exitosamente!")
+    logger.info(f"  Reporte: {report_txt_path}")
+
+    # ----------------------------------------------------------------
+    # Crear graficos DVH en Slicer (algoritmo MATLAB f_HDV.m)
+    # ----------------------------------------------------------------
+    if not args.no_slicer:
+        logger.info("\n--- Paso 10: Graficar DVH en Slicer ---")
+        _log_consola("Paso 10/10: Graficando DVH en Slicer...")
+        try:
+            _create_dvh_plots_slicer(dose_gy, labelmap, spacing, args.show)
+        except Exception as e:
+            logger.warning(f"  Error creando DVH plots: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
+
+    # Resumen final en consola
+    _log_consola("=" * 50)
+    _log_consola("PIPELINE DE DOSIMETRIA COMPLETADO")
+    _log_consola(f"  Actividad: {activity_gbq:.4f} GBq")
+    for name, s in results.get("structures", {}).items():
+        label = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}.get(name, name)
+        _log_consola(f"  {label}: Dmedia={s.get('mean_dose_gy', 0):.2f} Gy, "
+                     f"BED={s.get('bed_gy', 0):.2f} Gy")
+    _log_consola(f"  PDF: dosimetria_report.pdf")
+    _log_consola("=" * 50)
+
+    # Mantener Slicer abierto si --show O si hay consola interactiva
+    keep_alive = args.show or (consola is not None)
+    if keep_alive:
+        if args.show:
+            try:
+                slicer.util.selectModule("Plots")
+                slicer.app.processEvents()
+                if dose_node:
+                    slicer.util.setSliceViewerLayers(foreground=dose_node, foregroundOpacity=0.4)
+                slicer.app.layoutManager().setLayout(
+                    slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+            except Exception:
+                pass
+
+        if consola:
+            _log_consola("Consola activa. Escribi 'ayuda' para comandos, 'salir' para cerrar.")
+
+        logger.info("  --show: Slicer queda abierto. Cerrar ventana para salir.")
+        logger.info("  Consola interactiva activa.")
+        sys.stderr.flush()
+        # Loop: mantiene vivo tanto Slicer como la consola
+        try:
+            while True:
+                slicer.app.processEvents()
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            pass
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

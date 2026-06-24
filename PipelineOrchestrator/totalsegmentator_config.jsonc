@@ -1,0 +1,35 @@
+// 3Dosim - TotalSegmentator Configuration
+// =========================================
+// Este archivo define los parametros para la segmentacion con TotalSegmentator.
+// Se puede modificar sin tocar el codigo.
+//
+// Referencia: https://github.com/lassoan/SlicerTotalSegmentator
+
+{
+    // Tarea de segmentacion:
+    //   "total"       - 104 estructuras anatomicas completas
+    //   "total_mr"    - total para RM
+    //   "lung_nodules"- nodulos pulmonares
+    //   "lung_vessels"- vasos pulmonares
+    //   "kidney_cysts"- quistes renales
+    //   "breasts"     - mamas
+    //   "liver_segments" - segmentos hepaticos de Couinaud
+    //   "vertebrae"   - vertebras
+    "task": "total",
+
+    // Modo rapido (true = baja resolucion ~3mm, ~2 min; false = resolucion completa ~5-50 min)
+    "fast": true,
+
+    // Forzar CPU (true = usa CPU, false = GPU si disponible)
+    "force_cpu": true,
+
+    // Subconjunto de estructuras a segmentar (null = todas)
+    // Ejemplo: ["liver", "spleen", "kidney_left", "kidney_right"]
+    "subset": null,
+
+    // Mostrar dialogos interactivos (advertencias, confirmaciones)
+    "interactive": false,
+
+    // Usar nombres de segmentos estandar (true) o nombres originales de TotalSegmentator
+    "use_standard_segment_names": true
+}

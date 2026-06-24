@@ -1,0 +1,59 @@
+# 3Dosim v4 - .gitignore
+
+# API Keys
+.env
+.env.template
+# No commitear la API key real
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# MATLAB
+*.asv
+*.mat
+*.xls
+*.xlsx
+
+# Windows
+*.log
+Thumbs.db
+Desktop.ini
+
+# Slicer
+*.mrb
+*.mrml
+ctkDICOM.sql
+ctkDICOMTagCache.sql
+*.db
+*.sql
+
+# MCNP
+*.i
+*.o
+*.src
+*_mcnp_output/
+mcnp_input/
+
+# Outputs
+resultados_test/
+output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large files
+*.pdf
+*.zip
+*.rar
+*.docx
+*.jpg
+*.jpeg
+*.png

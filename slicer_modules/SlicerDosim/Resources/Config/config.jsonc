@@ -1,0 +1,88 @@
+{
+  "paths": {
+    "scene_output_dir": "C:/MAT/3Dosim/ai-pipe/scenes",
+    "screenshot_output_dir": "C:/MAT/3Dosim/ai-pipe/screenshots",
+    "image_output_dir": "C:/MAT/3Dosim/ai-pipe/exports",
+    "mcnp_output_dir": "C:/MAT/3Dosim/ai-pipe/mcnp_input",
+    "results_dir_rel": "C:/MAT/3Dosim/ai-pipe/resultados_dosimetria",
+    "tissue_config_path": "Resources/Config/tissue_config.json",
+    "source_file_path": "C:/MAT/3Dosim/ai-pipe/mcnp_input/Y90cel3D.src",
+    "ct_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\CT",
+    "pet_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\PET",
+    "labelmap_output_dir": "C:/MAT/3Dosim/ai-pipe/labelmaps"
+  },
+  "segmentation": {
+    "method": "totalsegmentator",
+    "totalsegmentator": {
+      "task": "total",
+      "fast": true,
+      "force_cpu": true,
+      "subset": null,
+      "interactive": false
+    }
+  },
+  "geometry": {
+    "flip_y": true,
+    "flip_z": false
+  },
+  "mcnp_source": {
+    "isotope": "Y-90",
+    "source_file": "Y90cel3D.src"
+  },
+  "mcnp_tallies": {
+    "mesh_tally": true,
+    "mesh_type": "pedep",
+    "n_liver_tallies": 5,
+    "n_tumor_tallies": 10
+  },
+  "mcnp_materials": {
+    "mapping_scheme": "sequential",
+    "config_file": "tissue_config.json"
+  },
+  "mcnp_run": {
+    "n_particles": 10000000,
+    "refine_hu": false
+  },
+  "views": {
+    "layout": "ConventionalView",
+    "pet_opacity": 0.35,
+    "pet_colormap": "vtkMRMLColorTableNodeRainbow",
+    "ct_window": 400.0,
+    "ct_level": 40.0,
+    "pet_window": 40.0,
+    "pet_level": 20.0,
+    "link_slices": true
+  },
+  "tumor": {
+    "mode": "load_file",
+    "synthetic_radius_mm": 10.0,
+    "liver_segment_name": "liver",
+    "synthetic_segment_name": "Tumor_Sintetico",
+    "synthetic_segment_color": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "load_file_path": "C:/MAT/3Dosim/pacientes-/pacientes/Paciente_2/segmentation liver/tumor.nii",
+    "load_segment_name": "Tumor_Cargado",
+    "load_segment_color": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "manual_segment_name": "Tumor_Manual",
+    "manual_segment_color": [
+      1.0,
+      0.5,
+      0.0
+    ],
+    "create_healthy_liver": true
+  },
+  "pipeline": {
+    "force_validation_on_restore": true,
+    "auto_save_scene": true,
+    "auto_screenshot": true,
+    "git_prompt": true,
+    "config_version": 2
+  }
+}
