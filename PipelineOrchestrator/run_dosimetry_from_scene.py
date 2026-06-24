@@ -38,7 +38,7 @@ Algoritmo:
   3. Computa actividad total del PET
   4. Parsea MCTAL con MCTALParser (compatible MATLAB f_cargo_mctall.m)
   5. Convierte MeV/cm³/particula → Gy (MATLAB cargo_mctal.m:389-395)
-  6. Por estructura: DVH, D98/D70/D50, BED, EUD, EQD2
+  6. Por estructura: DVH, D98/D70/D50/D2, V30/V70, BED, EUD, EQD2
   7. Reporte JSON + PDF + TXT + visualizacion en Slicer
 """
 
@@ -406,16 +406,22 @@ def compute_dvh(
     n_nonzero = int(np.sum(doses > 0))
     frac_zero = (n_total - n_nonzero) / n_total * 100
 
-    # D98, D70, D50 — percentiles de dosis
+    # D98, D70, D50, D2 — percentiles de dosis
     # Usar SOLO voxeles con dosis > 0 para percentiles clinicos
     # (voxeles con dosis=0 estan fuera del alcance de la fuente MCNP)
+    # D2 = dosis que cubre el 2% del volumen (punto caliente)
     doses_pos = doses[doses > 0]
     if len(doses_pos) > 0:
         d98 = float(np.percentile(doses_pos, max(2, 100 * (n_total - n_nonzero) / n_total + 2)))
         d70 = float(np.percentile(doses_pos, 30) if len(doses_pos) >= 10 else 0)
         d50 = float(np.percentile(doses_pos, 50) if len(doses_pos) >= 10 else 0)
+        d2  = float(np.percentile(doses_pos, 98) if len(doses_pos) >= 10 else 0)
     else:
-        d98 = d70 = d50 = 0.0
+        d98 = d70 = d50 = d2 = 0.0
+
+    # V30, V70 — volumen que recibe al menos X Gy
+    v30_pct = float((doses >= 30).sum() / n_total * 100) if n_total > 0 else 0.0
+    v70_pct = float((doses >= 70).sum() / n_total * 100) if n_total > 0 else 0.0
 
     # DVH histograma
     dose_max_hist = float(np.percentile(doses, 99.5))  # evitar outliers
@@ -443,6 +449,9 @@ def compute_dvh(
         "d98_gy": d98,
         "d70_gy": d70,
         "d50_gy": d50,
+        "d2_gy": d2,
+        "v30_pct": v30_pct,
+        "v70_pct": v70_pct,
         "dose_bins_gy": dose_bins.tolist(),
         "volume_hist_pct": (hist / n_voxels * 100).tolist(),
         "cumulative_vol_pct": cumulative_vol.tolist(),
@@ -1128,8 +1137,9 @@ def generate_pdf_report(
 
     # Tabla principal - SIEMPRE 3 filas
     res_headers = ["Estructura", "Voxeles", "Vol (cm\u00b3)", "Dmedia (Gy)",
-                   "D98 (Gy)", "D70 (Gy)", "D50 (Gy)", "BED (Gy)",
-                   "EUD (Gy)", "EQD2 (Gy)"]
+                   "D98 (Gy)", "D70 (Gy)", "D50 (Gy)", "D2 (Gy)",
+                   "V30 (%)", "V70 (%)",
+                   "BED (Gy)", "EUD (Gy)", "EQD2 (Gy)"]
     res_data = [res_headers]
     for key, label, idx, color in all_struct_order:
         s = structures.get(key, {})
@@ -1141,12 +1151,15 @@ def generate_pdf_report(
             f"{s.get('d98_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('d70_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('d50_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('d2_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('v30_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('v70_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('bed_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('eud_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('eqd2_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
         ])
-    res_col_w = usable_width / 10
-    res_table = Table(res_data, colWidths=[res_col_w] * 10)
+    res_col_w = usable_width / 13
+    res_table = Table(res_data, colWidths=[res_col_w] * 13)
     res_style = [
         ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
@@ -1269,7 +1282,8 @@ def generate_pdf_report(
         story.append(Spacer(1, 4 * mm))
 
         dvh_headers = ["Estructura", "Vol (cm\u00b3)", "Dmedia (Gy)", "D98 (Gy)",
-                       "D70 (Gy)", "D50 (Gy)", "Max (Gy)", "BED (Gy)", "EUD (Gy)"]
+                       "D70 (Gy)", "D50 (Gy)", "D2 (Gy)", "V30 (%)", "V70 (%)",
+                       "Max (Gy)", "BED (Gy)", "EUD (Gy)"]
         dvh_data = [dvh_headers]
         for key, label, idx, color in all_struct_order:
             s = structures.get(key, {})
@@ -1280,12 +1294,15 @@ def generate_pdf_report(
                 f"{s.get('d98_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('d70_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('d50_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('d2_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('v30_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('v70_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('max_dose_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('bed_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('eud_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             ])
-        dvh_col_w = usable_width / 9
-        dvh_table = Table(dvh_data, colWidths=[dvh_col_w] * 9)
+        dvh_col_w = usable_width / 12
+        dvh_table = Table(dvh_data, colWidths=[dvh_col_w] * 12)
         dvh_style = [
             ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
@@ -1654,7 +1671,10 @@ def main():
                     f"Dmedia={dvh['mean_dose_gy']:.2f} Gy, "
                     f"D98={dvh['d98_gy']:.2f} Gy, "
                     f"D70={dvh['d70_gy']:.2f} Gy, "
-                    f"D50={dvh['d50_gy']:.2f} Gy")
+                    f"D50={dvh['d50_gy']:.2f} Gy, "
+                    f"D2={dvh['d2_gy']:.2f} Gy, "
+                    f"V30={dvh['v30_pct']:.1f}%, "
+                    f"V70={dvh['v70_pct']:.1f}%")
 
         # Radiobiologia
         bio = compute_biophysical(dvh, info["alpha_beta"], info["is_tumor"])
@@ -1674,6 +1694,9 @@ def main():
             "d98_gy": dvh["d98_gy"],
             "d70_gy": dvh["d70_gy"],
             "d50_gy": dvh["d50_gy"],
+            "d2_gy": dvh["d2_gy"],
+            "v30_pct": dvh["v30_pct"],
+            "v70_pct": dvh["v70_pct"],
             "bed_gy": bio["bed_gy"],
             "eud_gy": bio["eud_gy"],
             "eqd2_gy": bio["eqd2_gy"],
@@ -1725,6 +1748,9 @@ def main():
             f.write(f"    D98:         {s['d98_gy']:.2f} Gy\n")
             f.write(f"    D70:         {s['d70_gy']:.2f} Gy\n")
             f.write(f"    D50:         {s['d50_gy']:.2f} Gy\n")
+            f.write(f"    D2:          {s['d2_gy']:.2f} Gy\n")
+            f.write(f"    V30:         {s['v30_pct']:.1f} %\n")
+            f.write(f"    V70:         {s['v70_pct']:.1f} %\n")
             f.write(f"    BED:         {s['bed_gy']:.2f} Gy\n")
             f.write(f"    EUD:         {s['eud_gy']:.2f} Gy\n")
             f.write(f"    EQD2:        {s['eqd2_gy']:.2f} Gy\n\n")

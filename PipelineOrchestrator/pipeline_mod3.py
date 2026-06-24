@@ -954,6 +954,9 @@ class PipelineMod3:
                 "d98_gy": dvh["d98_gy"],
                 "d70_gy": dvh["d70_gy"],
                 "d50_gy": dvh["d50_gy"],
+                "d2_gy": dvh["d2_gy"],
+                "v30_pct": dvh["v30_pct"],
+                "v70_pct": dvh["v70_pct"],
                 "bed_gy": bio["bed_gy"],
                 "eud_gy": bio["eud_gy"],
                 "eqd2_gy": bio["eqd2_gy"],
@@ -1031,6 +1034,9 @@ class PipelineMod3:
                 f.write(f"    D98:         {s['d98_gy']:.2f} Gy\n")
                 f.write(f"    D70:         {s['d70_gy']:.2f} Gy\n")
                 f.write(f"    D50:         {s['d50_gy']:.2f} Gy\n")
+                f.write(f"    D2:          {s['d2_gy']:.2f} Gy\n")
+                f.write(f"    V30:         {s['v30_pct']:.1f} %\n")
+                f.write(f"    V70:         {s['v70_pct']:.1f} %\n")
                 f.write(f"    BED:         {s['bed_gy']:.2f} Gy\n")
                 f.write(f"    EUD:         {s['eud_gy']:.2f} Gy\n")
                 f.write(f"    EQD2:        {s['eqd2_gy']:.2f} Gy\n\n")
