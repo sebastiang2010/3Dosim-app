@@ -371,9 +371,8 @@ class ConfigDialog(QDialog):
     ]
     MOD3_FIELDS = [
         ("Escena .mrb",                         "scene_path",     "file",   ""),
-        ("Archivo MCTAL",                        "mctal_path",    "file",   ""),
+        ("Archivo MCTAL/MCTALL",                 "mctal_path",    "file",   ""),
         ("Actividad GBq (-1=auto desde PET)",   "activity_gbq",   "spin",   -1.0),
-        ("Labelmap NIfTI",                       "labelmap_path",  "file",   ""),
     ]
 
     MOD_INFO = {
@@ -651,9 +650,12 @@ class ConfigDialog(QDialog):
                 self._widgets[key].setText(path)
 
     def _browse_file(self, key: str):
+        # Filtros por extension: mrb (escenas), mctal/mctall/m (output MCNP), nii/nrrd (imagenes)
         path, _ = QFileDialog.getOpenFileName(
             self, "Seleccionar archivo", "",
-            "Archivos (*.mrb *.nii *.nii.gz *.mctal *.nii *.nrrd);;All (*)"
+            "Archivos soportados (*.mrb *.mctal *.mctall *.m *.nii *.nii.gz *.nrrd);;"
+            "Escenas (*.mrb);;Output MCNP (*.mctal *.mctall *.m);;Imagenes (*.nii *.nii.gz *.nrrd);;"
+            "All (*)"
         )
         if path and key in self._widgets:
             if isinstance(self._widgets[key], QLineEdit):
@@ -1116,9 +1118,6 @@ class LauncherWindow(QMainWindow):
                 paths.get("mcnp_output_dir", ""), "output.mctal"
             ) if paths.get("mcnp_output_dir") else ""
             defaults["activity_gbq"] = -1.0
-            defaults["labelmap_path"] = os.path.join(
-                paths.get("labelmap_output_dir", ""), "3Dosim_labelmap.nii"
-            ) if paths.get("labelmap_output_dir") else ""
 
         return defaults
 
@@ -1202,10 +1201,6 @@ class LauncherWindow(QMainWindow):
             if mctal:
                 cmd.append("--mctal")
                 cmd.append(f'"{mctal}"')
-            labelmap = config.get("labelmap_path", "")
-            if labelmap:
-                cmd.append("--labelmap")
-                cmd.append(f'"{labelmap}"')
             act = config.get("activity_gbq", -1.0)
             if act > 0:
                 cmd.append("--activity")
