@@ -1,0 +1,8 @@
+{
+  // Configuracion de TotalSegmentator para segmentacion corporal (task='body')
+  // Cargado por _segment_body() en pipeline_mod1.py
+  "task": "body",
+  "fast": true,
+  "force_cpu": true,
+  "subset": null
+}

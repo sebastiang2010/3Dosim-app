@@ -1,90 +1,61 @@
-// 3Dosim Pipeline Orchestrator - Global Configuration
-// =====================================================
-// Configuracion central del pipeline. Toda ruta, flag o parametro
-// debe vivir aqui y no hardcodearse en el codigo.
-//
-// Este archivo se carga al inicializar PipelineTestOrchestrator.
-
 {
-    // Directorio donde se guardan las escenas .mrb (snapshots del estado de Slicer)
-    "scene_output_dir": "C:/MAT/3Dosim/ai-pipe/scenes",
-
-    // Directorio donde se guardan los screenshots de toda la escena
-    "screenshot_output_dir": "C:/MAT/3Dosim/ai-pipe/screenshots",
-
-    // Directorio donde se exportan imagenes NIfTI / NRRD (labelmaps)
-    "image_output_dir": "C:/MAT/3Dosim/ai-pipe/exports",
-
-    // Directorio base de output (contiene screenshots/, mcnp_input/, labelmaps/, etc)
-    "output_dir_rel": "C:/MAT/3Dosim/ai-pipe",
-
-    // Configuracion de visualizacion medica
-    "views": {
-        // Layout de Slicer a usar (ConventionalView = axial/sagital/coronal + 3D)
-        "layout": "ConventionalView",
-        // Opacidad del PET en la fusion (0.0 - 1.0)
-        "pet_opacity": 0.35,
-        // Colormap del PET
-        "pet_colormap": "vtkMRMLColorTableNodeRainbow",
-        // Window/Level para CT
-        "ct_window": 400.0,
-        "ct_level": 40.0,
-        // Window/Level para PET
-        "pet_window": 40.0,
-        "pet_level": 20.0,
-        // Linkear slices (navegacion sincronizada)
-        "link_slices": true
-    },
-
-    // Configuracion MCNP (Modulo 2 - Generacion de entrada)
-    "mcnp": {
-        // Isotopo para la fuente: Y-90, I-131, Lu-177, Tc-99m
-        "isotope": "Y-90",
-        // Numero de historias (particulas)
-        "n_particles": 10000000,
-        // Refinar mapeo HU -> materiales (mas lento pero mas preciso)
-        "refine_hu": false,
-        // Invertir eje Y antes de RLE (compatibilidad MATLAB)
-        // MATLAB: flip=1 → I = I(end:-1:1, :, :)
-        "flip_rows": true
-    },
-
-    // Comportamiento del pipeline
-    "pipeline": {
-        // Forzar validacion medica incluso al restaurar desde checkpoint
-        "force_validation_on_restore": true,
-        // Version del schema de config
-        "config_version": 1
-    },
-
-    // Configuracion de generacion de tumor
-    // Opciones: "synthetic" (esfera en higado), "load_file" (cargar NIfTI), "manual" (segmentar en Slicer)
-    "tumor": {
-        // Modo de generacion: "synthetic" | "load_file" | "manual"
-        "mode": "load_file",
-        // Radio del tumor sintetico en mm (solo para mode="synthetic")
-        "synthetic_radius_mm": 10.0,
-        // Nombre del segmento de higado en la segmentacion TS (para synthetic)
-        "liver_segment_name": "liver",
-        // Nombre del segmento tumor sintetico
-        "synthetic_segment_name": "Tumor_Sintetico",
-        // Color del tumor sintetico [R, G, B] 0-1
-        "synthetic_segment_color": [1.0, 0.0, 0.0],
-        // Ruta al archivo NIfTI del tumor (solo para mode="load_file")
-        // Ejemplo: "C:/MAT/3Dosim/pacientes-/pacientes/Paciente_2/segmentation liver/tumor.nii"
-        // Para usar: cambiar mode a "load_file" y descomentar la ruta correcta
-        "load_file_path": "C:/MAT/3Dosim/pacientes-/pacientes/Paciente_2/segmentation liver/tumor.nii",
-        // Nombre del segmento tumor al cargar desde archivo
-        "load_segment_name": "Tumor_Cargado",
-        // Color del tumor cargado [R, G, B] 0-1
-        "load_segment_color": [1.0, 0.0, 0.0],
-        // Para mode="manual": el usuario segmenta en Slicer y guarda como NIfTI
-        // El pipeline espera que el usuario cree un segmento llamado "Tumor_Manual"
-        // en la segmentacion existente, o cargue un NIfTI manualmente.
-        "manual_segment_name": "Tumor_Manual",
-        // Color del tumor manual [R, G, B] 0-1
-        "manual_segment_color": [1.0, 0.5, 0.0],
-        // Crear higado sano = higado - tumor (aplica a todos los modos)
-        "create_healthy_liver": true
+  "scene_output_dir": "C:/MAT/3Dosim/ai-pipe/scenes",
+  "screenshot_output_dir": "C:/MAT/3Dosim/ai-pipe/screenshots",
+  "image_output_dir": "C:/MAT/3Dosim/ai-pipe/exports",
+  "output_dir_rel": "C:/MAT/3Dosim/ai-pipe",
+  "views": {
+    "layout": "ConventionalView",
+    "pet_opacity": 0.35,
+    "pet_colormap": "vtkMRMLColorTableNodeRainbow",
+    "ct_window": 400.0,
+    "ct_level": 40.0,
+    "pet_window": 40.0,
+    "pet_level": 20.0,
+    "link_slices": true
+  },
+  "mcnp": {
+    "isotope": "Y-90",
+    "n_particles": 10000000,
+    "refine_hu": false,
+    "flip_rows": true
+  },
+  "pipeline": {
+    "force_validation_on_restore": true,
+    "config_version": 1
+  },
+  "tumor": {
+    "mode": "load_file",
+    "synthetic_radius_mm": 10.0,
+    "liver_segment_name": "liver",
+    "synthetic_segment_name": "Tumor_Sintetico",
+    "synthetic_segment_color": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "load_file_path": "C:/MAT/3Dosim/pacientes-/pacientes/Paciente_2/segmentation liver/tumor.nii",
+    "load_segment_name": "Tumor_Cargado",
+    "load_segment_color": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "manual_segment_name": "Tumor_Manual",
+    "manual_segment_color": [
+      1.0,
+      0.5,
+      0.0
+    ],
+    "create_healthy_liver": true
+  },
+  "paths": {
+    "ct_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\CT",
+    "pet_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\PET"
+  },
+  "segmentation": {
+    "totalsegmentator": {
+      "fast": true,
+      "force_cpu": true
     }
+  }
 }

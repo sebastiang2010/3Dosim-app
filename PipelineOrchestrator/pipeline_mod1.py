@@ -306,7 +306,9 @@ class PipelineMod1:
         if not self._checkpoint_step(self.STEP_ADD_TUMOR, step_label,
                                       self._add_tumor,
                                       data_func=lambda: {"mode": tumor_mode, "config": self.tumor_config}):
-            logger.warning(f"Creacion de tumor (modo={tumor_mode}) fallo, continuando...")
+            logger.error("Creacion de tumor FALLO — abortando pipeline")
+            self._log_consola_error("Creacion de tumor FALLO — abortando")
+            raise RuntimeError(f"No se pudo crear el tumor (modo={tumor_mode})")
         scene_tag = {"synthetic": "09_tumor_sintetico", "load_file": "09_tumor_cargado",
                      "manual": "09_tumor_manual"}.get(tumor_mode, "09_tumor")
         self._save_scene(scene_tag)
@@ -1183,14 +1185,27 @@ class PipelineMod1:
             self.image_output_dir = labelmap_dir
         os.makedirs(labelmap_dir, exist_ok=True)
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tissue_config_path = os.path.join(
-            base_dir, "Modules", "Scripted", "SlicerDosim",
-            "Resources", "Config", "tissue_config.json")
-        if not os.path.exists(tissue_config_path):
-            tissue_config_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                "..", "..", "Modules", "Scripted", "SlicerDosim",
-                "Resources", "Config", "tissue_config.json")
+        # Buscar tissue_config.json en ubicaciones de v4
+        tissue_config_candidates = [
+            # v4: slicer_modules/SlicerDosim/Resources/Config/
+            os.path.join(base_dir, "slicer_modules", "SlicerDosim",
+                         "Resources", "Config", "tissue_config.json"),
+            # v3.14 legacy: Modules/Scripted/SlicerDosim/Resources/Config/
+            os.path.join(base_dir, "Modules", "Scripted", "SlicerDosim",
+                         "Resources", "Config", "tissue_config.json"),
+            # Relativo a PipelineOrchestrator/
+            os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "..", "slicer_modules", "SlicerDosim",
+                         "Resources", "Config", "tissue_config.json"),
+        ]
+        tissue_config_path = None
+        for candidate in tissue_config_candidates:
+            if os.path.exists(candidate):
+                tissue_config_path = candidate
+                break
+        if not tissue_config_path:
+            logger.warning("tissue_config.json no encontrado — usando fallback")
+            tissue_config_path = tissue_config_candidates[0]
         resultado = labelmap_exporter.export_labelmap(
             segmentation_node=seg_node, ct_node=ct_node,
             tissue_config_path=tissue_config_path,
