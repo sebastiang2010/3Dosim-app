@@ -108,6 +108,7 @@ def run_mod3(args):
     # Mod3 usa flip=True por defecto (compatibilidad MATLAB)
     # --no-flip lo anula a False
     flip_value = not args.no_flip if hasattr(args, 'no_flip') else True
+    patient_id = getattr(args, 'patient_id', None) or "Desconocido"
     orchestrator = PipelineMod3(
         scene_path=args.scene,
         mctal_path=args.mctal,
@@ -117,6 +118,7 @@ def run_mod3(args):
         reset=args.reset,
         flip=flip_value,
         no_consola=args.no_consola,
+        patient_id=patient_id,
     )
     orchestrator.run()
 

@@ -25,6 +25,7 @@ from PipelineOrchestrator.utils import logger as base_logger, add_module_path, s
 from PipelineOrchestrator.views import setup_medical_views, load_pipeline_config
 from PipelineOrchestrator.comandos import ConsolaComandos
 from PipelineOrchestrator import ai_supervisor
+from PipelineOrchestrator.latex_report_generator import generate_latex_report
 
 # ─── Reutilizar funciones de run_dosimetry_from_scene ────────────────────────
 from PipelineOrchestrator.run_dosimetry_from_scene import (
@@ -114,6 +115,7 @@ class PipelineMod3:
         reset: bool = False,
         flip: bool = True,
         no_consola: bool = False,
+        patient_id: Optional[str] = None,
     ):
         """
         Args:
@@ -132,6 +134,7 @@ class PipelineMod3:
         self.labelmap_path = labelmap_path or LABELMAP_DEFAULT
         self.activity_gbq_input = activity_gbq
         self.flip = flip
+        self.patient_id = patient_id
 
         if output_dir:
             self.output_dir = output_dir
@@ -989,6 +992,64 @@ class PipelineMod3:
         logger.info(f"  Tumor:        {mird['tumor']['mean_dose_gy']:.2f} Gy")
         logger.info(f"  Peritumoral:  {mird['pretumor']['mean_dose_gy']:.2f} Gy")
 
+    # ── Helpers para reporte LaTeX ──
+
+    def _build_structure_list_for_latex(self):
+        """Convierte results_data['structures'] al formato esperado por generate_latex_report."""
+        struct_labels = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
+        result = []
+        for name, s in self.results_data.get("structures", {}).items():
+            result.append({
+                "label": struct_labels.get(name, name),
+                "n_voxels": s.get("n_voxels", 0),
+                "volume_cm3": s.get("volume_cm3", 0),
+                "mean_dose_gy": s.get("mean_dose_gy", 0),
+                "d98_gy": s.get("d98_gy", 0),
+                "d70_gy": s.get("d70_gy", 0),
+                "d50_gy": s.get("d50_gy", 0),
+                "d2_gy": s.get("d2_gy", 0),
+                "bed_gy": s.get("bed_gy", 0),
+                "eud_gy": s.get("eud_gy", 0),
+                "eqd2_gy": s.get("eqd2_gy", 0),
+            })
+        return result
+
+    def _build_mird_list_for_latex(self):
+        """Convierte results_data['mird'] al formato esperado por generate_latex_report."""
+        mird_labels = {"liver": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
+        result = []
+        for name, m in self.results_data.get("mird", {}).items():
+            result.append({
+                "label": mird_labels.get(name, name),
+                "n_voxels": m.get("n_voxels", 0),
+                "mean_dose_gy": m.get("mean_dose_gy", 0),
+            })
+        if not result:
+            # placeholder si no hay datos MIRD
+            result = [
+                {"label": "Hígado", "n_voxels": 0, "mean_dose_gy": 0},
+                {"label": "Tumor", "n_voxels": 0, "mean_dose_gy": 0},
+            ]
+        return result
+
+    @property
+    def _alpha_beta_rows(self):
+        """Tabla alpha/beta para reporte LaTeX."""
+        return [
+            {"label": "Hígado sano", "value": ALPHA_BETA_LIVER, "type": "Tardío"},
+            {"label": "Tumor", "value": ALPHA_BETA_TUMOR, "type": "Agudo"},
+        ]
+
+    @property
+    def _density_rows(self):
+        """Tabla densidades para reporte LaTeX."""
+        return [
+            {"material": "Hígado", "density": DENSIDAD_LIVER, "use": "Parénquima hepático"},
+            {"material": "Tumor", "density": DENSIDAD_TUMOR, "use": "Lesión tumoral"},
+            {"material": "Tejido blando", "density": DENSIDAD_BODY, "use": "Fondo corporal"},
+            {"material": "Aire", "density": DENSIDAD_AIR, "use": "Aire / pulmón"},
+        ]
+
     # ── 8. Exportar reporte ──
 
     def _export_report(self):
@@ -1052,7 +1113,7 @@ class PipelineMod3:
         self._report_txt_path = report_txt_path
         logger.info(f"  Reporte TXT: {report_txt_path}")
 
-        # PDF
+        # PDF (legacy)
         try:
             pdf_path = generate_pdf_report(
                 self.results_data,
@@ -1061,11 +1122,29 @@ class PipelineMod3:
             )
             if pdf_path:
                 self.pdf_path = pdf_path
-                logger.info(f"  Reporte PDF: {pdf_path}")
+                logger.info(f"  Reporte PDF (legacy): {pdf_path}")
             else:
                 logger.warning("  generate_pdf_report devolvio None")
         except Exception as e:
-            logger.warning(f"  Error generando PDF: {e}")
+            logger.warning(f"  Error generando PDF legacy: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
+
+        # PDF (LaTeX - nuevo)
+        try:
+            # generate_latex_report recibe el dict results_data completo
+            latex_pdf_path = generate_latex_report(
+                results_data=self.results_data,
+                output_dir=self.output_dir,
+                patient_id=self.patient_id or "Desconocido",
+                dvh_curves=self.dvh_curves_for_pdf if self.dvh_curves_for_pdf else None,
+            )
+            if latex_pdf_path:
+                logger.info(f"  Reporte PDF (LaTeX): {latex_pdf_path}")
+            else:
+                logger.warning("  generate_latex_report devolvio None")
+        except Exception as e:
+            logger.warning(f"  Error generando PDF LaTeX: {e}")
             import traceback
             logger.warning(traceback.format_exc())
 

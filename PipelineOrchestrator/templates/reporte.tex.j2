@@ -1,0 +1,269 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fontspec}
+\setmainfont{Calibri}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\setlength{\headheight}{13.6pt}
+\fancyhf{}
+\fancyhead[L]{\small 3Dosim v4}
+\fancyhead[R]{\small Reporte de Dosimetr\'ia}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\usepackage{siunitx}
+\usepackage{caption}
+\captionsetup{labelsep=period}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+\definecolor{primaryblue}{HTML}{1B2A4A}
+\definecolor{accentblue}{HTML}{2E86AB}
+\definecolor{lightgray}{HTML}{F0F4F8}
+\definecolor{darktext}{HTML}{1F2937}
+\definecolor{graymuted}{HTML}{6B7280}
+
+\newcommand{\formulabox}[1]{%
+  \begin{center}%
+    \fbox{\parbox{0.85\textwidth}{\begin{equation*}#1\end{equation*}}}%
+  \end{center}%
+}
+
+\begin{document}
+
+% ── Portada ────────────────────────────────────────────────────────
+\begin{titlepage}
+\begin{center}
+\vspace*{2cm}
+{\Huge\bfseries\color{primaryblue} Reporte de Dosimetr\'ia 3D}
+\\[0.5cm]
+{\Large Radioembolizaci\'on con $^{90}$Y}
+\\[2cm]
+{\large\bfseries 3Dosim v4}
+\\[0.3cm]
+{\small Dosimetr\'ia 3D para Medicina Nuclear}
+\\[2cm]
+\begin{tabular}{rl}
+\BLOCK{if patient_id}
+  Paciente ID: & {\bfseries\large \VAR{patient_id | latex}} \\
+\BLOCK{endif}
+\BLOCK{if scene_name}
+  Escena: & \VAR{scene_name | latex} \\
+\BLOCK{endif}
+\BLOCK{if mctal_name}
+  MCTAL: & \VAR{mctal_name | latex} \\
+\BLOCK{endif}
+  Fecha de generaci\'on: & \VAR{gen_date} \\
+\end{tabular}
+\vfill
+\end{center}
+\end{titlepage}
+
+% ── Secci\'on 1: Informaci\'on del Estudio ─────────────────────────
+\section{Informaci\'on del Estudio}
+\begin{tabular}{ll}
+\BLOCK{if patient_id}
+  ID del Paciente: & {\bfseries \VAR{patient_id | latex}} \\
+\BLOCK{endif}
+  Actividad: & \VAR{activity_gbq | fmt4} GBq \\
+  NPS (historias): & \VAR{nps | commas} \\
+\BLOCK{if dim_x}
+  Dimensiones grilla: & \VAR{dim_x} $\times$ \VAR{dim_y} $\times$ \VAR{dim_z} \\
+\BLOCK{endif}
+\BLOCK{if flip}
+  Flip Y: & Aplicado \\
+\BLOCK{else}
+  Flip Y: & No aplicado \\
+\BLOCK{endif}
+\end{tabular}
+
+% ── Secci\'on 2: Par\'ametros F\'isicos y Radiobiol\'ogicos ────────
+\section{Par\'ametros F\'isicos y Radiobiol\'ogicos}
+
+\subsection{Constantes del Modelo $^{90}$Y}
+\begin{tabular}{lcc}
+\toprule
+Par\'ametro & Valor & Unidad \\
+\midrule
+Vida media $t_{1/2}$ & \VAR{y90_half_life_h | fmt1} & horas \\
+Constante de decaimiento $\lambda$ & \VAR{lamda_decay | fmt4} & h$^{-1}$ \\
+Tasa de reparaci\'on $\mu$ & \VAR{mu_repair | fmt2} & h$^{-1}$ \\
+Vida media $\tau$ & \VAR{tau_seconds | commas} & segundos \\
+Conversi\'on MeV a J & \VAR{mev2j | fmt2e} & J/MeV \\
+Constante $K$ MIRD & 48.98 & J$\cdot$s \\
+\bottomrule
+\end{tabular}
+
+\subsection{Relaciones $\alpha/\beta$ por Estructura}
+\begin{tabular}{lcc}
+\toprule
+Estructura & $\alpha/\beta$ (Gy) & Tipo \\
+\midrule
+\BLOCK{for row in alpha_beta_rows}
+  \VAR{row.label} & \VAR{row.value | fmt1} & \VAR{row.type} \\
+\BLOCK{endfor}
+\bottomrule
+\end{tabular}
+
+\subsection{Densidades por Tejido}
+\begin{tabular}{lcc}
+\toprule
+Material & Densidad (g/cm$^3$) & Uso \\
+\midrule
+\BLOCK{for row in density_rows}
+  \VAR{row.material} & \VAR{row.density | fmt3} & \VAR{row.use} \\
+\BLOCK{endfor}
+\bottomrule
+\end{tabular}
+
+\subsection{F\'ormulas de Conversi\'on}
+
+Conversi\'on de MeV/cm$^3$ a Gray:
+\formulabox{%
+  D\,[\mathrm{Gy}] = D\,[\mathrm{MeV/cm}^3] \times 1.6 \times 10^{-13} \times \tau \times \mathrm{Actividad} \times 1000
+}
+
+Dosis Biol\'ogicamente Efectiva (BED):
+\formulabox{%
+  \mathrm{BED} = D + \frac{\lambda}{(\alpha/\beta)(\lambda + \mu)} \cdot D^2
+}
+
+Dosis Uniforme Equivalente (EUD):
+\formulabox{%
+  \mathrm{EUD} = \left( \sum_i v_i \cdot D_i^a \right)^{1/a}
+}
+
+Dosis Equivalente en Fracciones de 2 Gy (EQD2):
+\formulabox{%
+  \mathrm{EQD2} = \frac{\mathrm{BED}}{1 + \frac{2}{\alpha/\beta}}
+}
+
+% ── Secci\'on 3: Resultados Dosim\'etricos por Estructura ───────────
+\section{Resultados Dosim\'etricos por Estructura}
+
+\BLOCK{if not has_structures}
+\begin{center}
+{\large\bfseries\color{red} No hay datos dosim\'etricos disponibles.}
+\end{center}
+\BLOCK{else}
+\begin{table}[h!]
+\centering
+\caption{Resumen dosim\'etrico por estructura.}
+\begin{tabular}{lcccccccc}
+\toprule
+Estructura & Voxeles & Vol (cm$^3$) & $D_{\text{media}}$ (Gy) & $D_{98}$ (Gy) & $D_{70}$ (Gy) & $D_{50}$ (Gy) & $D_{2}$ (Gy) \\
+\midrule
+\BLOCK{for s in structure_list}
+  \VAR{s.label} & \VAR{s.n_voxels | commas} & \VAR{s.volume_cm3 | fmt1} & \VAR{s.mean_dose_gy | fmt2} & \VAR{s.d98_gy | fmt2} & \VAR{s.d70_gy | fmt2} & \VAR{s.d50_gy | fmt2} & \VAR{s.d2_gy | fmt2} \\
+\BLOCK{endfor}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\BLOCK{if has_biophysical}
+\begin{table}[h!]
+\centering
+\caption{Par\'ametros radiobiol\'ogicos.}
+\begin{tabular}{lccc}
+\toprule
+Estructura & BED (Gy) & EUD (Gy) & EQD2 (Gy) \\
+\midrule
+\BLOCK{for s in structure_list}
+  \VAR{s.label} & \VAR{s.bed_gy | fmt2} & \VAR{s.eud_gy | fmt2} & \VAR{s.eqd2_gy | fmt2} \\
+\BLOCK{endfor}
+\bottomrule
+\end{tabular}
+\end{table}
+\BLOCK{endif}
+\BLOCK{endif}
+
+% ── Secci\'on 4: Modelo de Partici\'on MIRD ───────────────────────
+\section{Modelo de Partici\'on MIRD}
+
+\begin{table}[h!]
+\centering
+\caption{MIRD Partition Model.}
+\begin{tabular}{lcc}
+\toprule
+Compartimento & Voxeles & Dosis media (Gy) \\
+\midrule
+\BLOCK{for c in mird_list}
+  \VAR{c.label} & \VAR{c.n_voxels | commas} & \VAR{c.mean_dose_gy | fmt2} \\
+\BLOCK{endfor}
+\midrule
+  Actividad total & \multicolumn{2}{c}{\VAR{mird_activity_gbq | fmt4} GBq} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ── Secci\'on 5: Histogramas Dosis-Volumen (DVH) ──────────────────
+\BLOCK{if has_dvh}
+\section{Histogramas Dosis-Volumen (DVH)}
+
+\BLOCK{if dvh_combined_rel}
+\begin{figure}[h!]
+\centering
+\includegraphics[width=\textwidth]{\VAR{dvh_combined_rel}}
+\caption{DVH combinado — todas las estructuras. Escala logar\'itmica en Y.}
+\label{fig:dvh_combined}
+\end{figure}
+\BLOCK{endif}
+
+\BLOCK{if dvh_individual_files}
+\begin{figure}[h!]
+\centering
+\BLOCK{for fname in dvh_individual_files[:3]}
+  \includegraphics[width=0.49\textwidth]{figures/\VAR{fname}}
+  \BLOCK{if not loop.last}\hfill\BLOCK{endif}
+\BLOCK{endfor}
+\caption{DVH individual por estructura.}
+\label{fig:dvh_individual}
+\end{figure}
+\BLOCK{endif}
+\BLOCK{endif}
+
+% ── Secci\'on 6: Im\'agenes del pipeline ──────────────────────────
+\BLOCK{if has_screenshots}
+\section{Im\'agenes del pipeline}
+
+\BLOCK{for spath in screenshot_list}
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.92\textwidth]{\VAR{spath}}
+\caption{Captura del pipeline: \VAR{spath.split("/")[-1].replace("_", "\_")}}
+\label{fig:ss_\VAR{loop.index}}
+\end{figure}
+\BLOCK{endfor}
+\BLOCK{endif}
+
+% ── Secci\'on 7: Conclusiones ──────────────────────────────────────
+\section{Conclusiones}
+
+\begin{itemize}
+\BLOCK{if tumor_dmax > 0}
+  \item Dosis m\'axima en tumor: \VAR{tumor_dmax | fmt2} Gy
+\BLOCK{endif}
+\BLOCK{if tumor_dmean > 0}
+  \item Dosis media en tumor: \VAR{tumor_dmean | fmt2} Gy
+\BLOCK{endif}
+\BLOCK{if liver_dmean > 0}
+  \item Dosis media en h\'igado sano: \VAR{liver_dmean | fmt2} Gy
+\BLOCK{endif}
+\BLOCK{if ratio > 0}
+  \item Relaci\'on tumor/h\'igado: \VAR{ratio | fmt2}
+\BLOCK{endif}
+\end{itemize}
+
+\noindent Reporte generado por \textbf{3Dosim v4} el \VAR{gen_date}.
+
+\end{document}
