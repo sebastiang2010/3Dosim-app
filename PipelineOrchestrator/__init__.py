@@ -25,6 +25,7 @@ Estructura modular que luego se promocionara a SlicerDosimLib/orchestrator/:
     pipeline_mod1.py       - Pipeline Mod1: carga, segmentacion, tumor
     pipeline_mod2.py       - Pipeline Mod2: generacion MCNP desde escena
     pipeline_mod3.py       - Pipeline Mod3: analisis dosimetrico desde MCTAL
+    isodose_contours.py    - Curvas/superficies de isodosis (SlicerRT o VTK fallback)
 
 Todos los imports internos son ABSOLUTOS (from PipelineOrchestrator.xxx)
 para compatibilidad con 3D Slicer --python-script.
