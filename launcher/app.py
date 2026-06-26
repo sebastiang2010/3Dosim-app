@@ -22,7 +22,7 @@ import time
 from typing import Optional
 
 from PyQt5.QtCore import (
-    Qt, QTimer, QThread, pyqtSignal, QSize, QProcess, QUrl
+    Qt, QTimer, QThread, QObject, pyqtSignal, QSize, QProcess, QUrl
 )
 from PyQt5.QtGui import (
     QFont, QIcon, QPixmap, QColor, QPalette, QTextCursor,
@@ -41,6 +41,18 @@ from PyQt5.QtWidgets import (
 # ── Logging ──
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("Launcher")
+
+# ── Trace file log (para debug de crash — el UI log no alcanza) ──
+_TRACE_LOG = os.path.join(os.path.dirname(__file__), "trace.log")
+def _trace(msg: str):
+    """Escribe a trace.log con timestamp. No falla si no puede."""
+    try:
+        import datetime
+        ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        with open(_TRACE_LOG, "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] {msg}\n")
+    except Exception:
+        pass
 
 # ── Paths ──
 _PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
@@ -490,7 +502,7 @@ class ConfigDialog(QDialog):
                     }}
                     QPushButton:hover {{ background: {BORDER}; }}
                 """)
-                browse.clicked.connect(lambda: self._browse_dir(key))
+                browse.clicked.connect(lambda _, k=key: self._browse_dir(k))
                 row.addWidget(browse)
 
             elif ftype == "file":
@@ -507,7 +519,7 @@ class ConfigDialog(QDialog):
                     }}
                     QPushButton:hover {{ background: {BORDER}; }}
                 """)
-                browse.clicked.connect(lambda: self._browse_file(key))
+                browse.clicked.connect(lambda _, k=key: self._browse_file(k))
                 row.addWidget(browse)
 
             # Wrap conditional rows in container for show/hide
@@ -645,18 +657,29 @@ class ConfigDialog(QDialog):
 
     def _browse_dir(self, key: str):
         path = QFileDialog.getExistingDirectory(self, "Seleccionar directorio")
+        _trace(f"ConfigDialog._browse_dir({key!r}) → {(path[:80] if path else 'CANCEL')!r}")
         if path and key in self._widgets:
             if isinstance(self._widgets[key], QLineEdit):
                 self._widgets[key].setText(path)
 
     def _browse_file(self, key: str):
-        # Filtros por extension: mrb (escenas), mctal/mctall/m (output MCNP), nii/nrrd (imagenes)
+        """Abre selector de archivo con filtro especifico segun key."""
+        if key == "scene_path":
+            filtro = "Escenas (*.mrb)"
+        elif key == "mctal_path":
+            filtro = "Output MCNP (*.mctal *.mctall *.m)"
+        elif key == "tumor_file":
+            filtro = "Imagenes (*.nii *.nii.gz *.nrrd)"
+        else:
+            filtro = "All files (*)"
+        # DEBUG: loguear al parent si existe (se ve en el panel del launcher)
+        parent_win = self.parent()
+        if parent_win and hasattr(parent_win, '_log'):
+            parent_win._log.log(f"[FILTRO] key={key!r} → {filtro}", "info")
         path, _ = QFileDialog.getOpenFileName(
-            self, "Seleccionar archivo", "",
-            "Archivos soportados (*.mrb *.mctal *.mctall *.m *.nii *.nii.gz *.nrrd);;"
-            "Escenas (*.mrb);;Output MCNP (*.mctal *.mctall *.m);;Imagenes (*.nii *.nii.gz *.nrrd);;"
-            "All (*)"
+            self, "Seleccionar archivo", "", filtro, filtro
         )
+        _trace(f"ConfigDialog._browse_file({key!r}, filtro={filtro!r}) → {(path[:80] if path else 'CANCEL')!r}")
         if path and key in self._widgets:
             if isinstance(self._widgets[key], QLineEdit):
                 self._widgets[key].setText(path)
@@ -884,6 +907,12 @@ class SettingsDialog(QDialog):
 # VENTANA PRINCIPAL
 # ======================================================================
 
+class _SlicerDoneSignal(QObject):
+    """Worker QObject para emitir señal thread->main de forma segura."""
+    finished = pyqtSignal(int, int)  # mod_id, return_code
+    log_line = pyqtSignal(str, str)  # text, level (info|warn|error|ok)
+
+
 class LauncherWindow(QMainWindow):
     """Ventana principal con 3 botones, log y dialogo de config."""
 
@@ -906,6 +935,9 @@ class LauncherWindow(QMainWindow):
         super().__init__()
         self._slicer_process: Optional[QProcess] = None
         self._build_ui()
+        # Señal para comunicacion thread-safe desde el monitor thread
+        self.slicer_done = _SlicerDoneSignal()
+        self.slicer_done.finished.connect(self._on_slicer_done)
 
     def _build_ui(self):
         self.setWindowTitle("3Dosim Launcher v4.0")
@@ -1044,6 +1076,7 @@ class LauncherWindow(QMainWindow):
         """Manejador: ejecuta modulo.
         Todos los modulos muestran dialogo de config pre-poblado.
         """
+        _trace(f"_on_module_click({mod_id}) — inicio")
         self._log.log(f"▶ Preparando Modulo {mod_id}...")
         config = _load_config()
         defaults = self._get_defaults(mod_id, config)
@@ -1055,6 +1088,7 @@ class LauncherWindow(QMainWindow):
             return
 
         user_config = dialog.get_config()
+        _trace(f"_on_module_click({mod_id}) — config aceptada: {user_config}")
         self._log.log(f"Mod{mod_id}: Configuracion aceptada", "ok")
         for k, v in user_config.items():
             s = str(v)
@@ -1127,27 +1161,30 @@ class LauncherWindow(QMainWindow):
 
     def _launch_slicer(self, mod_id: int, config: dict):
         """Lanza Slicer con el pipeline correspondiente."""
+        _trace(f"_launch_slicer({mod_id}) — inicio")
         if not os.path.exists(_SLICER_EXE):
+            _trace(f"_launch_slicer — SLICER_EXE no existe: {_SLICER_EXE}")
             QMessageBox.critical(self, "Error",
                                  f"Slicer no encontrado:\n{_SLICER_EXE}")
             return
         if not os.path.exists(_MAIN_PIPELINE):
+            _trace(f"_launch_slicer — MAIN_PIPELINE no existe: {_MAIN_PIPELINE}")
             QMessageBox.critical(self, "Error",
                                  f"Pipeline no encontrado:\n{_MAIN_PIPELINE}")
             return
 
         # 1. Guardar config temporal con las opciones del usuario
+        _trace(f"_launch_slicer({mod_id}) — aplicando config override")
         self._apply_config_override(mod_id, config)
 
-        # 2. Construir comando
-        cmd = [f'"{_SLICER_EXE}"', "--python-script", f'"{_MAIN_PIPELINE}"']
+        # 2. Construir comando como LISTA (sin comillas embebidas — shell=False)
+        script_path = _MAIN_PIPELINE if mod_id in (1, 2) else _RUN_DOSIMETRY
+        cmd = [_SLICER_EXE, "--python-script", script_path]
 
         if mod_id == 1:
-            cmd.append("--modulo")
-            cmd.append("1")
+            cmd += ["--modulo", "1"]
             ct_dir = config.get("ct_dir", "")
             pet_dir = config.get("pet_dir", "")
-            # Determinar parent comun para --data-dir
             if ct_dir and pet_dir:
                 parent = os.path.commonpath([ct_dir, pet_dir])
             elif ct_dir:
@@ -1156,57 +1193,61 @@ class LauncherWindow(QMainWindow):
                 parent = os.path.dirname(pet_dir)
             else:
                 parent = r"C:\MAT\3Dosim\pacientes-\pacientes\Paciente_2"
-            cmd.append("--data-dir")
-            cmd.append(f'"{parent}"')
-            cmd.append("--segmenter")
-            cmd.append("totalsegmentator")
+            cmd += ["--data-dir", parent]
+            cmd += ["--segmenter", "totalsegmentator"]
             if config.get("ts_fast", True):
                 cmd.append("--fast")
             if config.get("ts_force_cpu", True):
                 cmd.append("--force-cpu")
             pid = config.get("patient_id", "").strip()
             if pid:
-                cmd.append("--patient-id")
-                cmd.append(f'"{pid}"')
-            cmd.append("--reset")  # Siempre fresh para Mod1
+                cmd += ["--patient-id", pid]
+            cmd.append("--reset")
 
         elif mod_id == 2:
-            cmd.append("--modulo")
-            cmd.append("2")
+            cmd += ["--modulo", "2"]
             scene = config.get("scene_path", "")
             if scene:
-                cmd.append("--scene")
-                cmd.append(f'"{scene}"')
+                if not os.path.exists(scene):
+                    QMessageBox.warning(self, "Error",
+                                        f"Escena no encontrada:\n{scene}")
+                    return
+                cmd += ["--scene", scene]
             iso = config.get("isotope", "Y-90")
-            cmd.append("--isotope")
-            cmd.append(iso)
+            cmd += ["--isotope", iso]
             nps = config.get("n_particles", 10000000)
-            cmd.append("--n-particles")
-            cmd.append(str(nps))
+            cmd += ["--n-particles", str(nps)]
             if config.get("flip_y", True):
                 cmd.append("--flip")
             if config.get("flip_z", False):
                 cmd.append("--flip-z")
             if config.get("refine_hu", False):
                 cmd.append("--refine-hu")
-            cmd.append("--reset")  # Siempre fresh para Mod2 (usuario final)
+            cmd.append("--reset")
 
         elif mod_id == 3:
-            cmd = [f'"{_SLICER_EXE}"', "--python-script", f'"{_RUN_DOSIMETRY}"']
             scene = config.get("scene_path", "")
             if scene:
-                cmd.append("--scene")
-                cmd.append(f'"{scene}"')
+                if not os.path.exists(scene):
+                    QMessageBox.warning(self, "Error",
+                                        f"Escena no encontrada:\n{scene}")
+                    return
+                cmd += ["--scene", scene]
             mctal = config.get("mctal_path", "")
             if mctal:
-                cmd.append("--mctal")
-                cmd.append(f'"{mctal}"')
+                if not os.path.exists(mctal):
+                    QMessageBox.warning(self, "Error",
+                                        f"MCTAL no encontrado:\n{mctal}")
+                    return
+                cmd += ["--mctal", mctal]
             act = config.get("activity_gbq", -1.0)
             if act > 0:
-                cmd.append("--activity")
-                cmd.append(str(act))
+                cmd += ["--activity", str(act)]
 
-        cmd_str = " ".join(cmd)
+        # String solo para display (con comillas en paths con espacios)
+        cmd_str = " ".join(
+            f'"{x}"' if " " in x else x for x in cmd
+        )
 
         self._log.log(f"🚀 Lanzando Slicer...")
         self._log.log(f"  $ {cmd_str[:200]}...", "info")
@@ -1221,55 +1262,80 @@ class LauncherWindow(QMainWindow):
         )
         _PIPELINE_LOG = os.path.join(_RESULTADOS_DIR, "logs", "pipeline.log")
 
+        # Capturar stderr para diagnóstico
+        _stderr_lines = []
+
         # Ejecutar en hilo para no bloquear UI
-        def run():
+        def run(cmd_list=cmd, pipeline_log=_PIPELINE_LOG, stderr_lines=_stderr_lines):
             try:
                 proc = subprocess.Popen(
-                    cmd_str,
-                    shell=True,
+                    cmd_list,
+                    shell=False,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    text=True,
                 )
-                # Monitorear pipeline.log en tiempo real
+                # Monitorear pipeline.log en tiempo real + stderr
                 last_size = 0
                 validation_detected = False
-                if os.path.exists(_PIPELINE_LOG):
-                    last_size = os.path.getsize(_PIPELINE_LOG)
+                if os.path.exists(pipeline_log):
+                    last_size = os.path.getsize(pipeline_log)
                 while proc.poll() is None:
-                    if os.path.exists(_PIPELINE_LOG):
-                        curr_size = os.path.getsize(_PIPELINE_LOG)
+                    # Leer stderr en vivo
+                    err_line = proc.stderr.readline() if proc.stderr else ""
+                    if err_line:
+                        stderr_lines.append(err_line.rstrip())
+                    # Leer pipeline.log
+                    if os.path.exists(pipeline_log):
+                        curr_size = os.path.getsize(pipeline_log)
                         if curr_size > last_size:
-                            with open(_PIPELINE_LOG, "r", encoding="utf-8", errors="replace") as f:
+                            with open(pipeline_log, "r", encoding="utf-8", errors="replace") as f:
                                 f.seek(last_size)
                                 for line in f:
                                     if line.strip():
                                         QTimer.singleShot(0, lambda l=line: self._log.log(l.strip()[:250]))
-                                        # Detectar validacion medica y traer Slicer al frente
                                         if ("VALIDACION MEDICA" in line or "validacion medica" in line.lower()) and not validation_detected:
                                             validation_detected = True
                                             QTimer.singleShot(100, lambda: _activate_slicer_window())
                                             QTimer.singleShot(300, lambda: _activate_slicer_window())
                             last_size = curr_size
                     time.sleep(0.5)
+                # Leer stderr restante
+                if proc.stderr:
+                    for line in proc.stderr:
+                        line = line.rstrip()
+                        if line:
+                            stderr_lines.append(line)
                 return_code = proc.returncode
 
-                # Leer resto del log
-                if os.path.exists(_PIPELINE_LOG):
-                    with open(_PIPELINE_LOG, "r", encoding="utf-8", errors="replace") as f:
+                # Leer resto del log (usando TIMER para no tocar UI desde thread)
+                if os.path.exists(pipeline_log):
+                    with open(pipeline_log, "r", encoding="utf-8", errors="replace") as f:
                         f.seek(last_size)
                         for line in f:
                             if line.strip():
-                                self._log.log(line.strip()[:250])
+                                QTimer.singleShot(0, lambda l=line: self._log.log(l.strip()[:250]))
 
-                QTimer.singleShot(0, lambda: self._on_slicer_done(mod_id, return_code))
+                # Si fallo y hay stderr, mostrarlo (tambien via timer)
+                if return_code != 0 and stderr_lines:
+                    for l in stderr_lines[-20:]:
+                        QTimer.singleShot(0, lambda ll=l: self._log.log(f"  {ll}", "error"))
+
+                _trace(f"_launch_slicer: Slicer termino (rc={return_code})")
+                # Usar señal Qt en vez de QTimer.singleShot (mas robusta entre threads)
+                self.slicer_done.finished.emit(mod_id, return_code)
             except Exception as e:
+                _trace(f"_launch_slicer: EXCEPCION en thread: {e}")
                 QTimer.singleShot(0, lambda: self._log.log(f"Error lanzando Slicer: {e}", "error"))
                 QTimer.singleShot(0, lambda: self._progress.setVisible(False))
 
+        _trace(f"_launch_slicer({mod_id}) — iniciando thread")
         threading.Thread(target=run, daemon=True).start()
+        _trace(f"_launch_slicer({mod_id}) — thread iniciado, retornando")
 
     def _on_slicer_done(self, mod_id: int, return_code: int):
         """Callback cuando Slicer termina."""
+        _trace(f"_on_slicer_done(mod={mod_id}, rc={return_code})")
         self._progress.setVisible(False)
         if return_code == 0:
             self._log.log(f"✅ Mod{mod_id} completado exitosamente", "ok")

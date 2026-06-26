@@ -70,10 +70,18 @@ echo %GREEN%[OK] Launcher encontrado%RESET%
 echo.
 echo %GREEN%Iniciando launcher...%RESET%
 echo.
-start "3Dosim v4" python "%LAUNCHER%"
+
+:: Redirigir stderr a un log para debug
+set "ERRLOG=%V4_ROOT%\launcher\error.log"
+python "%LAUNCHER%" 2>>"%ERRLOG%"
+
+if exist "%ERRLOG%" (
+    for %%F in ("%ERRLOG%") do if %%~zF gtr 0 (
+        echo %RED%[ERROR] Se detectaron errores. Revise: %ERRLOG%%RESET%
+    )
+)
 
 echo.
-echo %CYAN%Launcher iniciado en ventana separada.%RESET%
-echo %CYAN%Para modo debug:  python launcher/main.py --debug%RESET%
+echo %CYAN%Launcher cerrado.%RESET%
 echo.
 timeout /t 3 /nobreak >nul
