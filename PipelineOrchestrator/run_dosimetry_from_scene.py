@@ -13,8 +13,8 @@ Genera:
 
 Uso:
   Slicer.exe --python-script run_dosimetry_from_scene.py ^
-      --scene "C:/MAT/3Dosim/ai-pipe/scenes/3Dosim_scene.mrb" ^
-      --mctal "C:/MAT/3Dosim/corrida-Manu/mctal/mctal.m"
+      --scene-path "C:/MAT/3Dosim/ai-pipe/scenes/3Dosim.mrb" ^
+      --kernel "C:/programas/3Dosim/3Dosim_v4/kernel/kernel.mat"
 
 Sin argumentos busca automaticamente:
   - Escena: C:/MAT/3Dosim/ai-pipe/scenes/3Dosim_scene.mrb
@@ -178,29 +178,35 @@ def load_scene(scene_path: str) -> bool:
     import slicer
     import traceback
 
+    print(f"[3Dosim DEBUG] load_scene() llamado con: {scene_path}", flush=True)
+
     if not os.path.exists(scene_path):
+        print(f"[3Dosim ERROR] Escena NO EXISTE: {scene_path}", flush=True)
         logger.error(f"Escena no encontrada: {scene_path}")
         return False
 
+    tam_mb = os.path.getsize(scene_path) / 1024 / 1024
+    print(f"[3Dosim DEBUG] Escena existe: {tam_mb:.1f} MB", flush=True)
     logger.info(f"Cargando escena: {scene_path}")
-    logger.info(f"  Tamano: {os.path.getsize(scene_path) / 1024 / 1024:.1f} MB")
+    logger.info(f"  Tamano: {tam_mb:.1f} MB")
 
+    print(f"[3Dosim] Cargando escena... (puede tardar ~10s)", flush=True)
     try:
         success = slicer.util.loadScene(scene_path)
     except Exception as e:
         tb = traceback.format_exc()
+        print(f"[3Dosim ERROR] EXCEPCION en loadScene: {e}", flush=True)
+        print(tb, flush=True)
         logger.error(f"EXCEPCION en slicer.util.loadScene: {e}")
         logger.error(tb)
-        # Mostrar en consola de Slicer
-        print(f"[3Dosim ERROR] loadScene(): {e}", file=sys.stderr)
-        print(tb, file=sys.stderr)
         return False
 
     if not success:
+        print(f"[3Dosim ERROR] loadScene devolvio False!", flush=True)
         logger.error("slicer.util.loadScene devolvio False (escena no cargada)")
-        print("[3Dosim ERROR] slicer.util.loadScene devolvio False", file=sys.stderr)
         return False
 
+    print(f"[3Dosim OK] Escena cargada correctamente!", flush=True)
     logger.info("Escena cargada correctamente")
     return True
 
@@ -1623,7 +1629,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Pipeline de dosimetria desde escena existente"
     )
-    parser.add_argument("--scene", default=None,
+    parser.add_argument("--scene-path", default=None,
                         help=f"Ruta a escena .mrb (default: {SCENE_DEFAULT})")
     parser.add_argument("--mctal", default=None,
                         help=f"Ruta a archivo MCTAL (default: {MCTAL_DEFAULT})")
@@ -1657,7 +1663,7 @@ def main():
 
     args, _ = parser.parse_known_args()
 
-    scene_path = args.scene or SCENE_DEFAULT
+    scene_path = args.scene_path or SCENE_DEFAULT
     mctal_path = args.mctal or MCTAL_DEFAULT
     kernel_path = args.kernel
     output_dir = args.output_dir
@@ -1688,7 +1694,7 @@ def main():
     # Validacion temprana de archivos obligatorios
     if not os.path.exists(scene_path):
         log(f"ERROR: Escena no encontrada: {scene_path}")
-        print(f"FATAL: El archivo --scene no existe: {scene_path}", file=sys.stderr)
+        print(f"FATAL: El archivo --scene-path no existe: {scene_path}", file=sys.stderr)
         return 1
     if not kernel_path and not os.path.exists(mctal_path):
         log(f"ERROR: MCTAL no encontrado: {mctal_path}")

@@ -1245,7 +1245,7 @@ class LauncherWindow(QMainWindow):
                     QMessageBox.warning(self, "Error",
                                         f"Escena no encontrada:\n{scene}")
                     return
-                cmd += ["--scene", scene]
+            cmd += ["--scene-path", scene]
             iso = config.get("isotope", "Y-90")
             cmd += ["--isotope", iso]
             nps = config.get("n_particles", 10000000)
@@ -1268,7 +1268,7 @@ class LauncherWindow(QMainWindow):
                 QMessageBox.warning(self, "Error",
                                     f"Escena no encontrada:\n{scene}")
                 return
-            cmd += ["--scene", scene]
+            cmd += ["--scene-path", scene]
 
             method = config.get("method", "Kernel")
             if method == "Kernel":
