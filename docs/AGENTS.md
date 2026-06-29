@@ -952,6 +952,32 @@ donde `A = PET .* 1e-9` (GBq/voxel).
 - `LIVER_INDEX = 90`, `TUMOR_INDEX = 100`, `PRETUMOR_INDEX = 200`
 - La mascara post-convolucion incluye los tres: `liver_tumor_mask = (liver \| tumor \| pretumor)`
 
+## Sesion 29-Jun (2) — Fix isodosis + DVH
+
+### Isodosis (identico MATLAB)
+| MATLAB | Python |
+|--------|--------|
+| `v=10:10:100` (10 niveles) | `DEFAULT_ISODOSE_LEVELS_PCT = [10,20,...,100]` |
+| `colormap(jet)` | `_get_jet_colors(10)` — jet 10 muestras |
+| `D31=floor(D31.*100./maximo)` | `smooth3` con `gaussian_filter(sigma=1)` |
+
+### DVH Slicer
+- Puntos reducidos de 1000 a 200 (evita saturacion plot)
+- Eje X forzado con `SetXAxisRange(0, Dmax*1.05)`
+
+### Percentiles DVH corregidos
+| Antes (mal) | Ahora (bien) |
+|-------------|--------------|
+| `np.percentile(doses_pos, ajuste)` sobre no-cero | `np.percentile(doses, p)` sobre TODOS los voxeles |
+| d98 con formula erronea | d98 = `np.percentile(doses, 2)` |
+
+### Archivos modificados
+| Archivo | Cambio |
+|---------|--------|
+| `isodose_contours.py` | 10 niveles 10-100%, jet colormap, smooth3 |
+| `run_dosimetry_from_scene.py` | DVH: 200 puntos en vez de 1000. Percentiles sobre todos los voxeles |
+| `pipeline_config.jsonc` | isodose.levels_pct = [10..100] (10 niveles) |
+
 ### Pendiente
 - Probar pipeline completo dentro de Slicer con `mode: ts_liver_lesions` y verificar actividad PET en cartel.
 - Si funciona, probar con Paciente_2 completo (segmentacion → tumor → exportacion → dosis).

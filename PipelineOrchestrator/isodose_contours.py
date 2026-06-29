@@ -3,23 +3,49 @@ isodose_contours.py - Generacion de curvas/superficies de isodosis.
 
 Usa el modulo Isodose de SlicerRT (vtkSlicerIsodoseModuleLogic) si esta disponible.
 Si no, usa vtkImageMarchingCubes como fallback (siempre disponible en Slicer).
+
+Isodosis relativas (% del maximo), identico MATLAB:
+  D31 = smooth3(D3);
+  D31 = floor(D31 .* 100 ./ maximo);
+  v = 10:10:100;  % 10 niveles
+  ncolor = 10; map = colormap(jet);
 """
 
 import logging
+import numpy as np
 logger = logging.getLogger(__name__)
 
-# Niveles de isodosis default (Gy) - coinciden con SlicerRT defaults
-DEFAULT_ISODOSE_LEVELS = [5, 10, 15, 20, 25, 30]
+# Niveles de isodosis default (% del maximo) - identico MATLAB v=10:10:100
+DEFAULT_ISODOSE_LEVELS_PCT = list(range(10, 101, 10))  # [10, 20, ..., 100], 10 niveles
 
-# Colores para cada nivel (R, G, B) - coinciden con Isodose_ColorTable.ctbl
-ISODOSE_COLORS = [
-    (0.0, 1.0, 0.0),      #  5 Gy:  verde
-    (0.5, 1.0, 0.0),      # 10 Gy:  verde claro
-    (1.0, 1.0, 0.0),      # 15 Gy:  amarillo
-    (1.0, 0.66, 0.0),     # 20 Gy:  naranja
-    (1.0, 0.33, 0.0),     # 25 Gy:  naranja oscuro
-    (1.0, 0.0, 0.0),      # 30 Gy:  rojo
-]
+# Colores jet con 10 muestras (MATLAB: colormap(jet), ncolor=10)
+_JET_COLORS = None
+def _get_jet_colors(n=10):
+    global _JET_COLORS
+    if _JET_COLORS is None or len(_JET_COLORS) != n:
+        # Jet colormap: n muestras uniformes (idem MATLAB)
+        # jet = [(0,0,0.5) -> (0,0,1) -> (0,1,1) -> (1,1,0) -> (1,0,0) -> (0.5,0,0)]
+        # Muestrear n colores del jet
+        cmap = np.array([
+            [0.000, 0.000, 0.516],
+            [0.000, 0.000, 1.000],
+            [0.000, 0.379, 1.000],
+            [0.000, 0.757, 1.000],
+            [0.000, 0.937, 0.937],
+            [0.379, 1.000, 0.379],
+            [0.757, 1.000, 0.000],
+            [1.000, 0.937, 0.000],
+            [1.000, 0.379, 0.000],
+            [0.500, 0.000, 0.000],
+        ])
+        # Interpolar si n != 10
+        if n != len(cmap):
+            x_old = np.linspace(0, 1, len(cmap))
+            x_new = np.linspace(0, 1, n)
+            _JET_COLORS = [tuple(c) for c in np.interp(x_new, x_old, cmap[:, 0]), np.interp(x_new, x_old, cmap[:, 1]), np.interp(x_new, x_old, cmap[:, 2])]
+        else:
+            _JET_COLORS = [tuple(c) for c in cmap]
+    return _JET_COLORS
 
 _HAS_SLICERRT = None
 
@@ -43,7 +69,7 @@ def _check_slicerrt():
 
 def create_isodose_contours(dose_node, levels=None,
                             show_lines_2d=True, show_surfaces_3d=True,
-                            relative=False):
+                            relative=True):
     """
     Genera curvas/superficies de isodosis.
 
@@ -51,12 +77,10 @@ def create_isodose_contours(dose_node, levels=None,
 
     Args:
         dose_node: vtkMRMLScalarVolumeNode con dosis en Gy.
-        levels: Lista de niveles. Si relative=True, son % (0-100).
-                Si relative=False, son Gy. Default: [5, 10, 15, 20, 25, 30].
+        levels: Lista de niveles en % (0-100). Default: [10,20,...,100].
         show_lines_2d: Mostrar interseccion en slices 2D.
         show_surfaces_3d: Mostrar superficies en vista 3D.
-        relative: Si True, los niveles se interpretan como % de la dosis
-                  maxima. Si False, son valores absolutos en Gy.
+        relative: Si True (default), niveles son % del maximo.
 
     Returns:
         tuple: (model_node, param_node_or_None)
@@ -64,22 +88,20 @@ def create_isodose_contours(dose_node, levels=None,
     import slicer
 
     if levels is None:
-        levels = DEFAULT_ISODOSE_LEVELS
+        levels = DEFAULT_ISODOSE_LEVELS_PCT
 
-    if relative:
-        # Convertir % a Gy absolutos usando el maximo de la dosis
-        import numpy as np
-        arr = slicer.util.arrayFromVolume(dose_node)
-        max_dose = float(np.max(arr))
-        if max_dose > 0:
-            levels_gy = [float(l) * max_dose / 100.0 for l in levels]
-            logger.info(f"  Isodosis relativas: niveles %={levels} → Gy={[f'{v:.1f}' for v in levels_gy]}, max_dose={max_dose:.1f} Gy")
-        else:
-            logger.warning("  Dosis maxima es 0, usando niveles absolutos")
-            levels_gy = list(levels)
-            relative = False
+    # Convertir % a Gy absolutos
+    import numpy as np
+    arr = slicer.util.arrayFromVolume(dose_node)
+    max_dose = float(np.max(arr))
+    if max_dose > 0:
+        levels_gy = [float(l) * max_dose / 100.0 for l in levels]
+        logger.info(f"  Isodosis relativas: niveles %={levels} → Gy={[f'{v:.1f}' for v in levels_gy]}, "
+                    f"max_dose={max_dose:.1f} Gy")
     else:
+        logger.warning("  Dosis maxima es 0, usando niveles por defecto")
         levels_gy = list(levels)
+        relative = False
 
     if _check_slicerrt():
         model_node, param = _create_via_slicerrt(
@@ -100,6 +122,23 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
     """Genera isodosis via SlicerRT Isodose module."""
     import slicer
 
+    # Aplicar smooth3 (Gaussian) a la dosis antes de contornear - identico MATLAB smooth3(D3)
+    try:
+        dose_arr = slicer.util.arrayFromVolume(dose_node)
+        from scipy.ndimage import gaussian_filter
+        dose_smooth = gaussian_filter(dose_arr.astype(np.float64), sigma=1.0)
+        # Crear volumen temporal para isodosis
+        smooth_node = slicer.mrmlScene.AddNewNodeByClass(
+            "vtkMRMLScalarVolumeNode", f"{dose_node.GetName()}_Smoothed")
+        slicer.util.updateVolumeFromArray(smooth_node, dose_smooth)
+        smooth_node.SetSpacing(dose_node.GetSpacing())
+        smooth_node.SetOrigin(dose_node.GetOrigin())
+        smooth_node.SetIJKToRASMatrix(dose_node.GetIJKToRASMatrix())
+        logger.info("  Smooth3 (Gaussian sigma=1) aplicado para isodosis")
+    except Exception as e:
+        logger.warning(f"  Smooth3 fallo, usando dosis original: {e}")
+        smooth_node = dose_node
+
     units_str = "%" if relative else "Gy"
     logger.info(f"Generando isodosis via SlicerRT: {len(levels)} niveles "
                 f"({min(levels):.1f}-{max(levels):.1f} {units_str})")
@@ -109,10 +148,10 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
 
         # Nodo de parametros Isodose
         param_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLIsodoseNode")
-        param_node.SetDoseVolumeNode(dose_node)
+        param_node.SetDoseVolumeNode(smooth_node)
         param_node.SetDoseUnits(0)  # 0 = Gy (el volumen esta en Gy)
 
-        # ── Opcion 7: isolevels relativos (% de la dosis maxima) ──
+        # ── Isolevels relativos (% de la dosis maxima) ──
         try:
             param_node.SetIsodoseRelativeDose(1 if relative else 0)
             logger.info(f"  Isodosis {'relativas (%)' if relative else 'absolutas (Gy)'}")
@@ -120,7 +159,7 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
             logger.warning("  SetIsodoseRelativeDose no disponible en esta version de SlicerRT")
 
         # Tabla de colores
-        isodose_logic.SetupColorTableNodeForDoseVolumeNode(dose_node)
+        isodose_logic.SetupColorTableNodeForDoseVolumeNode(smooth_node)
         color_table_node = param_node.GetColorTableNode()
         if not color_table_node:
             logger.error("  No se pudo crear tabla de colores")
@@ -129,11 +168,11 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
         # Cantidad de niveles
         isodose_logic.SetNumberOfIsodoseLevels(param_node, len(levels))
 
-        # Asignar colores a cada nivel
+        # Asignar colores jet a cada nivel (MATLAB: colormap(jet), ncolor=10)
+        jet_colors = _get_jet_colors(len(levels))
         for i, level in enumerate(levels):
-            color = ISODOSE_COLORS[i % len(ISODOSE_COLORS)]
-            # Etiqueta: mostrar % si es relativo, Gy si es absoluto
-            label = f"{levels_pct[i]:.0f}%" if (relative and levels_pct) else f"{level:.1f} Gy"
+            color = jet_colors[i]
+            label = f"{level:.0f}%" if relative else f"{level:.1f} Gy"
             color_table_node.SetColor(i, label,
                                       color[0], color[1], color[2], 1.0)
 
@@ -186,6 +225,22 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
         if not dose_img:
             logger.error("  El nodo de dosis no tiene ImageData")
             return None, None
+
+        # Aplicar smooth3 (Gaussian) a la dosis - identico MATLAB smooth3(D3)
+        try:
+            dose_arr = slicer.util.arrayFromVolume(dose_node)
+            from scipy.ndimage import gaussian_filter
+            dose_smooth = gaussian_filter(dose_arr.astype(np.float64), sigma=1.0)
+            smooth_node = slicer.mrmlScene.AddNewNodeByClass(
+                "vtkMRMLScalarVolumeNode", f"{dose_node.GetName()}_Smoothed_VTK")
+            slicer.util.updateVolumeFromArray(smooth_node, dose_smooth)
+            smooth_node.SetSpacing(dose_node.GetSpacing())
+            smooth_node.SetOrigin(dose_node.GetOrigin())
+            smooth_node.SetIJKToRASMatrix(dose_node.GetIJKToRASMatrix())
+            dose_img = smooth_node.GetImageData()
+            logger.info("  Smooth3 (Gaussian sigma=1) aplicado para isodosis VTK")
+        except Exception as e:
+            logger.warning(f"  Smooth3 fallo, usando dosis original VTK: {e}")
 
         # Nodo modelo
         base = f"{dose_node.GetName()}_IsodoseLevels"
@@ -242,7 +297,8 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
         final_poly.GetPointData().SetScalars(colors_array)
         model_node.SetAndObservePolyData(final_poly)
 
-        # Tabla de colores
+        # Tabla de colores jet (MATLAB: colormap(jet), ncolor=10)
+        jet_colors = _get_jet_colors(len(levels))
         ctbl = slicer.mrmlScene.AddNewNodeByClass(
             "vtkMRMLColorTableNode",
             f"{model_node.GetName()}_ColorTable"
@@ -251,7 +307,7 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
         ctbl.SetNumberOfColors(len(levels))
         ctbl.GetLookupTable().SetTableRange(0, len(levels) - 1)
         for i, level in enumerate(levels):
-            c = ISODOSE_COLORS[i % len(ISODOSE_COLORS)]
+            c = jet_colors[i]
             ctbl.AddColor(str(level), c[0], c[1], c[2], 1.0)
         ctbl.SaveWithSceneOff()
 

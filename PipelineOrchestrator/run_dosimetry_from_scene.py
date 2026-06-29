@@ -499,17 +499,17 @@ def compute_dvh(
     frac_zero = (n_total - n_nonzero) / n_total * 100
 
     # D98, D70, D50, D2 — percentiles de dosis
-    # Usar SOLO voxeles con dosis > 0 para percentiles clinicos
-    # (voxeles con dosis=0 estan fuera del alcance de la fuente MCNP)
-    # D2 = dosis que cubre el 2% del volumen (punto caliente)
-    doses_pos = doses[doses > 0]
-    if len(doses_pos) > 0:
-        d98 = float(np.percentile(doses_pos, max(2, 100 * (n_total - n_nonzero) / n_total + 2)))
-        d95 = float(np.percentile(doses_pos, 5) if len(doses_pos) >= 10 else 0)
-        d70 = float(np.percentile(doses_pos, 30) if len(doses_pos) >= 10 else 0)
-        d50 = float(np.percentile(doses_pos, 50) if len(doses_pos) >= 10 else 0)
-        d5  = float(np.percentile(doses_pos, 95) if len(doses_pos) >= 10 else 0)
-        d2  = float(np.percentile(doses_pos, 98) if len(doses_pos) >= 10 else 0)
+    # Usar TODOS los voxeles (incluye dosis=0) - identico MATLAB percentil
+    # Dx = dosis que cubre el x% del volumen (min dose to hottest x%)
+    # D98 = dosis al percentil 2 (solo 2% recibe menos)
+    # D2  = dosis al percentil 98 (solo 2% recibe mas)
+    if n_total > 0:
+        d98 = float(np.percentile(doses, 2))
+        d95 = float(np.percentile(doses, 5))
+        d70 = float(np.percentile(doses, 30))
+        d50 = float(np.percentile(doses, 50))
+        d5  = float(np.percentile(doses, 95))
+        d2  = float(np.percentile(doses, 98))
     else:
         d98 = d95 = d70 = d50 = d5 = d2 = 0.0
 
@@ -725,14 +725,15 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         if n == 0 or np.max(doses) <= 0:
             continue
 
-        # --- Algoritmo MATLAB f_HDV.m exacto ---
+        # --- Algoritmo MATLAB f_HDV.m exacto (~200 puntos) ---
         Dmax = float(np.max(doses))
-        delta = Dmax / 1000.0
+        npts = 200
+        delta = Dmax / npts
         d_vals = np.arange(0, Dmax + delta, delta)
         a_vals = np.zeros(len(d_vals))
         for i, d in enumerate(d_vals):
             a_vals[i] = np.sum(doses >= d) * 100.0 / n
-        # ----------------------------------------
+        # ----------------------------------------------------
 
         # Crear tabla con datos DVH (API Slicer 5.8)
         table_node = slicer.mrmlScene.AddNewNodeByClass(
