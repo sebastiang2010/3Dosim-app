@@ -151,19 +151,6 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
 
     # ── Escena ─────────────────────────────────────────────────────────
 
-    def auto_detect_scene(self) -> str:
-        """Busca la escena .mrb mas reciente en SCENE_DIR_DEFAULT."""
-        candidates = []
-        if os.path.isdir(SCENE_DIR_DEFAULT):
-            for f in os.listdir(SCENE_DIR_DEFAULT):
-                if f.endswith(".mrb"):
-                    fp = os.path.join(SCENE_DIR_DEFAULT, f)
-                    candidates.append((os.path.getmtime(fp), fp))
-        if candidates:
-            candidates.sort(reverse=True)
-            return candidates[0][1]
-        return ""
-
     def load_scene_mrb(self, path: str) -> bool:
         """Carga escena .mrb en Slicer."""
         if not os.path.exists(path):
@@ -200,11 +187,6 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
         self.ct_node = ct or nodes.get("ct")
         self.pet_node = nodes.get("pet")
         lm = nodes.get("labelmap")
-        if lm is None:
-            # Fallback: cargar desde archivo
-            lm_path = self._find_labelmap_file()
-            if lm_path:
-                lm = slicer.util.loadVolume(lm_path)
         self.labelmap_node = lm
 
         if self.ct_node is None:
@@ -223,13 +205,6 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
             sp = self.ct_node.GetSpacing()
             self.spacing = (sp[0], sp[1], sp[2])
             self.logger.info(f"CT (sin labelmap): {self.dims}")
-
-    def _find_labelmap_file(self) -> str:
-        """Busca labelmap.nii o labelmap.nrrd en SCENE_DIR_DEFAULT."""
-        for f in os.listdir(SCENE_DIR_DEFAULT):
-            if "labelmap" in f.lower() and (f.endswith(".nii") or f.endswith(".nrrd")):
-                return os.path.join(SCENE_DIR_DEFAULT, f)
-        return ""
 
     @staticmethod
     def _array_from_labelmap(node):
@@ -430,7 +405,14 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
                      kernel_path: str = "",
                      activity_gbq: Optional[float] = None,
                      progress_callback=None) -> dict:
-        """Ejecuta pipeline completo: escena → dosis → DVH → isodosis."""
+        """Ejecuta pipeline completo: escena → dosis → DVH → isodosis.
+        
+        Args:
+            scene_path: Ruta a escena .mrb (OBLIGATORIO, no auto-detecta)
+            kernel_path: Ruta a kernel.mat (opcional, usa default)
+            activity_gbq: Actividad en GBq (opcional, computa de PET si omite)
+            progress_callback: Funcion para reportar progreso
+        """
         t0 = time.time()
         report = {"steps": [], "errors": [], "success": False}
 
@@ -452,13 +434,12 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
                 if progress_callback:
                     progress_callback(f"{name}: FALLO - {e}")
 
-        # 1. Cargar escena
-        sp = scene_path or self.auto_detect_scene()
-        if not sp:
-            step("detectar_escena", lambda: (_ for _ in ()).throw(
-                RuntimeError("No se encontro escena .mrb. Ejecute Modulo 1 primero.")))
+        # 1. Cargar escena (OBLIGATORIO, no auto-detecta)
+        if not scene_path:
+            step("cargar_escena", lambda: (_ for _ in ()).throw(
+                RuntimeError("scene_path es obligatorio. Cargue una escena con el boton o desde el lanzador.")))
         else:
-            step("cargar_escena", lambda: self.load_scene_mrb(sp))
+            step("cargar_escena", lambda: self.load_scene_mrb(scene_path))
 
         # 2. Buscar nodos
         step("buscar_nodos", self.find_scene_nodes)
@@ -526,8 +507,7 @@ class SlicerDosimMod3Widget(ScriptedLoadableModuleWidget):
         # Conectar senales de los botones del .ui
         self._connect_signals()
 
-        # Auto-ejecutar pipeline al cargar
-        self._auto_run()
+        self._log("Modulo 3 listo. Cargue una escena o use el lanzador.")
 
     def _build_fallback_ui(self):
         """UI de respaldo si no se encuentra el archivo .ui."""
@@ -608,21 +588,16 @@ class SlicerDosimMod3Widget(ScriptedLoadableModuleWidget):
         except Exception:
             pass
 
-    def _auto_run(self):
-        """Ejecuta pipeline automaticamente al cargar el modulo."""
-        scene = self.logic.auto_detect_scene()
-        if not scene:
-            self._log("No se detecto escena .mrb. Presione 'Ejecutar Pipeline' o cargue manualmente.")
-            return
-        self._log(f"Escena detectada: {os.path.basename(scene)}")
-        self._log("Iniciando pipeline automatico...")
-        self._on_run_pipeline()
-
     def _on_run_pipeline(self):
-        """Ejecuta pipeline completo."""
+        """Ejecuta pipeline completo con la escena ya cargada."""
         if self._running:
             self._log("Pipeline ya en ejecucion. Espere...")
             return
+
+        if not self.logic.scene_path:
+            self._log("ERROR: No hay escena cargada. Use 'Cargar escena' primero o ejecute desde el lanzador.")
+            return
+
         self._running = True
 
         def progress(msg):
@@ -634,7 +609,10 @@ class SlicerDosimMod3Widget(ScriptedLoadableModuleWidget):
             self._log("INICIANDO PIPELINE MODULO 3")
             self._log("=" * 50)
 
-            report = self.logic.run_pipeline(progress_callback=progress)
+            report = self.logic.run_pipeline(
+                scene_path=self.logic.scene_path,
+                progress_callback=progress,
+            )
 
             self._log("-" * 50)
             if report["success"]:
@@ -673,6 +651,7 @@ class SlicerDosimMod3Widget(ScriptedLoadableModuleWidget):
                 try:
                     self.logic.find_scene_nodes()
                     self._log("Escena cargada. Nodos: CT, PET, Labelmap encontrados.")
+                    self._log("Presione 'Ejecutar Pipeline Completo' para procesar.")
                 except Exception as e:
                     self._log(f"Error buscando nodos: {e}")
             else:
