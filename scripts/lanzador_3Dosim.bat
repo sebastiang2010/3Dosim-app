@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 
 :: ── Paths ──
 set "V4_ROOT=C:\programas\3Dosim\3Dosim_v4"
-set "LAUNCHER=%V4_ROOT%\launcher\main.py"
+set "LAUNCHER=%V4_ROOT%\launcher\app.py"
 
 :: ── Colores ──
 set "CYAN=[96m"

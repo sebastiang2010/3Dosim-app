@@ -53,6 +53,8 @@ import sys
 import time
 from scipy.ndimage import binary_dilation
 
+print(f"[3Dosim SCRIPT INICIADO] argv={sys.argv}", flush=True)
+
 # AI Supervisor (opcional)
 try:
     from PipelineOrchestrator import ai_supervisor
