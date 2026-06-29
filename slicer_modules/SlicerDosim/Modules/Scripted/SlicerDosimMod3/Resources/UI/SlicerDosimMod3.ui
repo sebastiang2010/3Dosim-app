@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SlicerDosimMod3</class>
+ <widget class="qMRMLWidget" name="SlicerDosimMod3">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>520</width>
+    <height>750</height>
+   </rect>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <item>
+    <widget class="QGroupBox" name="groupPipeline">
+     <property name="title">
+      <string>Modulo 3: Analisis Dosimetrico (V4)</string>
+     </property>
+     <layout class="QVBoxLayout" name="pipelineLayout">
+      <item>
+       <widget class="QPushButton" name="btnRun">
+        <property name="text">
+         <string>▶ EJECUTAR PIPELINE COMPLETO (escena → dosis → DVH → isodosis)</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-weight: bold; font-size: 13px; background-color: #27ae60; color: white; padding: 8px;</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnCargarEscena">
+        <property name="text">
+         <string>Cargar escena .mrb (manual)</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupDosis">
+     <property name="title">
+      <string>Dosis y Visualizacion</string>
+     </property>
+     <layout class="QVBoxLayout" name="dosisLayout">
+      <item>
+       <widget class="QPushButton" name="btnCalcularDosis">
+        <property name="text">
+         <string>Calcular dosis 3D (kernel + FFT)</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-weight: bold; background-color: #e67e22; color: white;</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnCalcularDVH">
+        <property name="text">
+         <string>Mostrar DVH en Slicer</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnVisualizarDosis">
+        <property name="text">
+         <string>Mostrar isodosis (10 niveles, jet)</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnCalcularMIRD">
+        <property name="text">
+         <string>Calcular MIRD (partition model)</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupEscena">
+     <property name="title">
+      <string>Persistencia</string>
+     </property>
+     <layout class="QVBoxLayout" name="escenaLayout">
+      <item>
+       <widget class="QPushButton" name="btnGuardarEscena">
+        <property name="text">
+         <string>Guardar escena actual</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupReporte">
+     <property name="title">
+      <string>Reporte</string>
+     </property>
+     <layout class="QVBoxLayout" name="reportLayout">
+      <item>
+       <widget class="QTextEdit" name="txtReporte">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>Resultados del analisis...</string>
+        </property>
+        <property name="styleSheet">
+         <string>font-family: Consolas, monospace; font-size: 10pt;</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnExportarReporte">
+        <property name="text">
+         <string>Exportar reporte PDF</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>qMRMLWidget</class>
+   <extends>QWidget</extends>
+   <header>qMRMLWidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

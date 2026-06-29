@@ -978,7 +978,48 @@ donde `A = PET .* 1e-9` (GBq/voxel).
 | `run_dosimetry_from_scene.py` | DVH: 200 puntos en vez de 1000. Percentiles sobre todos los voxeles |
 | `pipeline_config.jsonc` | isodose.levels_pct = [10..100] (10 niveles) |
 
+## Sesion 29-Jun (3) — Fix SlicerDosimMod3: modulo no cargaba escena
+
+### Problema
+El Modulo 3 dentro de Slicer **no cargaba la escena ni computaba nada**, solo mostraba "terminado exitosamente". Causa raiz:
+- V4 NO tenia `Modules/Scripted/SlicerDosimMod3/` — el modulo solo existia en v_3.14
+- El modulo de v_3.14 era **manual** (boton MCTAL, boton dosis, etc.) y no auto-procesaba nada
+- `setup()` corria sin errores → Slicer deci "modulo cargado", pero sin escena ni dosis
+
+### Solucion
+Creado `SlicerDosimMod3` en V4 como modulo ScriptedLoadableModule completo:
+
+| Archivo | Contenido |
+|---------|-----------|
+| `__init__.py` | Exporta SlicerDosimMod3 |
+| `CMakeLists.txt` | Build system |
+| `SlicerDosimMod3.py` | **NUEVO** — modulo V4 con pipeline automatico |
+| `Resources/UI/SlicerDosimMod3.ui` | UI actualizado para V4 |
+| `Resources/UI/Icons/SlicerDosimMod3.svg` | Icono |
+
+### Que hace el nuevo Modulo 3
+1. **Al abrir el modulo**: auto-detecta escena .mrb en `resultados_test/`
+2. **Auto-ejecuta pipeline**: carga escena → encuentra CT/PET/labelmap → kernel FFT → dosis → DVH → isodosis → guarda escena
+3. **Botones individuales**: Cargar escena, Calcular dosis, DVH, Isodosis, MIRD, Guardar escena, Exportar PDF
+4. **Log en tiempo real**: todos los mensajes aparecen en el txtReporte del UI
+
+### Configuracion para usuario
+Para usar el nuevo modulo:
+1. Slicer → Edit → Settings → Modules → Additional paths:
+   `C:\programas\3Dosim\3Dosim_v4\slicer_modules\SlicerDosim\Modules\Scripted`
+2. Restart Slicer
+3. Los 3 modulos aparecen bajo "3Dosim": SlicerDosim, SlicerDosimMod2, SlicerDosimMod3
+
+### Archivos nuevos
+| Archivo | Ruta |
+|---------|------|
+| `slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/__init__.py` | V4/modules |
+| `slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/CMakeLists.txt` | V4/modules |
+| `slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py` | V4/modules (890 lines) |
+| `slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/Resources/UI/SlicerDosimMod3.ui` | V4/modules |
+
 ### Pendiente
-- Probar pipeline completo dentro de Slicer con `mode: ts_liver_lesions` y verificar actividad PET en cartel.
-- Si funciona, probar con Paciente_2 completo (segmentacion → tumor → exportacion → dosis).
-- Validar dosis Y-90 con MATLAB: comparar max, media, DVH para Paciente_2.
+- Configurar Slicer para usar V4 module path (en vez de v_3.14)
+- Probar modulo 3 dentro de Slicer con escena real de Paciente_2
+- Verificar que dosis Y-90 coincida con MATLAB
+- Si falta SlicerDosimMod2 en V4, crearlo analogamente
