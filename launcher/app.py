@@ -383,10 +383,10 @@ class ConfigDialog(QDialog):
     ]
     MOD3_FIELDS = [
         ("Escena .mrb",                         "scene_path",     "file",   ""),
-        ("Metodo",                              "method",         "combo",  "MCTAL",
-         ["MCTAL", "Kernel"]),
-        ("Archivo MCTAL/MCTALL",                 "mctal_path",    "file",   ""),
+        ("Metodo",                              "method",         "combo",  "Kernel",
+         ["Kernel", "MCTAL"]),
         ("Archivo Kernel .mat",                  "kernel_path",   "file",   ""),
+        ("Archivo MCTAL/MCTALL",                 "mctal_path",    "file",   ""),
         ("Actividad GBq (-1=auto desde PET)",   "activity_gbq",   "spin",   -1.0),
         ("",                                     "",              "sep",    ""),
         ("Generar reporte PDF (tarda ~30-60s)",  "gen_pdf",       "check",  True),
@@ -595,13 +595,13 @@ class ConfigDialog(QDialog):
         if combo is None or not isinstance(combo, QComboBox):
             return
         def _toggle(selected_text: str):
-            show_mctal = selected_text == "MCTAL"
             show_kernel = selected_text == "Kernel"
+            show_mctal = selected_text == "MCTAL"
             for key, container in self._conditional_rows.items():
-                if key == self._MCTAL_PATH_KEY:
-                    container.setVisible(show_mctal)
-                elif key == self._KERNEL_PATH_KEY:
+                if key == self._KERNEL_PATH_KEY:
                     container.setVisible(show_kernel)
+                elif key == self._MCTAL_PATH_KEY:
+                    container.setVisible(show_mctal)
             self.adjustSize()
         combo.currentTextChanged.connect(_toggle)
         _toggle(combo.currentText())
@@ -1265,22 +1265,25 @@ class LauncherWindow(QMainWindow):
                 return
             cmd += ["--scene", scene]
 
-            method = config.get("method", "MCTAL")
+            method = config.get("method", "Kernel")
             if method == "Kernel":
                 kernel = config.get("kernel_path", "")
                 if not kernel or not os.path.exists(kernel):
                     QMessageBox.warning(self, "Error",
-                                        f"Kernel no encontrado:\n{kernel}")
+                                        f"Kernel .mat no encontrado:\n{kernel}")
                     return
                 cmd += ["--kernel", kernel]
-            else:
+            else:  # MCTAL
                 mctal = config.get("mctal_path", "")
-                if mctal:
-                    if not os.path.exists(mctal):
-                        QMessageBox.warning(self, "Error",
-                                            f"MCTAL no encontrado:\n{mctal}")
-                        return
-                    cmd += ["--mctal", mctal]
+                if not mctal:
+                    QMessageBox.warning(self, "Error",
+                        "Debe seleccionar un archivo MCTAL para el metodo MCTAL.")
+                    return
+                if not os.path.exists(mctal):
+                    QMessageBox.warning(self, "Error",
+                                        f"MCTAL no encontrado:\n{mctal}")
+                    return
+                cmd += ["--mctal", mctal]
 
             act = config.get("activity_gbq", -1.0)
             if act > 0:
