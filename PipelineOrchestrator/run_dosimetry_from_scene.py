@@ -1783,9 +1783,9 @@ def main():
     # Cargar escena en Slicer
     # ----------------------------------------------------------------
     if not args.no_slicer:
-            import slicer
+        import slicer
 
-            def _wait_slicer(msg="Slicer queda abierto para inspeccion manual.", timeout_s=120):
+        def _wait_slicer(msg="Slicer queda abierto para inspeccion manual.", timeout_s=120):
                 """Muestra mensaje y mantiene Slicer vivo por timeout_s segundos."""
                 logger.info(f"  {msg}")
                 _log_consola(msg)
