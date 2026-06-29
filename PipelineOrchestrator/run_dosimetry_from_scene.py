@@ -174,6 +174,7 @@ log = logger.info
 def load_scene(scene_path: str) -> bool:
     """Carga escena .mrb en Slicer."""
     import slicer
+    import traceback
 
     if not os.path.exists(scene_path):
         logger.error(f"Escena no encontrada: {scene_path}")
@@ -182,9 +183,20 @@ def load_scene(scene_path: str) -> bool:
     logger.info(f"Cargando escena: {scene_path}")
     logger.info(f"  Tamano: {os.path.getsize(scene_path) / 1024 / 1024:.1f} MB")
 
-    success = slicer.util.loadScene(scene_path)
+    try:
+        success = slicer.util.loadScene(scene_path)
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.error(f"EXCEPCION en slicer.util.loadScene: {e}")
+        logger.error(tb)
+        # Mostrar en consola de Slicer
+        print(f"[3Dosim ERROR] loadScene(): {e}", file=sys.stderr)
+        print(tb, file=sys.stderr)
+        return False
+
     if not success:
-        logger.error("Error cargando escena")
+        logger.error("slicer.util.loadScene devolvio False (escena no cargada)")
+        print("[3Dosim ERROR] slicer.util.loadScene devolvio False", file=sys.stderr)
         return False
 
     logger.info("Escena cargada correctamente")
@@ -1771,26 +1783,32 @@ def main():
     # Cargar escena en Slicer
     # ----------------------------------------------------------------
     if not args.no_slicer:
-        import slicer
+            import slicer
 
-        def _wait_slicer(msg="Slicer queda abierto para inspeccion manual."):
-            """Muestra mensaje y mantiene Slicer vivo hasta que el usuario lo cierre."""
-            logger.info(f"  {msg}")
-            _log_consola(msg)
-            sys.stderr.flush()
-            try:
-                while True:
-                    slicer.app.processEvents()
-                    time.sleep(0.5)
-            except KeyboardInterrupt:
-                pass
+            def _wait_slicer(msg="Slicer queda abierto para inspeccion manual.", timeout_s=120):
+                """Muestra mensaje y mantiene Slicer vivo por timeout_s segundos."""
+                logger.info(f"  {msg}")
+                _log_consola(msg)
+                _log_consola(f"  (Slicer se cerrara automaticamente en {timeout_s}s)")
+                sys.stderr.flush()
+                t0 = time.time()
+                try:
+                    while time.time() - t0 < timeout_s:
+                        slicer.app.processEvents()
+                        time.sleep(0.5)
+                except KeyboardInterrupt:
+                    pass
+                logger.info("  Timeout alcanzado — cerrando Slicer.")
+                _log_consola("Timeout — cerrando Slicer.")
+                # Cerrar Slicer forzadamente
+                slicer.app.quit()
 
         logger.info("\n--- Paso 1: Cargar escena ---")
         _log_consola("Paso 1/10: Cargando escena...")
         if not load_scene(scene_path):
             logger.error("Abortando: no se pudo cargar la escena")
             _log_consola_error("Error cargando escena")
-            _wait_slicer("La escena no pudo cargarse. Revise el archivo y cierre Slicer.")
+            _wait_slicer("La escena no pudo cargarse. Revise el archivo y cierre Slicer.", timeout_s=30)
             return 1
 
         logger.info("\n--- Paso 2: Buscar nodos ---")
