@@ -138,6 +138,12 @@ def revisar_paso(pipeline_ctx: dict, consola=None):
     if not ok:
         return  # no revisar pasos fallidos
 
+    if consola:
+        try:
+            consola.log(f"  [AI supervisor revisando paso '{paso}']...")
+        except Exception:
+            pass
+
     # ---- Pre-verificacion: reglas de calidad inmediatas ----
     pre_warnings = pre_verificar(pipeline_ctx, consola=consola)
 

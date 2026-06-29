@@ -362,7 +362,7 @@ class ConfigDialog(QDialog):
         ("Directorio CT",                       "ct_dir",         "dir",    ""),
         ("Directorio PET",                      "pet_dir",        "dir",    ""),
         ("Modo tumor",                          "tumor_mode",     "combo",  "synthetic",
-         ["synthetic", "load_file", "manual"]),
+         ["synthetic", "load_file", "manual", "ts_liver_lesions"]),
         ("Radio tumor sintetico (mm)",          "tumor_radius",   "spin",   10),
         ("Archivo tumor NIfTI (load_file)",     "tumor_file",     "file",   ""),
         ("",                                     "",              "sep",    ""),
@@ -383,9 +383,17 @@ class ConfigDialog(QDialog):
     ]
     MOD3_FIELDS = [
         ("Escena .mrb",                         "scene_path",     "file",   ""),
+        ("Metodo",                              "method",         "combo",  "MCTAL",
+         ["MCTAL", "Kernel"]),
         ("Archivo MCTAL/MCTALL",                 "mctal_path",    "file",   ""),
+        ("Archivo Kernel .mat",                  "kernel_path",   "file",   ""),
         ("Actividad GBq (-1=auto desde PET)",   "activity_gbq",   "spin",   -1.0),
+        ("",                                     "",              "sep",    ""),
+        ("Generar reporte PDF (tarda ~30-60s)",  "gen_pdf",       "check",  True),
     ]
+    # Keys condicionales para toggle method
+    _MCTAL_PATH_KEY = "mctal_path"
+    _KERNEL_PATH_KEY = "kernel_path"
 
     MOD_INFO = {
         1: ("Modulo 1", "Segmentacion + Tumor", MOD1_COLOR, MOD1_FIELDS),
@@ -438,7 +446,10 @@ class ConfigDialog(QDialog):
         for field in fields:
             label, key, ftype, default = field[:4]
             options = field[4] if len(field) > 4 else None
-            is_conditional = (key in (self._TUMOR_RADIUS_KEY, self._TUMOR_FILE_KEY))
+            is_conditional = (
+                key in (self._TUMOR_RADIUS_KEY, self._TUMOR_FILE_KEY) or
+                key in (self._MCTAL_PATH_KEY, self._KERNEL_PATH_KEY)
+            )
 
             # Separador
             if ftype == "sep":
@@ -573,6 +584,27 @@ class ConfigDialog(QDialog):
 
         # ── Tumor mode conditional visibility ──
         self._setup_tumor_mode_visibility()
+        # ── Method conditional visibility ──
+        self._setup_method_visibility()
+
+    def _setup_method_visibility(self):
+        """Conecta el combo 'method' para mostrar/ocultar MCTAL vs Kernel."""
+        if self.mod_id != 3:
+            return
+        combo = self._widgets.get("method")
+        if combo is None or not isinstance(combo, QComboBox):
+            return
+        def _toggle(selected_text: str):
+            show_mctal = selected_text == "MCTAL"
+            show_kernel = selected_text == "Kernel"
+            for key, container in self._conditional_rows.items():
+                if key == self._MCTAL_PATH_KEY:
+                    container.setVisible(show_mctal)
+                elif key == self._KERNEL_PATH_KEY:
+                    container.setVisible(show_kernel)
+            self.adjustSize()
+        combo.currentTextChanged.connect(_toggle)
+        _toggle(combo.currentText())
 
     def _setup_tumor_mode_visibility(self):
         """Conecta el combo tumor_mode para mostrar/ocultar campos condicionales."""
@@ -642,6 +674,7 @@ class ConfigDialog(QDialog):
             "flip_y": ("geometry", "flip_y"),
             "flip_z": ("geometry", "flip_z"),
             "refine_hu": ("mcnp_run", "refine_hu"),
+            "kernel_path": ("paths", "kernel_path"),
         }
         path = key_map.get(key)
         if path:
@@ -1151,6 +1184,10 @@ class LauncherWindow(QMainWindow):
             defaults["mctal_path"] = os.path.join(
                 paths.get("mcnp_output_dir", ""), "output.mctal"
             ) if paths.get("mcnp_output_dir") else ""
+            defaults["kernel_path"] = os.path.join(
+                _PROJECT_ROOT, "kernel", "kernel.mat"
+            )
+            defaults["method"] = "MCTAL"
             defaults["activity_gbq"] = -1.0
 
         return defaults
@@ -1233,16 +1270,31 @@ class LauncherWindow(QMainWindow):
                                         f"Escena no encontrada:\n{scene}")
                     return
                 cmd += ["--scene", scene]
-            mctal = config.get("mctal_path", "")
-            if mctal:
-                if not os.path.exists(mctal):
+
+            method = config.get("method", "MCTAL")
+            if method == "Kernel":
+                kernel = config.get("kernel_path", "")
+                if not kernel or not os.path.exists(kernel):
                     QMessageBox.warning(self, "Error",
-                                        f"MCTAL no encontrado:\n{mctal}")
+                                        f"Kernel no encontrado:\n{kernel}")
                     return
-                cmd += ["--mctal", mctal]
+                cmd += ["--kernel", kernel]
+            else:
+                mctal = config.get("mctal_path", "")
+                if mctal:
+                    if not os.path.exists(mctal):
+                        QMessageBox.warning(self, "Error",
+                                            f"MCTAL no encontrado:\n{mctal}")
+                        return
+                    cmd += ["--mctal", mctal]
+
             act = config.get("activity_gbq", -1.0)
             if act > 0:
                 cmd += ["--activity", str(act)]
+
+            gen_pdf = config.get("gen_pdf", True)
+            if not gen_pdf:
+                cmd.append("--no-pdf")
 
         # String solo para display (con comillas en paths con espacios)
         cmd_str = " ".join(
@@ -1411,7 +1463,22 @@ class LauncherWindow(QMainWindow):
 # ======================================================================
 
 if __name__ == "__main__":
+    # Hook para atrapar excepciones silenciosas (evita cierre inesperado)
+    def _excepthook(exc_type, exc_value, exc_tb):
+        import traceback
+        msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        try:
+            with open(os.path.join(os.path.dirname(__file__), "error.log"), "a") as f:
+                f.write(f"UNHANDLED EXCEPTION:\n{msg}\n")
+        except Exception:
+            pass
+        # Mostrar tambien en consola
+        print(f"UNHANDLED EXCEPTION: {exc_type.__name__}: {exc_value}", file=sys.stderr)
+    sys.excepthook = _excepthook
+
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)  # Evita cierre si algo raro pasa
+
     w = LauncherWindow()
     w.show()
     sys.exit(app.exec_())

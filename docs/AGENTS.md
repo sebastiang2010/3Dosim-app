@@ -848,3 +848,111 @@ El pipeline debe comportarse como una herramienta clinica navegable:
 
 ### Bug conocido
 - El modo `load_file` con NIfTI de distintas dimensiones al CT intenta re-muestreo con BRAINSResample. Si falla, se muestra warning y se continua con la mascara original (puede estar desalineada).
+
+## Sesion 29-Jun — PET DICOM reader + Fusion info dialog + TS liver_lesions setup
+
+### Objetivo
+Agregar lectura de actividad PET desde DICOM raw (replicando MATLAB `f_Rescale_Bq.m`) y mostrar diálogo informativo post-fusión con actividad en Bq, GBq, mCi, Bq/mL. También configurar TS v2.13.0 para modo `ts_liver_lesions`.
+
+### Contexto técnico
+- Proyecto activo: **v4** (`C:\programas\3Dosim\3Dosim_v4\`)
+- Slicer 5.8.1 usa Python 3.9.10 — TS ≥ 2.13.0 requiere parches de compatibilidad Python 3.10.
+- `liver_lesions` NO soporta modo `--fast`.
+- Actividad PET debe leerse desde DICOM raw con pydicom (no confiar en nodo Slicer, que no aplica RescaleSlope/Intercept por slice).
+
+### Instalación TS v2.13.0 + parches
+- TS v2.14.0 conflictúa con nnunetv2 → se instaló v2.13.0.
+- **3 parches de compatibilidad Python 3.9 aplicados**:
+  1. `totalsegmentator/dicom_io.py`: `from __future__ import annotations` (sintaxis `str | None` requiere Python 3.10).
+  2. `nnunetv2/training/dataloading/data_loader.py`: shim `nnUNetDataLoader` → `nnUNetDataLoaderBase`.
+  3. `acvl_utils` forzado a 0.2.5 para evitar `blosc2>=3.0.0b4`.
+- `tumor_creator.py`: `fast=True` → `fast=False` (liver_lesions no soporta --fast). Fix labelmap export: `ExportAllSegmentsToLabelmapNode` → `GenerateMergedLabelmapForAllSegments`.
+- Slicer module GUI actualizado: dropdown TS incluye "liver: lesions" y "liver: lesions (MR)".
+
+### Archivos nuevos
+
+| Archivo | Descripción |
+|---------|-------------|
+| `PipelineOrchestrator/pet_dicom_reader.py` | Lee DICOM PET raw por slice con pydicom, aplica RescaleSlope/Intercept solo si `RescaleType == 'BQML'`, convierte mm³ → cm³, retorna actividad total Bq/GBq + estadísticas. Replica `f_Rescale_Bq.m` de MATLAB. |
+| `PipelineOrchestrator/fusion_dialog.py` | QDialog NO modal con info paciente, CT, PET, actividad (Bq, GBq, mCi, Bq/mL), verificaciones (Units, rango, solapamiento, consistencia). No bloquea el pipeline. |
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `PipelineOrchestrator/pipeline_mod1.py` | `_show_fusion()` ahora lee actividad PET via `pet_dicom_reader.read_pet_dicom_activity()` y muestra `fusion_dialog.show_fusion_info_dialog()` NO modal. Agregado `self.pet_activity` en `__init__`. |
+| `PipelineOrchestrator/pipeline_config.jsonc` | Agregado `patient_weight_kg: null` (opcional, se muestra en diálogo fusion). |
+| `PipelineOrchestrator/tumor_creator.py` | `fast=True` → `fast=False` para liver_lesions. Fix labelmap export API. |
+| `PipelineOrchestrator/requirements.txt` | Instrucciones de parches Python 3.9 documentadas. |
+| `docs/AGENTS.md` | Actualizado. |
+
+### Flujo actual del pipeline Mod1 (con actividad PET)
+```
+ 1. check_slicer
+ 2. load_dicom
+ 3. remove_couch_air
+ 4. resample_pet (Elastix rigid + conservación actividad)
+ 5. show_fusion  ← AHORA: lee DICOM PET raw + muestra diálogo NO modal con actividad
+ 6. anonymize
+ 7. export_dicom_info
+ 8. segment_phantom (TotalSegmentator task='total')
+ 9. validate_segmentation_auto
+10. validate_segmentation (médico)
+11. add_tumor (mode: ts_liver_lesions / synthetic / load_file / manual)
+12. validate_tumor (médico)
+13. create_healthy_liver
+14. segment_body (TotalSegmentator task='body')
+15. export_labelmap (NIfTI + NRRD con IDs tissue_config)
+```
+
+### Variables de configuración nuevas
+```jsonc
+{
+  "patient_weight_kg": null,
+  "tumor": {
+    "mode": "ts_liver_lesions",
+    "ts_liver_lesions_segment_name": "Tumor_TS",
+    "ts_liver_lesions_min_volume_cc": 1.0,
+    "timeout_minutes": 0
+  }
+}
+```
+
+### Verificaciones del diálogo de fusión
+- ✅ Unidades PET (RescaleType == 'BQML')
+- ✅ Rango de actividad (0.1-50 GBq = normal)
+- ✅ Dimensiones CT/PET similares
+- ✅ Voxeles activos (> 100)
+- ⚠️ Warnings del reader (RescaleType no BQML, errores de lectura)
+
+## Sesion 29-Jun — Fix kernel dosis: A en GBq + sin T_mean
+
+### Correccion critica
+La dosis por convolucion con kernel **NO multiplica por T_mean** despues. El kernel.mat
+ya incluye `t * Actividad` (t = 1/lambda = 332916 s, Actividad = 1e9 = 1 GBq).
+
+### Flujo exacto MATLAB
+```matlab
+Kernel = Kernel / sum(Kernel(:));        % normalizar
+DosisK = imfilter(A, Kernel, ...);       % convolucion
+DosisK = DosisK .* IND_liver_tumor;      % mascara
+% NO hay DosisK * t
+```
+donde `A = PET .* 1e-9` (GBq/voxel).
+
+### Cambios
+
+| Archivo | Cambio |
+|---------|--------|
+| `run_dosimetry_from_scene.py` | A en GBq/voxel (`activity_gbq` en vez de `activity_bq`). Sin T_mean post-convolucion. |
+| `dose_kernel.py` | Creado. Separacion de carga de kernel. Docstring con flujo MATLAB completo. |
+| `fft_dose.py` | Creado. Convolucion FFT optimizada (rfftn + float32 + workers=-1). Docstring actualizada: sin T_mean. |
+
+### Indices de segmentacion
+- `LIVER_INDEX = 90`, `TUMOR_INDEX = 100`, `PRETUMOR_INDEX = 200`
+- La mascara post-convolucion incluye los tres: `liver_tumor_mask = (liver \| tumor \| pretumor)`
+
+### Pendiente
+- Probar pipeline completo dentro de Slicer con `mode: ts_liver_lesions` y verificar actividad PET en cartel.
+- Si funciona, probar con Paciente_2 completo (segmentacion → tumor → exportacion → dosis).
+- Validar dosis Y-90 con MATLAB: comparar max, media, DVH para Paciente_2.

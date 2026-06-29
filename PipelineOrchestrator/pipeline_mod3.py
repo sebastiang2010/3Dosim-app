@@ -955,8 +955,10 @@ class PipelineMod3:
                 "max_dose_gy": dvh["max_dose_gy"],
                 "std_dose_gy": dvh["std_dose_gy"],
                 "d98_gy": dvh["d98_gy"],
+                "d95_gy": dvh["d95_gy"],
                 "d70_gy": dvh["d70_gy"],
                 "d50_gy": dvh["d50_gy"],
+                "d5_gy": dvh["d5_gy"],
                 "d2_gy": dvh["d2_gy"],
                 "v30_pct": dvh["v30_pct"],
                 "v70_pct": dvh["v70_pct"],
@@ -1005,8 +1007,10 @@ class PipelineMod3:
                 "volume_cm3": s.get("volume_cm3", 0),
                 "mean_dose_gy": s.get("mean_dose_gy", 0),
                 "d98_gy": s.get("d98_gy", 0),
+                "d95_gy": s.get("d95_gy", 0),
                 "d70_gy": s.get("d70_gy", 0),
                 "d50_gy": s.get("d50_gy", 0),
+                "d5_gy": s.get("d5_gy", 0),
                 "d2_gy": s.get("d2_gy", 0),
                 "bed_gy": s.get("bed_gy", 0),
                 "eud_gy": s.get("eud_gy", 0),
@@ -1093,8 +1097,10 @@ class PipelineMod3:
                 f.write(f"    Voxeles:     {s['n_voxels']}\n")
                 f.write(f"    Dosis media: {s['mean_dose_gy']:.2f} Gy\n")
                 f.write(f"    D98:         {s['d98_gy']:.2f} Gy\n")
+                f.write(f"    D95:         {s['d95_gy']:.2f} Gy\n")
                 f.write(f"    D70:         {s['d70_gy']:.2f} Gy\n")
                 f.write(f"    D50:         {s['d50_gy']:.2f} Gy\n")
+                f.write(f"    D5:          {s['d5_gy']:.2f} Gy\n")
                 f.write(f"    D2:          {s['d2_gy']:.2f} Gy\n")
                 f.write(f"    V30:         {s['v30_pct']:.1f} %\n")
                 f.write(f"    V70:         {s['v70_pct']:.1f} %\n")

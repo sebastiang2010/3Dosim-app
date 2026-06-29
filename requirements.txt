@@ -32,6 +32,24 @@ numpy>=1.24
 # Instalar con: <Slicer>/bin/PythonSlicer.exe -m pip install openai
 openai>=1.0
 
+# ── TotalSegmentator (dentro de Slicer) ──────────────────────────
+# La tarea 'liver_lesions' requiere TotalSegmentator >= 2.13.0
+# (v2.12.0 NO incluye liver_lesions). La version bundled con Slicer 5.8.1
+# es 2.6.0 y NO incluye liver_lesions.
+#
+# IMPORTANTE: Slicer 5.8.1 usa Python 3.9, pero TS >= 2.13.0 usa sintaxis
+# Python 3.10 (str | None). Se requieren parches manuales:
+#
+#   1. <Slicer>/bin/PythonSlicer.exe -m pip install TotalSegmentator==2.13.0
+#   2. Parchear compatibilidad Python 3.9:
+#      Agregar 'from __future__ import annotations' al inicio de:
+#        .../site-packages/totalsegmentator/dicom_io.py
+#   3. Crear shim de compatibilidad nnunetv2:
+#      Crear .../site-packages/nnunetv2/training/dataloading/data_loader.py
+#      con: from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase as nnUNetDataLoader
+#
+# La tarea 'liver_lesions' NO soporta modo --fast (debe ser fast=False).
+#
 # ── Utils ─────────────────────────────────────────────────────────
 # requests es usado implicitamente por openai, no requiere instalacion
 # separada.

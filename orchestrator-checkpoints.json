@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-06-25 12:50:00",
+  "task_id": "fix-launcher-v4",
+  "agent": "orchestrator",
+  "scope": "3 fixes in launcher/app.py + run_dosimetry_from_scene.py",
+  "status": "completed",
+  "completed_items": [
+    "P1: _browse_file() - filtros dinámicos por key",
+    "P2: _launch_slicer() - shell=False + validación paths + stderr",
+    "P3: run_dosimetry_from_scene.py - validación temprana scene/mctal"
+  ],
+  "files_modified": [
+    "C:\\programas\\3Dosim\\3Dosim_v4\\launcher\\app.py",
+    "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\run_dosimetry_from_scene.py"
+  ],
+  "verify_command": "cd C:\\programas\\3Dosim\\3Dosim_v4 && python -c \"from launcher.app import LauncherWindow; print('OK')\""
+}

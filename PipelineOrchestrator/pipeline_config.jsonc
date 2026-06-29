@@ -19,6 +19,7 @@
     "refine_hu": false,
     "flip_rows": true
   },
+  "patient_weight_kg": null,
   "pipeline": {
     "force_validation_on_restore": true,
     "config_version": 1
@@ -46,7 +47,10 @@
       0.5,
       0.0
     ],
-    "create_healthy_liver": true
+    "create_healthy_liver": true,
+    "ts_liver_lesions_segment_name": "Tumor_TS",
+    "ts_liver_lesions_min_volume_cc": 1.0,
+    "timeout_minutes": 0
   },
   "paths": {
     "ct_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\CT",
@@ -57,5 +61,21 @@
       "fast": true,
       "force_cpu": true
     }
+  },
+  "isodose": {
+    "relative": true,
+    "levels_pct": [
+      10,
+      25,
+      50,
+      75,
+      90,
+      95,
+      100
+    ],
+    "colormap": "Hot"
+  },
+  "dose": {
+    "colormap": "Hot"
   }
 }

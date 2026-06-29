@@ -80,6 +80,7 @@ class PipelineMod1:
         self.phantom_nifti_path = None
         self.ct_node_name = None
         self.pet_node_name = None
+        self.pet_activity = None
 
         # MCP
         self.mcp = MCP()
@@ -123,6 +124,9 @@ class PipelineMod1:
             logger.info(f"  Tumor file:     {self.tumor_config.get('load_file_path', '')}")
         elif tumor_mode == "manual":
             logger.info(f"  Tumor segment:  {self.tumor_config.get('manual_segment_name', 'Tumor_Manual')}")
+        elif tumor_mode == "ts_liver_lesions":
+            logger.info(f"  TS segment:     {self.tumor_config.get('ts_liver_lesions_segment_name', 'Tumor_TS')}")
+            logger.info(f"  Min volume:     {self.tumor_config.get('ts_liver_lesions_min_volume_cc', 1.0)} cc")
 
         self.consola = None
         if not no_consola:
@@ -300,6 +304,7 @@ class PipelineMod1:
             "synthetic": "Tumor sintetico esferico en higado",
             "load_file": "Cargar tumor desde archivo NIfTI",
             "manual": "Segmentacion manual del tumor en Slicer",
+            "ts_liver_lesions": "Segmentacion automatica (TS liver_lesions)",
         }
         step_label = mode_labels.get(tumor_mode, f"Tumor (modo: {tumor_mode})")
         self._log_consola(f"Creando tumor (modo: {tumor_mode})...")
@@ -310,7 +315,8 @@ class PipelineMod1:
             self._log_consola_error("Creacion de tumor FALLO — abortando")
             raise RuntimeError(f"No se pudo crear el tumor (modo={tumor_mode})")
         scene_tag = {"synthetic": "09_tumor_sintetico", "load_file": "09_tumor_cargado",
-                     "manual": "09_tumor_manual"}.get(tumor_mode, "09_tumor")
+                     "manual": "09_tumor_manual",
+                     "ts_liver_lesions": "09_tumor_automatico"}.get(tumor_mode, "09_tumor")
         self._save_scene(scene_tag)
         self.tomar_screenshot(scene_tag)
         setup_medical_views(
@@ -898,6 +904,54 @@ class PipelineMod1:
         slicer.util.resetSliceViews()
         slicer.app.processEvents()
 
+        # ── 2. Leer actividad PET desde DICOM raw ──
+        if self.pet_node and os.path.isdir(self.pet_dir):
+            try:
+                from PipelineOrchestrator.pet_dicom_reader import read_pet_dicom_activity
+                logger.info("  Leyendo actividad PET desde DICOM raw (replicando f_Rescale_Bq.m)...")
+                pet_activity = read_pet_dicom_activity(self.pet_dir)
+                self.pet_activity = pet_activity
+                total_bq = pet_activity.get("total_bq", 0)
+                total_gbq = pet_activity.get("total_gbq", 0)
+                logger.info(f"  Actividad PET: {total_bq:.4e} Bq  ({total_gbq:.4f} GBq)")
+                if pet_activity.get("error"):
+                    logger.warning(f"  Error lectura PET: {pet_activity['error']}")
+                for w in pet_activity.get("warnings", []):
+                    logger.warning(f"  Advertencia PET: {w}")
+            except Exception as e:
+                logger.warning(f"  No se pudo leer actividad PET desde DICOM: {e}")
+                self.pet_activity = None
+        else:
+            logger.info("  No hay PET o directorio PET, saltando lectura de actividad")
+            self.pet_activity = None
+
+        # ── 3. Mostrar dialogo informativo NO MODAL ──
+        try:
+            from PipelineOrchestrator.fusion_dialog import show_fusion_info_dialog
+            ct_dims = self.ct_node.GetImageData().GetDimensions() if self.ct_node else None
+            ct_spacing = self.ct_node.GetSpacing() if self.ct_node else None
+            pet_dims = self.pet_node.GetImageData().GetDimensions() if self.pet_node else None
+            pet_spacing = self.pet_node.GetSpacing() if self.pet_node else None
+            patient_id = os.path.basename(os.path.normpath(self.data_dir))
+            show_fusion_info_dialog(
+                pet_activity=self.pet_activity or {},
+                ct_dims=ct_dims,
+                ct_spacing=ct_spacing,
+                ct_slices=ct_dims[2] if ct_dims else 0,
+                pet_dims=pet_dims,
+                pet_spacing=pet_spacing,
+                pet_slices_loaded=pet_dims[2] if pet_dims else 0,
+                ct_node_name=self.ct_node.GetName() if self.ct_node else "",
+                pet_node_name=self.pet_node.GetName() if self.pet_node else "",
+                patient_id=patient_id,
+                patient_weight_kg=self.pipeline_config.get("patient_weight_kg"),
+                registration_method="Elastix rigid",
+                registration_conserved=True,
+            )
+            logger.info("  Dialogo informativo de fusion mostrado (NO modal)")
+        except Exception as e:
+            logger.warning(f"  No se pudo mostrar dialogo de fusion: {e}")
+
     def _anonymize(self):
         anonymize.anonymize(self.ct_node, self.ct_dir, self.pet_dir, self.anon_dir, self.pet_node)
 
@@ -1110,7 +1164,7 @@ class PipelineMod1:
             return
         seg_ids = vtk.vtkStringArray()
         seg_node.GetSegmentation().GetSegmentIDs(seg_ids)
-        tumor_names = {"Tumor_Sintetico", "Tumor_Cargado", "Tumor_Manual"}
+        tumor_names = {"Tumor_Sintetico", "Tumor_Cargado", "Tumor_Manual", "Tumor_TS"}
         healthy_liver_name = "higado_sano"
         found_tumor = False
         found_healthy = False

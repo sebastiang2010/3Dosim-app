@@ -81,9 +81,9 @@ except ImportError:
 # ======================================================================
 # DEBUG: primer output inmediato
 # ======================================================================
-_debug_file = r"C:\MAT\3Dosim\ai-pipe\resultados_dosimetria\_debug_start.log"
+_debug_file = r"C:\tmp\3Dosim_debug_start.log"
 try:
-    os.makedirs(r"C:\MAT\3Dosim\ai-pipe\resultados_dosimetria", exist_ok=True)
+    os.makedirs(r"C:\tmp", exist_ok=True)
     with open(_debug_file, "w") as _df:
         _df.write(f"SCRIPT STARTED: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         _df.write(f"sys.argv: {sys.argv}\n")
@@ -193,14 +193,14 @@ def load_scene(scene_path: str) -> bool:
 
 def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
     """
-    Busca nodos en la escena: CT, PET, labelmap.
+    Busca nodos en la escena: CT, CT sin camilla, PET, labelmap.
 
     Returns:
-        dict con 'ct', 'pet', 'labelmap' (nodos Slicer) o None
+        dict con 'ct', 'ct_masked', 'pet', 'labelmap' (nodos Slicer) o None
     """
     import slicer
 
-    nodes = {"ct": None, "pet": None, "labelmap": None}
+    nodes = {"ct": None, "ct_masked": None, "pet": None, "labelmap": None}
 
     # Buscar todos los volumenes
     all_volumes = slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
@@ -213,6 +213,9 @@ def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
         logger.info(f"  LabelMapVolumeNodes ({len(all_lm)}):")
         for lm in all_lm:
             logger.info(f"    - {lm.GetName()}")
+            if nodes["labelmap"] is None:
+                nodes["labelmap"] = lm
+                logger.info(f"  Labelmap (LabelMapVolumeNode): {lm.GetName()}")
 
     for vol in all_volumes:
         name = vol.GetName()
@@ -223,11 +226,20 @@ def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
                 nodes["labelmap"] = vol
                 logger.info(f"  Labelmap: {name}")
         elif "ct" in name_lower or "ct_" in name_lower:
-            nodes["ct"] = vol
-            logger.info(f"  CT: {name}")
+            if "sin_camilla" not in name_lower:  # no contaminar con CT_masked
+                nodes["ct"] = vol
+                logger.info(f"  CT: {name}")
         elif "pet" in name_lower:
             nodes["pet"] = vol
             logger.info(f"  PET: {name}")
+
+    # Buscar CT sin camilla (sin_camilla en el nombre)
+    for vol in all_volumes:
+        name = vol.GetName()
+        if "sin_camilla" in name.lower():
+            nodes["ct_masked"] = vol
+            logger.info(f"  CT sin camilla: {name}")
+            break
 
     # Si no encontro por nombre, buscar por tipo/indice
     if nodes["ct"] is None:
@@ -254,13 +266,63 @@ def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
     return nodes
 
 
-def compute_activity_from_pet(pet_node) -> float:
+def _get_pet_units(info_json_path: Optional[str], output_dir: str) -> Optional[str]:
+    """
+    Lee las unidades del PET desde el metadata JSON generado por mod1.
+
+    Busca en:
+      1. Ruta explicitamente pasada (--info-json)
+      2. ../exports/*_info.json relativo a output_dir
+      3. C:/MAT/3Dosim/ai-pipe/exports/*_info.json
+
+    Returns:
+        "BQML", "BQ", "CNTS", None (si no encuentra)
+    """
+    candidates = []
+    if info_json_path:
+        candidates.append(info_json_path)
+    # Buscar en exports/ relativo a output_dir
+    exports_dir = os.path.join(os.path.dirname(output_dir), "exports")
+    if os.path.isdir(exports_dir):
+        for f in sorted(os.listdir(exports_dir)):
+            if f.endswith("_info.json"):
+                candidates.append(os.path.join(exports_dir, f))
+    # Fallback absoluto
+    fallback_exports = r"C:\MAT\3Dosim\ai-pipe\exports"
+    if os.path.isdir(fallback_exports):
+        for f in sorted(os.listdir(fallback_exports)):
+            if f.endswith("_info.json"):
+                p = os.path.join(fallback_exports, f)
+                if p not in candidates:
+                    candidates.append(p)
+
+    for path in candidates:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            units = data.get("PET", {}).get("DICOM", {}).get("Units", None)
+            if units:
+                units = units.strip().upper()
+                logger.info(f"  Unidades PET desde JSON ({path}): {units}")
+                return units
+            else:
+                logger.info(f"  JSON encontrado pero sin campo Units: {path}")
+        except Exception as e:
+            logger.warning(f"  Error leyendo JSON {path}: {e}")
+
+    logger.info("  No se encontro info JSON con Units — asumiendo Bq/ml")
+    return None
+
+
+def compute_activity_from_pet(pet_node, info_json: Optional[str] = None,
+                               output_dir: Optional[str] = None) -> float:
     """
     Computa actividad total desde nodo PET.
 
-    PET puede venir en Bq/ml o Bq.
-    Si es Bq/ml: multiplica por volumen de voxel.
-    Si es Bq: suma directa.
+    Lee las unidades desde el metadata JSON de mod1 (campo DICOM Units).
+    Si no encuentra el JSON o el campo, asume Bq/ml.
 
     Returns:
         actividad total en Bq
@@ -271,23 +333,27 @@ def compute_activity_from_pet(pet_node) -> float:
     spacing = pet_node.GetSpacing()  # (sx, sy, sz) mm
 
     # Volumen de voxel en ml (= cm³)
-    voxel_vol_ml = (spacing[0] / 10) * (spacing[1] / 10) * (spacing[2] / 10)
-    # mm³ → cm³ = ml, dividir por 1000
     voxel_vol_ml = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
 
     # Sumar PET
-    total_pet = np.sum(pet_array)
+    total_pet = float(np.sum(pet_array))
 
-    # Verificar si son valores pequenos (Bq/ml) o grandes (Bq)
-    # Tipicamente Bq/ml son valores tipo 1e4-1e7, Bq son 1e9-1e10
-    if total_pet < 1e8:
-        # Parece Bq/ml, multiplicar por volumen
-        activity_bq = total_pet * voxel_vol_ml
-        logger.info(f"  PET en Bq/ml: sum={total_pet:.2e}, vol_voxel={voxel_vol_ml:.6f} ml")
-    else:
-        # Parece Bq directos
+    # Determinar unidades desde JSON (o fallback Bq/ml)
+    units = _get_pet_units(info_json, output_dir or "")
+
+    if units == "BQ":
         activity_bq = total_pet
         logger.info(f"  PET en Bq: sum={total_pet:.2e}")
+    elif units == "BQML":
+        activity_bq = total_pet * voxel_vol_ml
+        logger.info(f"  PET en Bq/ml: sum={total_pet:.2e}, vol_voxel={voxel_vol_ml:.6f} ml")
+    elif units == "CNTS":
+        logger.warning(f"  PET en cuentas (CNTS) — no se puede convertir a Bq, asumiendo Bq/ml")
+        activity_bq = total_pet * voxel_vol_ml
+    else:
+        # Fallback: Bq/ml
+        activity_bq = total_pet * voxel_vol_ml
+        logger.info(f"  PET (fallback Bq/ml): sum={total_pet:.2e}, vol_voxel={voxel_vol_ml:.6f} ml")
 
     logger.info(f"  Actividad total: {activity_bq:.2e} Bq = {activity_bq / 1e9:.4f} GBq")
     return float(activity_bq)
@@ -439,11 +505,13 @@ def compute_dvh(
     doses_pos = doses[doses > 0]
     if len(doses_pos) > 0:
         d98 = float(np.percentile(doses_pos, max(2, 100 * (n_total - n_nonzero) / n_total + 2)))
+        d95 = float(np.percentile(doses_pos, 5) if len(doses_pos) >= 10 else 0)
         d70 = float(np.percentile(doses_pos, 30) if len(doses_pos) >= 10 else 0)
         d50 = float(np.percentile(doses_pos, 50) if len(doses_pos) >= 10 else 0)
+        d5  = float(np.percentile(doses_pos, 95) if len(doses_pos) >= 10 else 0)
         d2  = float(np.percentile(doses_pos, 98) if len(doses_pos) >= 10 else 0)
     else:
-        d98 = d70 = d50 = d2 = 0.0
+        d98 = d95 = d70 = d50 = d5 = d2 = 0.0
 
     # V30, V70 — volumen que recibe al menos X Gy
     v30_pct = float((doses >= 30).sum() / n_total * 100) if n_total > 0 else 0.0
@@ -473,8 +541,10 @@ def compute_dvh(
         "max_dose_gy": max_dose,
         "std_dose_gy": std_dose,
         "d98_gy": d98,
+        "d95_gy": d95,
         "d70_gy": d70,
         "d50_gy": d50,
+        "d5_gy": d5,
         "d2_gy": d2,
         "v30_pct": v30_pct,
         "v70_pct": v70_pct,
@@ -639,6 +709,14 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
     series_nodes = []
     dvh_curves = []  # para exportar PNG
 
+    # Calcular Dmax global para escalar eje X correctamente
+    global_dmax = 0.0
+    for name, idx, color in structures:
+        mask = labelmap == idx
+        doses = dose_gy[mask]
+        if len(doses) > 0:
+            global_dmax = max(global_dmax, float(np.max(doses)))
+
     for name, idx, color in structures:
         mask = labelmap == idx
         doses = dose_gy[mask]
@@ -687,6 +765,11 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         dvh_curves.append((name, d_vals, a_vals))
 
         logger.info(f"  DVH creado: {name} ({n} voxels, Dmax={Dmax:.1f} Gy)")
+
+    # Escalar eje X al maximo real (bug: Slicer default es 0-1000)
+    if global_dmax > 0 and hasattr(chart_node, "SetXAxisRange"):
+        chart_node.SetXAxisRange(0, global_dmax * 1.05)
+        logger.info(f"  DVH X-axis range: 0 - {global_dmax * 1.05:.1f} Gy")
 
     # Activar modulo Plots
     if series_nodes and show_gui:
@@ -1163,7 +1246,7 @@ def generate_pdf_report(
 
     # Tabla principal - SIEMPRE 3 filas
     res_headers = ["Estructura", "Voxeles", "Vol (cm\u00b3)", "Dmedia (Gy)",
-                   "D98 (Gy)", "D70 (Gy)", "D50 (Gy)", "D2 (Gy)",
+                   "D98 (Gy)", "D95 (Gy)", "D70 (Gy)", "D50 (Gy)", "D5 (Gy)", "D2 (Gy)",
                    "V30 (%)", "V70 (%)",
                    "BED (Gy)", "EUD (Gy)", "EQD2 (Gy)"]
     res_data = [res_headers]
@@ -1175,8 +1258,10 @@ def generate_pdf_report(
             f"{s.get('volume_cm3', 0):.1f}" if s.get('volume_cm3', 0) > 0 else "\u2014",
             f"{s.get('mean_dose_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('d98_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('d95_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('d70_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('d50_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+            f"{s.get('d5_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('d2_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('v30_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('v70_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
@@ -1184,8 +1269,8 @@ def generate_pdf_report(
             f"{s.get('eud_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             f"{s.get('eqd2_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
         ])
-    res_col_w = usable_width / 13
-    res_table = Table(res_data, colWidths=[res_col_w] * 13)
+    res_col_w = usable_width / 15
+    res_table = Table(res_data, colWidths=[res_col_w] * 15)
     res_style = [
         ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
         ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
@@ -1308,8 +1393,8 @@ def generate_pdf_report(
         story.append(Spacer(1, 4 * mm))
 
         dvh_headers = ["Estructura", "Vol (cm\u00b3)", "Dmedia (Gy)", "D98 (Gy)",
-                       "D70 (Gy)", "D50 (Gy)", "D2 (Gy)", "V30 (%)", "V70 (%)",
-                       "Max (Gy)", "BED (Gy)", "EUD (Gy)"]
+                       "D95 (Gy)", "D70 (Gy)", "D50 (Gy)", "D5 (Gy)", "D2 (Gy)",
+                       "V30 (%)", "V70 (%)", "Max (Gy)", "BED (Gy)", "EUD (Gy)"]
         dvh_data = [dvh_headers]
         for key, label, idx, color in all_struct_order:
             s = structures.get(key, {})
@@ -1318,8 +1403,10 @@ def generate_pdf_report(
                 f"{s.get('volume_cm3', 0):.1f}" if s.get('volume_cm3', 0) > 0 else "\u2014",
                 f"{s.get('mean_dose_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('d98_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('d95_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('d70_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('d50_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
+                f"{s.get('d5_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('d2_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('v30_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('v70_pct', 0):.1f}" if s.get('n_voxels', 0) > 0 else "\u2014",
@@ -1327,8 +1414,8 @@ def generate_pdf_report(
                 f"{s.get('bed_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
                 f"{s.get('eud_gy', 0):.2f}" if s.get('n_voxels', 0) > 0 else "\u2014",
             ])
-        dvh_col_w = usable_width / 12
-        dvh_table = Table(dvh_data, colWidths=[dvh_col_w] * 12)
+        dvh_col_w = usable_width / 14
+        dvh_table = Table(dvh_data, colWidths=[dvh_col_w] * 14)
         dvh_style = [
             ("BACKGROUND", (0, 0), (-1, 0), C_HEADER_BG),
             ("TEXTCOLOR", (0, 0), (-1, 0), C_HEADER_FG),
@@ -1454,6 +1541,69 @@ def get_labelmap_array(labelmap_node):
     return arr
 
 
+def load_kernel(kernel_path: str) -> np.ndarray:
+    """Carga kernel de dosis desde archivo .mat (v7.3 HDF5) y lo normaliza.
+
+    Centra el maximo del kernel en el centro del array (necesario para
+    que la convolucion FFT coincida con MATLAB imfilter). El kernel MCNP
+    tipicamente tiene el maximo en (24,24,24) y no en (25,25,25)."""
+    import h5py
+    if not os.path.exists(kernel_path):
+        logger.error(f"Kernel no encontrado: {kernel_path}")
+        return None
+    with h5py.File(kernel_path, "r") as f:
+        kernel = f["Kernel"][()].astype(np.float64)
+
+    # Centrar maximo en centro del array
+    max_pos = np.unravel_index(np.argmax(kernel), kernel.shape)
+    center = tuple(s // 2 for s in kernel.shape)
+    if max_pos != center:
+        shifts = tuple(c - m for c, m in zip(center, max_pos))
+        logger.info(f"  Centrando kernel: max en {max_pos} -> centro {center}, shift={shifts}")
+        kernel = np.roll(kernel, shifts, axis=(0, 1, 2))
+
+    kernel_sum = kernel.sum()
+    if kernel_sum > 0:
+        kernel = kernel / kernel_sum
+    logger.info(f"  Kernel cargado: {kernel_path}")
+    logger.info(f"  Shape: {kernel.shape}, sum={kernel.sum():.6f}")
+    return kernel
+
+
+def _show_popup(title: str, text: str, no_slicer: bool = False):
+    """Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)."""
+    if no_slicer:
+        return None
+    try:
+        import slicer
+        from qt import QDialog, QVBoxLayout, QLabel, Qt
+        dlg = QDialog(slicer.util.mainWindow())
+        dlg.setWindowTitle(title)
+        dlg.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint |
+                           Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        dlg.setModal(False)
+        layout = QVBoxLayout(dlg)
+        layout.addWidget(QLabel(text))
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+        slicer.app.processEvents()
+        return dlg
+    except Exception as e:
+        logger.warning(f"  Popup no disponible: {e}")
+        return None
+
+
+def _close_popup(dlg):
+    """Cierra dialogo no-modal si existe."""
+    if dlg is not None:
+        try:
+            dlg.close()
+            dlg.deleteLater()
+        except Exception:
+            pass
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Pipeline de dosimetria desde escena existente"
@@ -1478,38 +1628,60 @@ def main():
                         help="Aplicar flip Y a dosis MCTAL (default: True, compatibilidad MATLAB)")
     parser.add_argument("--no-flip", action="store_false", dest="flip",
                         help="No aplicar flip Y a dosis MCTAL")
+    parser.add_argument("--info-json", default=None,
+                        help="Ruta a JSON de info PET (con campo Units, generado por mod1)")
+    parser.add_argument("--kernel", default=None,
+                        help="Ruta a kernel .mat para convolucion rapida (alternativa a MCTAL)")
     parser.add_argument("--isodose-levels", type=str, default=None,
                         help="Niveles de isodosis separados por coma (ej: 5,10,15,20,25,30). "
                              "Default: 5,10,15,20,25,30")
     parser.add_argument("--no-isodose", action="store_true",
                         help="Saltar generacion de curvas de isodosis")
+    parser.add_argument("--no-pdf", action="store_true",
+                        help="Saltar generacion de reporte PDF (tarda ~30-60s)")
 
     args, _ = parser.parse_known_args()
 
     scene_path = args.scene or SCENE_DEFAULT
     mctal_path = args.mctal or MCTAL_DEFAULT
+    kernel_path = args.kernel
     output_dir = args.output_dir
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # Parsear niveles de isodosis
+    # Parsear niveles de isodosis (default desde config o CLI)
     isodose_levels = None  # None = usar defaults
-    if args.isodose_levels and not args.no_isodose:
-        try:
-            isodose_levels = [float(x.strip()) for x in args.isodose_levels.split(",")]
-            isodose_levels.sort()
-            logger.info(f"Niveles de isodosis configurados: {isodose_levels}")
-        except Exception as e:
-            logger.warning(f"Error parseando --isodose-levels '{args.isodose_levels}': {e}. Usando defaults.")
+    isodose_relative = True  # default: relativo (% de max)
+    if not args.no_isodose:
+        # Cargar defaults desde config
+        from views import load_pipeline_config
+        _cfg = load_pipeline_config()
+        _iso_cfg = _cfg.get("isodose", {})
+        isodose_relative = _iso_cfg.get("relative", True)
+        if args.isodose_levels:
+            try:
+                isodose_levels = [float(x.strip()) for x in args.isodose_levels.split(",")]
+                isodose_levels.sort()
+                logger.info(f"Niveles de isodosis desde CLI: {isodose_levels}")
+            except Exception as e:
+                logger.warning(f"Error parseando --isodose-levels '{args.isodose_levels}': {e}. Usando defaults.")
+        if isodose_levels is None:
+            isodose_levels = _iso_cfg.get("levels_pct", [10, 25, 50, 75, 90, 95, 100])
+            logger.info(f"Niveles de isodosis desde config: {isodose_levels}")
+        logger.info(f"Isodosis {'relativas (%)' if isodose_relative else 'absolutas (Gy)'}")
 
     # Validacion temprana de archivos obligatorios
     if not os.path.exists(scene_path):
         log(f"ERROR: Escena no encontrada: {scene_path}")
         print(f"FATAL: El archivo --scene no existe: {scene_path}", file=sys.stderr)
         return 1
-    if not os.path.exists(mctal_path):
+    if not kernel_path and not os.path.exists(mctal_path):
         log(f"ERROR: MCTAL no encontrado: {mctal_path}")
         print(f"FATAL: El archivo --mctal no existe: {mctal_path}", file=sys.stderr)
+        return 1
+    if kernel_path and not os.path.exists(kernel_path):
+        log(f"ERROR: Kernel no encontrado: {kernel_path}")
+        print(f"FATAL: El archivo --kernel no existe: {kernel_path}", file=sys.stderr)
         return 1
 
     t_start = time.time()
@@ -1557,9 +1729,21 @@ def main():
             except Exception:
                 pass
 
+    def _save_scene_background(scene_path: str):
+        """Guarda escena en background (despues de mostrar resultado)."""
+        try:
+            import slicer
+            t0 = time.time()
+            slicer.util.saveScene(scene_path)
+            dt = time.time() - t0
+            logger.info(f"  Escena guardada en background: {scene_path} ({dt:.0f}s)")
+        except Exception as e:
+            logger.warning(f"  Error guardando escena en background: {e}")
+
     def _ai_review(paso, ok, datos=None, error=None):
         """Revisa paso via AI Supervisor (DeepSeek/OpenRouter)."""
         if not _HAS_AI:
+            _log_consola("[AI supervisor no disponible — import fallo]")
             return
         try:
             ctx = {
@@ -1570,11 +1754,16 @@ def main():
                 "errores": [error] if error else [],
             }
             ai_supervisor.revisar_paso(ctx, consola=consola)
-        except Exception:
+        except Exception as e:
+            _log_consola(f"[AI supervisor: {e}]")
             pass  # AI supervisor no disponible, no bloquear
 
     found = setup_slicer_paths()
     log(f"  SlicerDosimLib path found: {found}")
+    if _HAS_AI:
+        _log_consola("[AI supervisor activo — revisando pasos via DeepSeek]")
+    else:
+        _log_consola("[AI supervisor no disponible — revisar .env]")
     _log_consola("Iniciando pipeline de dosimetria...")
 
     # ----------------------------------------------------------------
@@ -1617,6 +1806,27 @@ def main():
             else:
                 logger.error("  No se pudo cargar labelmap NIfTI")
 
+        # Si no hay labelmap, intentar convertir segmentation -> labelmap
+        if nodes["labelmap"] is None and nodes.get("segmentation") is not None:
+            logger.info("  Labelmap no encontrado, pero hay segmentacion — convirtiendo a labelmap...")
+            _log_consola("Convirtiendo segmentacion a labelmap...")
+            try:
+                seg_node = nodes["segmentation"]
+                ref_node = nodes.get("ct") or nodes.get("ct_masked") or nodes.get("pet")
+                labelmap_node = slicer.mrmlScene.AddNewNodeByClass(
+                    "vtkMRMLLabelMapVolumeNode", "3Dosim_labelmap"
+                )
+                if ref_node is not None:
+                    seg_node.CreateLabelmapVolumeFromSegmentation(labelmap_node, ref_node)
+                else:
+                    seg_node.CreateLabelmapVolumeFromSegmentation(labelmap_node)
+                nodes["labelmap"] = labelmap_node
+                logger.info(f"  Labelmap creado desde segmentacion: {labelmap_node.GetName()}")
+                _log_consola_ok("Labelmap creado desde segmentacion")
+            except Exception as e:
+                logger.error(f"  Error convirtiendo segmentation a labelmap: {e}")
+                _log_consola_error(f"Error convirtiendo segmentacion: {e}")
+
         if nodes["labelmap"] is None:
             msg = (
                 "No se encontro el labelmap de tejidos necesario para la dosimetria.\n\n"
@@ -1656,32 +1866,65 @@ def main():
         logger.info(f"  Indices unicos: {np.unique(labelmap)}")
 
         # Generar zona peritumoral (1 cm alrededor del tumor)
-        if TUMOR_INDEX in labelmap and PRETUMOR_INDEX not in np.unique(labelmap):
-            logger.info("\n--- Generando zona peritumoral (1 cm alrededor del tumor) ---")
-            _log_consola("Generando zona peritumoral (1 cm alrededor del tumor)...")
-            tumor_mask = (labelmap == TUMOR_INDEX)
-            n_tumor = np.sum(tumor_mask)
-            if n_tumor > 0:
-                # Radio en voxeles: 10 mm / spacing
-                radius_vox = max(1, int(10.0 / np.mean(spacing)))
-                logger.info(f"  Radio de dilatacion: {radius_vox} voxeles ({10.0} mm)")
-                # Dilatar tumor
-                struct = np.ones((radius_vox*2+1, radius_vox*2+1, radius_vox*2+1))
-                tumor_dilated = binary_dilation(tumor_mask, structure=struct)
-                # Restar tumor original = anillo peritumoral
-                peritumoral = tumor_dilated & ~tumor_mask
-                # Limitar al higado (no salir del parenquima hepatico)
-                liver_mask = (labelmap == LIVER_INDEX)
-                peritumoral = peritumoral & liver_mask
-                n_peri = np.sum(peritumoral)
-                logger.info(f"  Voxeles peritumorales: {n_peri}")
-                if n_peri > 0:
-                    labelmap[peritumoral] = PRETUMOR_INDEX
-                    logger.info(f"  Zona peritumoral asignada (indice {PRETUMOR_INDEX})")
-                    _log_consola_ok(f"Zona peritumoral: {n_peri} voxeles")
+        t_peri = time.time()
+        try:
+            if TUMOR_INDEX in labelmap and PRETUMOR_INDEX not in np.unique(labelmap):
+                logger.info("\n--- Generando zona peritumoral (1 cm alrededor del tumor) ---")
+                _log_consola("Generando zona peritumoral (1 cm alrededor del tumor)...")
+                sys.stdout.flush()
+                sys.stderr.flush()
+                tumor_mask = (labelmap == TUMOR_INDEX)
+                n_tumor = np.sum(tumor_mask)
+                if n_tumor > 0:
+                    # Radio en voxeles: 10 mm / spacing
+                    radius_vox = max(1, int(10.0 / np.mean(spacing)))
+                    logger.info(f"  Radio de dilatacion: {radius_vox} voxeles ({10.0} mm)")
+                    # Dilatar tumor (iteraciones con struct 3x3x3 es ~22x mas rapido
+                    # que struct grande directo, que requiere 4913 ops/voxel)
+                    struct_3 = np.ones((3, 3, 3), dtype=bool)
+                    tumor_dilated = binary_dilation(tumor_mask, structure=struct_3, iterations=radius_vox)
+                    # Restar tumor original = anillo peritumoral
+                    peritumoral = tumor_dilated & ~tumor_mask
+                    # Limitar al higado (no salir del parenquima hepatico)
+                    liver_mask = (labelmap == LIVER_INDEX)
+                    peritumoral = peritumoral & liver_mask
+                    n_peri = np.sum(peritumoral)
+                    logger.info(f"  Voxeles peritumorales: {n_peri}")
+                    if n_peri > 0:
+                        dt_peri = time.time() - t_peri
+                        labelmap[peritumoral] = PRETUMOR_INDEX
+                        logger.info(f"  Zona peritumoral asignada (indice {PRETUMOR_INDEX})")
+                        _log_consola_ok(f"Zona peritumoral: {n_peri} voxeles en {dt_peri:.1f}s")
+                        # Actualizar nodo labelmap en Slicer y forzar refresco
+                        try:
+                            import slicer
+                            # Transponer de (nx,ny,nz) a (nz,ny,nx) para Slicer
+                            arr_slicer = labelmap.transpose(2, 1, 0).astype(np.int32)
+                            slicer.util.updateVolumeFromArray(labelmap_node, arr_slicer)
+                            # Forzar refresco visual del labelmap
+                            dn = labelmap_node.GetDisplayNode()
+                            if dn:
+                                dn.Modified()  # forzar actualizacion
+                            slicer.app.processEvents()  # procesar eventos GUI
+                            logger.info("  Labelmap node actualizado en Slicer")
+                            _log_consola_ok("Peritumoral visible en 3Dosim_labelmap")
+
+                        except Exception as e:
+                            logger.warning(f"  No se pudo actualizar nodo labelmap: {e}")
+
+                        # (peritumoral NO se importa como segmento — tomaria ~15s con 104 organos)
+                        # La labelmap ya esta actualizada y es suficiente para DVH/reporte.
+                        # Para visualizar: usar nodo labelmap directamente.
+                    else:
+                        logger.warning("  No se genero zona peritumoral (sin higado alrededor del tumor)")
+                        _log_consola("Zona peritumoral: sin higado alrededor del tumor")
                 else:
-                    logger.warning("  No se genero zona peritumoral (sin higado alrededor del tumor)")
-                    _log_consola("Zona peritumoral: sin higado alrededor del tumor")
+                    logger.info("  Sin voxeles de tumor, saltando zona peritumoral")
+        except Exception as e:
+            logger.warning(f"  No se pudo generar zona peritumoral: {e}")
+            _log_consola(f"Zona peritumoral: omitida ({e})")
+            import traceback
+            logger.warning(traceback.format_exc())
 
         # Actividad
         if args.activity is not None:
@@ -1690,7 +1933,7 @@ def main():
         elif pet_node is not None:
             logger.info("\n--- Paso 3: Computar actividad desde PET ---")
             _log_consola("Paso 3/10: Computando actividad desde PET...")
-            activity_bq = compute_activity_from_pet(pet_node)
+            activity_bq = compute_activity_from_pet(pet_node, info_json=args.info_json, output_dir=output_dir)
             activity_gbq = activity_bq / 1e9
         else:
             logger.error("No hay PET y no se especifico --activity")
@@ -1714,94 +1957,303 @@ def main():
         activity_gbq = 3.0
 
     # ----------------------------------------------------------------
-    # Parsear MCTAL
+    # Paso 4: Computar dosis (MCTAL o Kernel convolution)
     # ----------------------------------------------------------------
-    logger.info("\n--- Paso 4: Parsear MCTAL ---")
-    mctal_size_mb = os.path.getsize(mctal_path) / (1024 * 1024)
-    _log_consola(f"Paso 4/10: Parseando MCTAL ({mctal_size_mb:.0f} MB)... puede demorar varios minutos")
-    # ── Popup visible en Slicer para que el usuario no crea que se colgo ──
-    msg_box = None
-    if not args.no_slicer:
-        try:
-            import slicer
-            from qt import QMessageBox
-            slicer.app.processEvents()
-            msg_box = QMessageBox()
-            msg_box.setWindowTitle("3Dosim — Parseando MCTAL")
-            msg_box.setText(
-                f"Parseando archivo MCTAL ({mctal_size_mb:.0f} MB)...\n\n"
-                f"Este proceso puede demorar VARIOS MINUTOS.\n"
-                f"3Dosim esta trabajando, NO cierre Slicer ni esta ventana.\n\n"
-                f"Cuando termine se cerrara este cartel automaticamente."
-            )
-            msg_box.setIcon(QMessageBox.Information)
-            msg_box.setStandardButtons(QMessageBox.NoButton)  # sin botones
-            msg_box.setModal(False)  # no bloquea
-            msg_box.show()
-            slicer.app.processEvents()
-        except Exception:
-            msg_box = None  # si falla Qt, seguir sin popup
+    if kernel_path:
+        # ── KERNEL CONVOLUTION (fast) ──
+        logger.info("\n--- Paso 4: Convolucion con kernel (rapido) ---")
+        _log_consola("Paso 4/10: Cargando kernel y convolucionando...")
 
-    mctal_result = parse_mctal(mctal_path, dims)
-    dose_mev_cm3 = mctal_result["dose_3d"]
-    error_3d = mctal_result["uncertainty"]
+        kernel = load_kernel(kernel_path)
+        if kernel is None:
+            logger.error("  Kernel no cargado. Abortando.")
+            return 1
 
-    # Cerrar popup si estaba abierto
-    if msg_box is not None:
-        try:
-            msg_box.close()
-            msg_box.deleteLater()
-        except Exception:
-            pass
-    _log_consola_ok(f"MCTAL parseado: NPS={mctal_result['nps']:,}")
+        # Popup no-modal
+        popup = _show_popup(
+            "3Dosim — Kernel convolution",
+            "Convolucionando kernel de dosis 3D...\n\n3Dosim esta trabajando, NO cierre Slicer.\n\n"
+            "Cuando termine se cerrara este cartel automaticamente.",
+            args.no_slicer,
+        )
 
-    # Aplicar flip Y a dosis si se aplico flip a la geometria MCNP
-    # MATLAB: f_flip(D3, flip) invierte eje Y DESPUES de cargar MCTAL
-    # Python: phantom se flippea ANTES de MCNP, pero dose viene sin flip del MCTAL
-    #         Si labelmap es original y dose corresponde a phantom flippeado, necesitamos flip
-    if args.flip:
-        dose_mev_cm3 = dose_mev_cm3[:, ::-1, :].copy()
-        error_3d = error_3d[:, ::-1, :].copy()
-        logger.info("  Flip Y aplicado a dosis MCTAL (compatibilidad MATLAB)")
-        _log_consola("Flip Y aplicado a dosis (compatibilidad MATLAB)")
+        t0 = time.time()
 
-    # ----------------------------------------------------------------
-    # Convertir a Gy
-    # ----------------------------------------------------------------
-    logger.info("\n--- Paso 5: Convertir a Gy ---")
-    _log_consola("Paso 5/10: Convirtiendo MeV/cm3 a Gy...")
+        # ── Construir distribucion de actividad A (Bq por voxel) ──
+        if pet_node is not None and labelmap is not None:
+            pet_arr = slicer.util.arrayFromVolume(pet_node)  # (nz, ny, nx)
+            pet_arr = pet_arr.transpose(2, 1, 0).astype(np.float64)  # (nx, ny, nz)
+            pet_arr = np.maximum(pet_arr, 0)  # sin negativos
+            if pet_arr.sum() > 0:
+                A = pet_arr / pet_arr.sum() * activity_gbq  # GBq/voxel (MATLAB: A = PET * 1e-9)
+            else:
+                A = np.ones(dims, dtype=np.float64) * activity_gbq / np.prod(dims)
+        elif labelmap is not None:
+            # Sin PET: distribucion uniforme en higado+tumor
+            A = np.zeros(dims, dtype=np.float64)
+            liver_tumor = (labelmap == LIVER_INDEX) | (labelmap == TUMOR_INDEX)
+            n_lt = np.sum(liver_tumor)
+            if n_lt > 0:
+                A[liver_tumor] = activity_gbq / n_lt  # GBq/voxel
+            else:
+                A[:] = activity_gbq / np.prod(dims)
+        else:
+            A = np.ones(dims, dtype=np.float64) * activity_gbq / np.prod(dims)
 
-    # Tiempo de integracion (mean lifetime)
-    t_meanlife_s = Y90_HALF_LIFE_H * 3600 / np.log(2)  # ~332,753 s
+        logger.info(f"  Actividad total en A: {A.sum():.4f} GBq (MATLAB: A = PET * 1e-9)")
 
-    if labelmap is not None:
-        dose_gy = convert_to_gy(dose_mev_cm3, labelmap, activity_bq, t_meanlife_s)
+        # ── Convolucion 3D via FFT (cropeada a higado+tumor) ──
+        # FFT sobre el volumen completo (512x512x171) necesita ~4GB → OOM.
+        # Croppeamos a ROI de higado+tumor + margen del kernel.
+        # Usamos convolve_imfilter_symmetric (rfftn + workers=-1 + float32)
+        # en vez de scipy.signal.fftconvolve (~3-5x mas rapido).
+        from PipelineOrchestrator.fft_dose import convolve_imfilter_symmetric
+        kr = np.array(kernel.shape) // 2  # (25, 25, 25)
+        if labelmap is not None:
+            # Bounding box de todos los voxeles con actividad
+            active_mask = (labelmap == LIVER_INDEX) | (labelmap == TUMOR_INDEX)
+            active_pts = np.argwhere(active_mask)
+            if len(active_pts) > 0:
+                lo = active_pts.min(axis=0) - kr
+                hi = active_pts.max(axis=0) + kr + 1
+                lo = np.maximum(lo, 0)
+                hi = np.minimum(hi, dims)
+                A_crop = A[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]]
+                logger.info(f"  ROI actividad: {A_crop.shape} (full: {dims})")
+                _log_consola(f"Convolucion FFT sobre ROI {A_crop.shape}...")
+                sys.stdout.flush()
+                sys.stderr.flush()
+                # Procesar eventos GUI pendientes antes de la FFT
+                if not args.no_slicer:
+                    try:
+                        slicer.app.processEvents()
+                    except Exception:
+                        pass
+                t_conv = time.time()
+                dose_crop = convolve_imfilter_symmetric(A_crop, kernel)
+                dt_conv = time.time() - t_conv
+                # Reconstruir volumen completo
+                dose_gy = np.zeros(dims, dtype=np.float64)
+                dose_gy[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]] = dose_crop
+                logger.info(f"  Convolucion FFT (ROI) completada en {dt_conv:.1f}s")
+                _log_consola(f"Convolucion FFT: {dt_conv:.1f}s (MATLAB: ~22s)")
+            else:
+                # Sin higado/tumor: fallback a full
+                logger.warning("  Sin voxeles activos, convolucion full...")
+                t_conv = time.time()
+                dose_gy = convolve_imfilter_symmetric(A, kernel)
+                dt_conv = time.time() - t_conv
+                logger.info(f"  Convolucion FFT (full) en {dt_conv:.1f}s")
+                _log_consola(f"Convolucion FFT: {dt_conv:.1f}s")
+        else:
+            t_conv = time.time()
+            dose_gy = convolve_imfilter_symmetric(A, kernel)
+            dt_conv = time.time() - t_conv
+            logger.info(f"  Convolucion FFT (full) en {dt_conv:.1f}s")
+            _log_consola(f"Convolucion FFT: {dt_conv:.1f}s")
+        # Nota: convolve_imfilter_symmetric usa reflect-padding (emula MATLAB 'symmetric').
+        # Como la actividad A=0 fuera del higado, zero-padding daria lo mismo.
+        dt = time.time() - t0
+        logger.info(f"  Convolucion completada en {dt:.1f}s")
+        dt = time.time() - t0
+        logger.info(f"  Convolucion completada en {dt:.1f}s")
+
+        # ── Enmascarar a higado + tumor + peritumoral (MATLAB: DosisK.*IND_liver_tumor) ──
+        if labelmap is not None:
+            liver_tumor_mask = (labelmap == LIVER_INDEX) | (labelmap == TUMOR_INDEX) | (labelmap == PRETUMOR_INDEX)
+            dose_gy = dose_gy * liver_tumor_mask
+
+        # ── Sin negativos ──
+        n_neg = np.sum(dose_gy < 0)
+        dose_gy = np.maximum(dose_gy, 0)
+        logger.info(f"  Voxels con dosis negativa corregidos: {n_neg}")
+
+        # ── Resultados ──
+        error_3d = np.zeros_like(dose_gy)  # sin incertidumbre estadistica
+        mctal_result = {"nps": 0, "title": "Kernel convolution (fast dose)"}
+
+        _close_popup(popup)
+        _log_consola_ok(f"Kernel convolucionado: max={dose_gy.max():.2f} Gy, "
+                        f"media={dose_gy[dose_gy>0].mean() if np.any(dose_gy>0) else 0:.2f} Gy")
+        _ai_review("Kernel convolution", True, {
+            "dose_gy_max": float(dose_gy.max()),
+            "dose_gy_mean_positive": float(dose_gy[dose_gy>0].mean()) if np.any(dose_gy>0) else 0,
+            "kernel_time_s": round(dt, 1),
+            "activity_gbq": activity_gbq,
+        })
+
     else:
-        # Sin labelmap: usar densidad uniforme
-        dose_gy = dose_mev_cm3 * MEV2J * t_meanlife_s * activity_bq * 1000
+        # ── MCTAL PARSING (accurate) ──
+        logger.info("\n--- Paso 4: Parsear MCTAL ---")
+        mctal_size_mb = os.path.getsize(mctal_path) / (1024 * 1024)
+        _log_consola(f"Paso 4/10: Parseando MCTAL ({mctal_size_mb:.0f} MB)... puede demorar varios minutos")
 
-    # Aplicar filtro de error (MATLAB cargo_mctal.m:375-379)
-    error_eliminar = 1.5
-    bad_voxels = error_3d >= error_eliminar
-    dose_gy[bad_voxels] = 0
-    n_bad = np.sum(bad_voxels)
-    logger.info(f"  Voxels eliminados por error>={error_eliminar}: {n_bad} ({n_bad/dose_gy.size*100:.2f}%)")
+        # Popup no-modal
+        mctal_popup = _show_popup(
+            "3Dosim — Parseando MCTAL",
+            f"Parseando archivo MCTAL ({mctal_size_mb:.0f} MB)...\n\n"
+            f"3Dosim esta trabajando, NO cierre Slicer.\n\n"
+            f"Cuando termine se cerrara este cartel automaticamente.",
+            args.no_slicer,
+        )
 
-    # Eliminar dosis negativas (poca estadistica)
-    n_neg = np.sum(dose_gy < 0)
-    dose_gy[dose_gy < 0] = 0
-    logger.info(f"  Voxels con dosis negativa: {n_neg}")
+        mctal_result = parse_mctal(mctal_path, dims)
+        dose_mev_cm3 = mctal_result["dose_3d"]
+        error_3d = mctal_result["uncertainty"]
 
-    logger.info(f"  Dosis en Gy: media={dose_gy[dose_gy>0].mean() if np.any(dose_gy>0) else 0:.2f}, "
-                f"max={dose_gy.max():.2f}, "
-                f"voxels no-cero={np.sum(dose_gy>0)}/{dose_gy.size}")
-    _ai_review("Conversion a Gy", True, {
-        "dose_gy_max": float(dose_gy.max()),
-        "dose_gy_mean_positive": float(dose_gy[dose_gy>0].mean()) if np.any(dose_gy>0) else 0,
-        "voxels_positive": int(np.sum(dose_gy>0)),
-        "nps": mctal_result.get("nps"),
-        "activity_gbq": activity_gbq,
-    })
+        _close_popup(mctal_popup)
+        _log_consola_ok(f"MCTAL parseado: NPS={mctal_result['nps']:,}")
+
+        # Aplicar flip Y a dosis si se aplico flip a la geometria MCNP
+        if args.flip:
+            dose_mev_cm3 = dose_mev_cm3[:, ::-1, :].copy()
+            error_3d = error_3d[:, ::-1, :].copy()
+            logger.info("  Flip Y aplicado a dosis MCTAL (compatibilidad MATLAB)")
+            _log_consola("Flip Y aplicado a dosis (compatibilidad MATLAB)")
+
+        # ── Convertir a Gy ──
+        logger.info("\n--- Paso 5: Convertir a Gy ---")
+        _log_consola("Paso 5/10: Convirtiendo MeV/cm3 a Gy...")
+
+        t_meanlife_s = Y90_HALF_LIFE_H * 3600 / np.log(2)  # ~332,753 s
+
+        if labelmap is not None:
+            dose_gy = convert_to_gy(dose_mev_cm3, labelmap, activity_bq, t_meanlife_s)
+        else:
+            dose_gy = dose_mev_cm3 * MEV2J * t_meanlife_s * activity_bq * 1000
+
+        # Aplicar filtro de error (MATLAB cargo_mctal.m:375-379)
+        error_eliminar = 1.5
+        bad_voxels = error_3d >= error_eliminar
+        dose_gy[bad_voxels] = 0
+        n_bad = np.sum(bad_voxels)
+        logger.info(f"  Voxels eliminados por error>={error_eliminar}: {n_bad} ({n_bad/dose_gy.size*100:.2f}%)")
+
+        # Eliminar dosis negativas
+        n_neg = np.sum(dose_gy < 0)
+        dose_gy[dose_gy < 0] = 0
+        logger.info(f"  Voxels con dosis negativa: {n_neg}")
+
+        logger.info(
+            f"  Dosis en Gy: media={dose_gy[dose_gy>0].mean() if np.any(dose_gy>0) else 0:.2f}, "
+            f"max={dose_gy.max():.2f}, "
+            f"voxels no-cero={np.sum(dose_gy>0)}/{dose_gy.size}"
+        )
+        _ai_review("Conversion a Gy", True, {
+            "dose_gy_max": float(dose_gy.max()),
+            "dose_gy_mean_positive": float(dose_gy[dose_gy>0].mean()) if np.any(dose_gy>0) else 0,
+            "voxels_positive": int(np.sum(dose_gy>0)),
+            "nps": mctal_result.get("nps"),
+            "activity_gbq": activity_gbq,
+        })
+
+    # ----------------------------------------------------------------
+    # Crear nodo de dosis en Slicer (antes de DVH/MIRD/reporte)
+    # ----------------------------------------------------------------
+    dose_node = None  # default, se setea abajo si exitoso
+    if not args.no_slicer:
+        logger.info("\n--- Crear nodo de dosis 3D en Slicer ---")
+        try:
+            from dosimetry import DoseCalculator
+
+            calc = DoseCalculator()
+            ref_node = labelmap_node or ct_node
+            dose_node = calc.create_dose_volume(dose_gy, ref_node)
+            if dose_node:
+                logger.info(f"  Nodo creado: {dose_node.GetName()}")
+                # Usar CT sin camilla como fondo si existe
+                bg_node = nodes.get("ct_masked") or ct_node
+                slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
+                for sn in slice_nodes:
+                    sn.SetBackgroundVolumeID(bg_node.GetID() if bg_node else ct_node.GetID())
+                    sn.SetForegroundVolumeID(dose_node.GetID())
+                    sn.SetForegroundOpacity(0.4)
+                # Activar layout medico con 3D
+                try:
+                    slicer.util.setSliceViewerLayers(foreground=dose_node, foregroundOpacity=0.4)
+                    logger.info("  Overlay de dosis activado en slices")
+                except Exception as e:
+                    logger.warning(f"  setSliceViewerLayers: {e}")
+                # Asignar colormap a la dosis (desde config, default: Hot)
+                try:
+                    from views import load_pipeline_config
+                    _cfg = load_pipeline_config()
+                    dose_cmap = _cfg.get("dose", {}).get("colormap", "Hot")
+                    dose_dn = dose_node.GetDisplayNode()
+                    if not dose_dn:
+                        dose_node.CreateDefaultDisplayNodes()
+                        dose_dn = dose_node.GetDisplayNode()
+                    if dose_dn:
+                        color_logic = slicer.vtkSlicerColorLogic()
+                        cmap_node = color_logic.GetNodeFromColorTable(dose_cmap)
+                        if cmap_node:
+                            dose_dn.SetAndObserveColorNodeID(cmap_node.GetID())
+                            logger.info(f"  Colormap '{dose_cmap}' asignado a Dosis")
+                        else:
+                            # Fallback a Rainbow
+                            cmap_node = color_logic.GetNodeFromColorTable("Rainbow")
+                            if cmap_node:
+                                dose_dn.SetAndObserveColorNodeID(cmap_node.GetID())
+                                logger.info(f"  Colormap '{dose_cmap}' no encontrado, fallback a Rainbow")
+                except Exception as e:
+                    logger.warning(f"  No se pudo asignar colormap: {e}")
+                # ── Ocultar todo menos CT_sin_camilla + Dosis ──
+                try:
+                    # Ocultar segmentaciones (TotalSegmentator: 104 organos)
+                    for seg_n in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
+                        seg_n.GetDisplayNode().SetVisibility(False)
+                        seg_n.GetDisplayNode().SetSliceIntersectionVisibility(False)
+                        logger.info(f"  Segmentacion oculta: {seg_n.GetName()}")
+                    # Ocultar PET
+                    if nodes.get("pet"):
+                        dn = nodes["pet"].GetDisplayNode()
+                        if dn: dn.SetVisibility(False)
+                    # Ocultar labelmap
+                    if labelmap_node:
+                        dn = labelmap_node.GetDisplayNode()
+                        if dn: dn.SetVisibility(False)
+                    logger.info("  Visibilidad: solo CT + Dosis visible")
+                    _log_consola_ok("Vista: solo CT + Dosis rainbow")
+                except Exception as e:
+                    logger.warning(f"  Ocultando nodos: {e}")
+                # ── Isodosis (NO BLOQUEANTE: corre en background via QTimer) ──
+                if not args.no_isodose and _HAS_ISODOSE and create_isodose_contours:
+                    logger.info("\n--- Isodosis: programada en background ---")
+                    _log_consola("Curvas de isodosis en background (no bloquea)...")
+                    from qt import QTimer
+                    # Congelar config para el closure
+                    _levels = list(isodose_levels) if isodose_levels else None
+                    _relative = isodose_relative
+                    def _run_isodose_later(levels=_levels, relative=_relative):
+                        try:
+                            model_node, param = create_isodose_contours(
+                                dose_node,
+                                levels=levels,
+                                show_lines_2d=True,
+                                show_surfaces_3d=True,
+                                relative=relative,
+                            )
+                            if model_node:
+                                logger.info(f"  Isodosis OK: {model_node.GetName()}")
+                                _log_consola_ok("Curvas de isodosis generadas")
+                            else:
+                                logger.info("  No se generaron isodosis")
+                                _log_consola("Isodosis: sin datos (niveles fuera de rango?)")
+                        except Exception as e:
+                            logger.warning(f"  Error generando isodosis: {e}")
+                            _log_consola_error(f"Error en isodosis: {e}")
+                    QTimer.singleShot(100, _run_isodose_later)
+                elif args.no_isodose:
+                    logger.info("  Isodosis saltadas (--no-isodose)")
+                elif not _HAS_ISODOSE:
+                    logger.info("  isodose_contours no disponible, saltando")
+
+            else:
+                logger.warning("  create_dose_volume devolvio None")
+        except Exception as e:
+            logger.warning(f"  Error creando nodo de dosis: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
 
     # ----------------------------------------------------------------
     # Computar dosimetria por estructura
@@ -1815,10 +2267,12 @@ def main():
         "pretumor": {"idx": PRETUMOR_INDEX, "alpha_beta": ALPHA_BETA_LIVER, "is_tumor": False},  # tejido normal como higado
     }
 
+    _method = "kernel" if kernel_path else "mctal"
     results = {
         "metadata": {
             "scene": scene_path,
             "mctal": mctal_path,
+            "method": _method,
             "activity_bq": activity_bq,
             "activity_gbq": activity_gbq,
             "dimensions": list(dims),
@@ -1844,8 +2298,10 @@ def main():
                     f"{dvh['n_voxels']} voxels, "
                     f"Dmedia={dvh['mean_dose_gy']:.2f} Gy, "
                     f"D98={dvh['d98_gy']:.2f} Gy, "
+                    f"D95={dvh['d95_gy']:.2f} Gy, "
                     f"D70={dvh['d70_gy']:.2f} Gy, "
                     f"D50={dvh['d50_gy']:.2f} Gy, "
+                    f"D5={dvh['d5_gy']:.2f} Gy, "
                     f"D2={dvh['d2_gy']:.2f} Gy, "
                     f"V30={dvh['v30_pct']:.1f}%, "
                     f"V70={dvh['v70_pct']:.1f}%")
@@ -1866,8 +2322,10 @@ def main():
             "max_dose_gy": dvh["max_dose_gy"],
             "std_dose_gy": dvh["std_dose_gy"],
             "d98_gy": dvh["d98_gy"],
+            "d95_gy": dvh["d95_gy"],
             "d70_gy": dvh["d70_gy"],
             "d50_gy": dvh["d50_gy"],
+            "d5_gy": dvh["d5_gy"],
             "d2_gy": dvh["d2_gy"],
             "v30_pct": dvh["v30_pct"],
             "v70_pct": dvh["v70_pct"],
@@ -1914,9 +2372,14 @@ def main():
         f.write(" REPORTE DE DOSIMETRIA 3Dosim\n")
         f.write("=" * 60 + "\n\n")
         f.write(f"Escena:  {scene_path}\n")
-        f.write(f"MCTAL:   {mctal_path}\n")
+        if kernel_path:
+            f.write(f"Metodo:  Kernel convolution (rapido)\n")
+            f.write(f"Kernel:  {kernel_path}\n")
+        else:
+            f.write(f"Metodo:  MCTAL (simulacion Monte Carlo)\n")
+            f.write(f"MCTAL:   {mctal_path}\n")
+            f.write(f"NPS:     {mctal_result['nps']}\n")
         f.write(f"Actividad: {activity_gbq:.4f} GBq ({activity_bq:.2e} Bq)\n")
-        f.write(f"NPS:     {mctal_result['nps']}\n")
         f.write(f"Dimensiones: {dims}\n\n")
 
         f.write("-" * 50 + "\n")
@@ -1929,8 +2392,10 @@ def main():
             f.write(f"    Dosis min:   {s['min_dose_gy']:.2f} Gy\n")
             f.write(f"    Dosis max:   {s['max_dose_gy']:.2f} Gy\n")
             f.write(f"    D98:         {s['d98_gy']:.2f} Gy\n")
+            f.write(f"    D95:         {s['d95_gy']:.2f} Gy\n")
             f.write(f"    D70:         {s['d70_gy']:.2f} Gy\n")
             f.write(f"    D50:         {s['d50_gy']:.2f} Gy\n")
+            f.write(f"    D5:          {s['d5_gy']:.2f} Gy\n")
             f.write(f"    D2:          {s['d2_gy']:.2f} Gy\n")
             f.write(f"    V30:         {s['v30_pct']:.1f} %\n")
             f.write(f"    V70:         {s['v70_pct']:.1f} %\n")
@@ -1961,105 +2426,51 @@ def main():
     dvh_pdf_colors = {"higado": (0.2, 0.4, 1.0), "tumor": (1.0, 0.2, 0.2),
                       "pretumor": (0.8, 0.6, 0.0)}
     dvh_pdf_labels = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
-    try:
-        for name in structures:
-            if name not in results["structures"]:
-                continue
-            s = results["structures"][name]
-            idx = s["index"]
-            mask = labelmap == idx
-            doses = dose_gy[mask]
-            n = len(doses)
-            if n == 0 or np.max(doses) <= 0:
-                continue
-            Dmax = float(np.max(doses))
-            delta = Dmax / 1000.0
-            d_vals = np.arange(0, Dmax + delta, delta)
-            a_vals = np.zeros(len(d_vals))
-            for i, d in enumerate(d_vals):
-                a_vals[i] = np.sum(doses >= d) * 100.0 / n
-            dvh_curves_for_pdf.append((dvh_pdf_labels.get(name, name), d_vals, a_vals))
-
-        pdf_path = generate_pdf_report(results, AI_PIPE_DIR, dvh_curves_for_pdf)
-        if pdf_path:
-            _log_consola_ok(f"PDF generado: {pdf_path}")
-            _ai_review("Reporte PDF generado", True, {"pdf_path": pdf_path})
-        else:
-            _log_consola_error("No se pudo generar PDF (matplotlib?)")
-            _ai_review("Reporte PDF", False, error="PDF generation devolvio None")
-    except Exception as e:
-        _log_consola_error(f"Error generando PDF: {e}")
-        _ai_review("Reporte PDF", False, error=str(e))
-        logger.warning(f"  Error generando PDF: {e}")
-        import traceback
-        logger.warning(traceback.format_exc())
-
-    # ----------------------------------------------------------------
-    # Crear nodo de dosis en Slicer
-    # ----------------------------------------------------------------
-    dose_node = None  # default, se setea abajo si exitoso
-    if not args.no_slicer:
-        logger.info("\n--- Paso 9: Crear nodo de dosis 3D en Slicer ---")
+    if not args.no_pdf:
         try:
-            from dosimetry import DoseCalculator
+            for name in structures:
+                if name not in results["structures"]:
+                    continue
+                s = results["structures"][name]
+                idx = s["index"]
+                mask = labelmap == idx
+                doses = dose_gy[mask]
+                n = len(doses)
+                if n == 0 or np.max(doses) <= 0:
+                    continue
+                Dmax = float(np.max(doses))
+                delta = Dmax / 1000.0
+                d_vals = np.arange(0, Dmax + delta, delta)
+                a_vals = np.zeros(len(d_vals))
+                for i, d in enumerate(d_vals):
+                    a_vals[i] = np.sum(doses >= d) * 100.0 / n
+                dvh_curves_for_pdf.append((dvh_pdf_labels.get(name, name), d_vals, a_vals))
 
-            calc = DoseCalculator()
-            ref_node = labelmap_node or ct_node
-            dose_node = calc.create_dose_volume(dose_gy, ref_node)
-            if dose_node:
-                logger.info(f"  Nodo creado: {dose_node.GetName()}")
-                # Mostrar dosis como overlay en slices
-                slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
-                for sn in slice_nodes:
-                    if ct_node:
-                        sn.SetBackgroundVolumeID(ct_node.GetID())
-                    sn.SetForegroundVolumeID(dose_node.GetID())
-                    sn.SetForegroundOpacity(0.5)
-                # Activar layout medico con 3D
-                try:
-                    slicer.util.setSliceViewerLayers(foreground=dose_node, foregroundOpacity=0.5)
-                    logger.info("  Overlay de dosis activado en slices")
-                except Exception as e:
-                    logger.warning(f"  setSliceViewerLayers: {e}")
-                # Guardar escena con dosis
-                scene_out = os.path.join(output_dir, "3Dosim_dosis_scene.mrb")
-                try:
-                    slicer.util.saveScene(scene_out)
-                    logger.info(f"  Escena guardada: {scene_out}")
-                except Exception as e:
-                    logger.warning(f"  No se pudo guardar escena: {e}")
-
-                # ── Paso 9b: Generar curvas de isodosis ──
-                if not args.no_isodose and _HAS_ISODOSE and create_isodose_contours:
-                    logger.info("\n--- Paso 9b: Generando curvas de isodosis ---")
-                    _log_consola("Paso 9b/10: Generando curvas de isodosis...")
-                    try:
-                        model_node, param = create_isodose_contours(
-                            dose_node,
-                            levels=isodose_levels,
-                            show_lines_2d=True,
-                            show_surfaces_3d=True,
-                        )
-                        if model_node:
-                            logger.info(f"  Isodosis OK: {model_node.GetName()}")
-                            _log_consola_ok("Curvas de isodosis generadas")
-                        else:
-                            logger.warning("  No se generaron isodosis")
-                            _log_consola("Isodosis: sin datos (niveles fuera de rango?)")
-                    except Exception as e:
-                        logger.warning(f"  Error generando isodosis: {e}")
-                        _log_consola_error(f"Error en isodosis: {e}")
-                elif args.no_isodose:
-                    logger.info("  Isodosis saltadas (--no-isodose)")
-                elif not _HAS_ISODOSE:
-                    logger.info("  isodose_contours no disponible, saltando")
-
+            pdf_path = generate_pdf_report(results, OUTPUT_DIR_DEFAULT, dvh_curves_for_pdf)
+            if pdf_path:
+                _log_consola_ok(f"PDF generado: {pdf_path}")
+                _ai_review("Reporte PDF generado", True, {"pdf_path": pdf_path})
             else:
-                logger.warning("  create_dose_volume devolvio None")
+                _log_consola_error("No se pudo generar PDF (matplotlib?)")
+                _ai_review("Reporte PDF", False, error="PDF generation devolvio None")
         except Exception as e:
-            logger.warning(f"  Error creando nodo de dosis: {e}")
+            _log_consola_error(f"Error generando PDF: {e}")
+            _ai_review("Reporte PDF", False, error=str(e))
+            logger.warning(f"  Error generando PDF: {e}")
             import traceback
             logger.warning(traceback.format_exc())
+    else:
+        _log_consola("  PDF omitido (--no-pdf)")
+
+    if not args.no_slicer:
+        # Guardar escena NO BLOQUEANTE (en background, no demora la vista)
+        try:
+            from qt import QTimer
+            scene_final = r"C:\MAT\3Dosim\ai-pipe\scenes\3Dosim_dosis_scene.mrb"
+            _log_consola("Guardando escena en background...")
+            QTimer.singleShot(0, lambda: _save_scene_background(scene_final))
+        except Exception as e:
+            logger.warning(f"  No se pudo programar guardado: {e}")
 
     # ----------------------------------------------------------------
     # Tiempo total
@@ -2072,15 +2483,19 @@ def main():
     # ----------------------------------------------------------------
     # Crear graficos DVH en Slicer (algoritmo MATLAB f_HDV.m)
     # ----------------------------------------------------------------
+    # (DVH plots en background para no congelar consola)
     if not args.no_slicer:
-        logger.info("\n--- Paso 10: Graficar DVH en Slicer ---")
-        _log_consola("Paso 10/10: Graficando DVH en Slicer...")
-        try:
-            _create_dvh_plots_slicer(dose_gy, labelmap, spacing, args.show)
-        except Exception as e:
-            logger.warning(f"  Error creando DVH plots: {e}")
-            import traceback
-            logger.warning(traceback.format_exc())
+        from qt import QTimer
+        def _run_dvh_plots_later():
+            try:
+                logger.info("  Graficando DVH en Slicer (background)...")
+                _create_dvh_plots_slicer(dose_gy, labelmap, spacing, args.show)
+                logger.info("  DVH plots completados")
+            except Exception as e:
+                logger.warning(f"  Error creando DVH plots: {e}")
+                import traceback
+                logger.warning(traceback.format_exc())
+        QTimer.singleShot(200, _run_dvh_plots_later)
 
     # Resumen final en consola
     _log_consola("=" * 50)
@@ -2090,7 +2505,7 @@ def main():
         label = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}.get(name, name)
         _log_consola(f"  {label}: Dmedia={s.get('mean_dose_gy', 0):.2f} Gy, "
                      f"BED={s.get('bed_gy', 0):.2f} Gy")
-    pdf_full = os.path.join(AI_PIPE_DIR, "dosimetria_report.pdf")
+    pdf_full = os.path.join(OUTPUT_DIR_DEFAULT, "dosimetria_report.pdf")
     _log_consola(f"  PDF: {pdf_full}")
     _log_consola("=" * 50)
 

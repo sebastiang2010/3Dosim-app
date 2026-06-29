@@ -272,27 +272,32 @@ class DeepSeekClient:
     # ------------------------------------------------------------------
 
     def _buscar_env(self) -> "str | None":
-        """Busca deepseek.env en ubicaciones posibles."""
-        candidatos = [
-            # 1. Directorio actual (raiz del proyecto)
-            os.path.join(os.getcwd(), "deepseek.env"),
-            # 2. Directorio del script
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "..",
-                         "deepseek.env"),
-            # 3. Directorio padre del modulo
-            os.path.join(os.path.dirname(__file__), "..", "deepseek.env"),
-            # 4. Directorio raiz de 3Dosim (si existe)
-            os.path.join("C:\\programas\\3Dosim\\3Dosim_v_3.14", "deepseek.env"),
-        ]
+        """Busca .env o deepseek.env en ubicaciones posibles."""
+        env_names = [".env", "deepseek.env"]
+        basedir = os.path.dirname(__file__)  # PipelineOrchestrator/
+        candidatos = []
+        for name in env_names:
+            candidatos.extend([
+                # 1. Directorio actual (raiz del proyecto)
+                os.path.join(os.getcwd(), name),
+                # 2. Raiz del proyecto v4 (dos niveles arriba de PipelineOrchestrator/)
+                os.path.join(basedir, "..", "..", name),
+                # 3. Directorio padre del modulo (Testing/)
+                os.path.join(basedir, "..", name),
+                # 4. Junto al modulo
+                os.path.join(basedir, name),
+                # 5. Directorio raiz de 3Dosim v4 (hardcoded)
+                os.path.join("C:\\programas\\3Dosim\\3Dosim_v4", name),
+            ])
 
         # Normalizar rutas
         for ruta in candidatos:
             ruta = os.path.abspath(ruta)
             if os.path.exists(ruta):
-                logger.debug(f"deepseek.env encontrado en: {ruta}")
+                logger.debug(f".env encontrado en: {ruta}")
                 return ruta
 
-        logger.debug("No se encontro deepseek.env")
+        logger.debug("No se encontro .env / deepseek.env")
         return None
 
     def _cargar_desde_archivo(self, ruta: str):

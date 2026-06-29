@@ -42,7 +42,8 @@ def _check_slicerrt():
 
 
 def create_isodose_contours(dose_node, levels=None,
-                            show_lines_2d=True, show_surfaces_3d=True):
+                            show_lines_2d=True, show_surfaces_3d=True,
+                            relative=False):
     """
     Genera curvas/superficies de isodosis.
 
@@ -50,9 +51,12 @@ def create_isodose_contours(dose_node, levels=None,
 
     Args:
         dose_node: vtkMRMLScalarVolumeNode con dosis en Gy.
-        levels: Lista de niveles (Gy). Default: [5, 10, 15, 20, 25, 30].
+        levels: Lista de niveles. Si relative=True, son % (0-100).
+                Si relative=False, son Gy. Default: [5, 10, 15, 20, 25, 30].
         show_lines_2d: Mostrar interseccion en slices 2D.
         show_surfaces_3d: Mostrar superficies en vista 3D.
+        relative: Si True, los niveles se interpretan como % de la dosis
+                  maxima. Si False, son valores absolutos en Gy.
 
     Returns:
         tuple: (model_node, param_node_or_None)
@@ -62,25 +66,43 @@ def create_isodose_contours(dose_node, levels=None,
     if levels is None:
         levels = DEFAULT_ISODOSE_LEVELS
 
+    if relative:
+        # Convertir % a Gy absolutos usando el maximo de la dosis
+        import numpy as np
+        arr = slicer.util.arrayFromVolume(dose_node)
+        max_dose = float(np.max(arr))
+        if max_dose > 0:
+            levels_gy = [float(l) * max_dose / 100.0 for l in levels]
+            logger.info(f"  Isodosis relativas: niveles %={levels} → Gy={[f'{v:.1f}' for v in levels_gy]}, max_dose={max_dose:.1f} Gy")
+        else:
+            logger.warning("  Dosis maxima es 0, usando niveles absolutos")
+            levels_gy = list(levels)
+            relative = False
+    else:
+        levels_gy = list(levels)
+
     if _check_slicerrt():
         model_node, param = _create_via_slicerrt(
-            dose_node, levels, show_lines_2d, show_surfaces_3d
+            dose_node, levels_gy, show_lines_2d, show_surfaces_3d,
+            relative=relative, levels_pct=levels if relative else None
         )
         if model_node:
             return model_node, param
         logger.info("Fallback a VTK marching cubes...")
 
-    return _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d)
+    return _create_via_vtk(dose_node, levels_gy, show_lines_2d, show_surfaces_3d)
 
 
 # ── SlicerRT Isodose module ──────────────────────────────────────────────
 
-def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d):
+def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
+                         relative=False, levels_pct=None):
     """Genera isodosis via SlicerRT Isodose module."""
     import slicer
 
+    units_str = "%" if relative else "Gy"
     logger.info(f"Generando isodosis via SlicerRT: {len(levels)} niveles "
-                f"({min(levels)}-{max(levels)} Gy)")
+                f"({min(levels):.1f}-{max(levels):.1f} {units_str})")
 
     try:
         isodose_logic = slicer.modules.isodose.logic()
@@ -88,7 +110,14 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d):
         # Nodo de parametros Isodose
         param_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLIsodoseNode")
         param_node.SetDoseVolumeNode(dose_node)
-        param_node.SetDoseUnits(0)  # 0 = Gy
+        param_node.SetDoseUnits(0)  # 0 = Gy (el volumen esta en Gy)
+
+        # ── Opcion 7: isolevels relativos (% de la dosis maxima) ──
+        try:
+            param_node.SetIsodoseRelativeDose(1 if relative else 0)
+            logger.info(f"  Isodosis {'relativas (%)' if relative else 'absolutas (Gy)'}")
+        except AttributeError:
+            logger.warning("  SetIsodoseRelativeDose no disponible en esta version de SlicerRT")
 
         # Tabla de colores
         isodose_logic.SetupColorTableNodeForDoseVolumeNode(dose_node)
@@ -103,7 +132,9 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d):
         # Asignar colores a cada nivel
         for i, level in enumerate(levels):
             color = ISODOSE_COLORS[i % len(ISODOSE_COLORS)]
-            color_table_node.SetColor(i, str(level),
+            # Etiqueta: mostrar % si es relativo, Gy si es absoluto
+            label = f"{levels_pct[i]:.0f}%" if (relative and levels_pct) else f"{level:.1f} Gy"
+            color_table_node.SetColor(i, label,
                                       color[0], color[1], color[2], 1.0)
 
         # Generar
