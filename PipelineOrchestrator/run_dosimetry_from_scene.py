@@ -96,8 +96,8 @@ except Exception as _e:
 # Paths
 # ======================================================================
 
-SCENE_DEFAULT = r"C:\MAT\3Dosim\ai-pipe\scenes\3Dosim_scene.mrb"
-MCTAL_DEFAULT = r"C:\MAT\3Dosim\corrida-Manu\mctal\mctal.m"
+SCENE_DEFAULT = r"C:\MAT\3Dosim\ai-pipe\scenes\3Dosim.mrb"
+MCTAL_DEFAULT = ""  # Sin default — debe pasarse explicitamente con --mctal o --kernel
 OUTPUT_DIR_DEFAULT = r"C:\MAT\3Dosim\ai-pipe\resultados_dosimetria"
 AI_PIPE_DIR = r"C:\MAT\3Dosim\ai-pipe"  # para PDF en raiz de ai-pipe
 LABELMAP_DEFAULT = r"C:\MAT\3Dosim\ai-pipe\3Dosim_labelmap.nii"

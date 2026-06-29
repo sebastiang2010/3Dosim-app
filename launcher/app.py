@@ -1174,9 +1174,14 @@ class LauncherWindow(QMainWindow):
             defaults["refine_hu"] = config.get("mcnp_run", {}).get("refine_hu", False)
 
         elif mod_id == 3:
-            # NO auto-detectar. El usuario debe seleccionar escena, metodo y archivos.
-            # Los defaults vienen de MOD3_FIELDS (todos vacios).
-            # Solo pre-poblar kernel_path porque es fijo del proyecto
+            # Auto-detectar escena (funciona bien)
+            scene_dir = config.get("scene_output_dir", "")
+            if not scene_dir:
+                data_dir = config.get("paths", {}).get("ct_dir", _DEFAULT_PARENT)
+                scene_dir = os.path.join(os.path.dirname(data_dir), "ai-pipe", "scenes")
+            scene_guess = os.path.join(scene_dir, "3Dosim.mrb")
+            defaults["scene_path"] = scene_guess if os.path.exists(scene_guess) else ""
+            # Kernel es el metodo default V4, kernel_path es fijo del proyecto
             defaults["kernel_path"] = os.path.join(
                 _PROJECT_ROOT, "kernel", "kernel.mat"
             )
