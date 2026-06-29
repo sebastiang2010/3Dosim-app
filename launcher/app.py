@@ -1174,21 +1174,12 @@ class LauncherWindow(QMainWindow):
             defaults["refine_hu"] = config.get("mcnp_run", {}).get("refine_hu", False)
 
         elif mod_id == 3:
-            # Auto-detectar escena desde scene_output_dir del config central
-            scene_dir = config.get("scene_output_dir", "")
-            if not scene_dir:
-                data_dir = config.get("paths", {}).get("ct_dir", _DEFAULT_PARENT)
-                scene_dir = os.path.join(os.path.dirname(data_dir), "ai-pipe", "scenes")
-            scene_guess = os.path.join(scene_dir, "3Dosim.mrb")
-            defaults["scene_path"] = scene_guess if os.path.exists(scene_guess) else ""
-            defaults["mctal_path"] = os.path.join(
-                paths.get("mcnp_output_dir", ""), "output.mctal"
-            ) if paths.get("mcnp_output_dir") else ""
+            # NO auto-detectar. El usuario debe seleccionar escena, metodo y archivos.
+            # Los defaults vienen de MOD3_FIELDS (todos vacios).
+            # Solo pre-poblar kernel_path porque es fijo del proyecto
             defaults["kernel_path"] = os.path.join(
                 _PROJECT_ROOT, "kernel", "kernel.mat"
             )
-            defaults["method"] = "MCTAL"
-            defaults["activity_gbq"] = -1.0
 
         return defaults
 
@@ -1264,12 +1255,15 @@ class LauncherWindow(QMainWindow):
 
         elif mod_id == 3:
             scene = config.get("scene_path", "")
-            if scene:
-                if not os.path.exists(scene):
-                    QMessageBox.warning(self, "Error",
-                                        f"Escena no encontrada:\n{scene}")
-                    return
-                cmd += ["--scene", scene]
+            if not scene:
+                QMessageBox.warning(self, "Error",
+                    "Debe seleccionar una escena .mrb (use el boton '...' junto a 'Escena .mrb')")
+                return
+            if not os.path.exists(scene):
+                QMessageBox.warning(self, "Error",
+                                    f"Escena no encontrada:\n{scene}")
+                return
+            cmd += ["--scene", scene]
 
             method = config.get("method", "MCTAL")
             if method == "Kernel":
