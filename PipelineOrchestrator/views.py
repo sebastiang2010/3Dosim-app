@@ -103,7 +103,9 @@ def setup_medical_views(
             pet_dn.SetDefaultColorMap()
             pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
 
-        # Colormap para PET (Rainbow estandar: azul=bajo, rojo=alto)
+        # Colormap para PET: usar inverted rainbow (rojo=bajo, azul=alto) por defecto
+        if pet_colormap == "vtkMRMLColorTableNodeRainbow":
+            pet_colormap = ensure_inverted_rainbow()
         pet_dn.SetAndObserveColorNodeID(pet_colormap)
         pet_dn.AutoWindowLevelOff()
         pet_dn.SetWindowLevel(pet_window, pet_level)

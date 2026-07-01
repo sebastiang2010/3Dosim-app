@@ -760,6 +760,7 @@ class PipelineMod1:
     def _save_scene(self, tag=None):
         try:
             import slicer
+            from datetime import datetime
             # Una sola escena — se sobrescribe acumulando cada paso
             filename = "3Dosim.mrb"
             scene_dir = getattr(self, "scene_output_dir", None)
@@ -767,7 +768,9 @@ class PipelineMod1:
                 scene_dir = os.path.join(self.output_dir, "scenes")
             filepath = os.path.join(scene_dir, filename)
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            t0 = time.time()
             logger.info(f"  Escena{' ['+tag+']' if tag else ''} -> {filepath}")
+            logger.info(f"  Guardando escena (puede tomar hasta 2 min si la escena es grande)...")
             old_tmp = os.environ.get("TMP", "")
             old_temp = os.environ.get("TEMP", "")
             try:
@@ -779,9 +782,13 @@ class PipelineMod1:
             finally:
                 os.environ["TMP"] = old_tmp
                 os.environ["TEMP"] = old_temp
+            elapsed = time.time() - t0
             if success:
-                logger.info(f"  Escena guardada: {os.path.basename(filepath)}")
+                logger.info(f"  Escena guardada ({elapsed:.0f}s): {os.path.basename(filepath)}")
                 return filepath
+            else:
+                logger.warning(f"  saveScene devolvio False ({elapsed:.0f}s)")
+                return None
         except Exception as e:
             logger.warning(f"No se pudo guardar escena '{tag}': {e}")
             return None
@@ -922,8 +929,10 @@ class PipelineMod1:
                 slicer.mrmlScene.AddNode(pet_dn)
                 pet_dn.SetDefaultColorMap()
                 self.pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
-            # Rainbow estandar: azul=bajo, rojo=alto (intuitivo para PET)
-            pet_dn.SetAndObserveColorNodeID("vtkMRMLColorTableNodeRainbow")
+            # Rainbow invertido: rojo=bajo, azul=alto (estandar en dosimetria)
+            from PipelineOrchestrator.views import ensure_inverted_rainbow
+            inverted_id = ensure_inverted_rainbow()
+            pet_dn.SetAndObserveColorNodeID(inverted_id)
             pet_dn.AutoWindowLevelOff()
             pet_dn.SetWindowLevel(40.0, 20.0)
             pet_dn.SetApplyThreshold(False)  # Sin threshold
@@ -958,25 +967,32 @@ class PipelineMod1:
             logger.info("  No hay PET o directorio PET, saltando lectura de actividad")
             self.pet_activity = None
 
-        # ── 3. Mostrar dialogo informativo MODAL (bloquea hasta cerrar) ──
+        # ── 3. Recopilar datos de fusion (siempre, antes de cualquier dialogo) ──
+        ct_dims = None
+        ct_spacing = None
+        pet_dims = None
+        pet_spacing = None
+        patient_id = ""
         try:
-            from PipelineOrchestrator.fusion_dialog import show_fusion_info_dialog
-            ct_dims = self.ct_node.GetImageData().GetDimensions() if self.ct_node else None
+            ct_dims = self.ct_node.GetImageData().GetDimensions() if (self.ct_node and self.ct_node.GetImageData()) else None
             ct_spacing = self.ct_node.GetSpacing() if self.ct_node else None
-            pet_dims = self.pet_node.GetImageData().GetDimensions() if self.pet_node else None
+            pet_dims = self.pet_node.GetImageData().GetDimensions() if (self.pet_node and self.pet_node.GetImageData()) else None
             pet_spacing = self.pet_node.GetSpacing() if self.pet_node else None
-            # Extraer ID: CLI > DICOM (via pydicom) > extraer numero del directorio
             pid = self.patient_id
             if not pid:
-                # Leer PatientID real desde archivos DICOM con pydicom
                 pid = self._read_dicom_patient_id()
             if not pid:
-                # Intentar extraer numero del nombre del directorio: "Paciente_2" → "2"
                 dir_name = os.path.basename(os.path.normpath(self.data_dir))
                 import re
                 m = re.search(r'(\d+)', dir_name)
                 pid = m.group(1) if m else dir_name
             patient_id = pid
+        except Exception as e:
+            logger.warning(f"  No se pudieron recopilar datos de fusion: {e}")
+
+        # ── 4. Mostrar dialogo informativo MODAL (bloquea hasta cerrar) ──
+        try:
+            from PipelineOrchestrator.fusion_dialog import show_fusion_info_dialog
             show_fusion_info_dialog(
                 pet_activity=self.pet_activity or {},
                 ct_dims=ct_dims,
@@ -996,7 +1012,7 @@ class PipelineMod1:
         except Exception as e:
             logger.warning(f"  No se pudo mostrar dialogo de fusion: {e}")
 
-        # ── 4. Guardar resumen de fusion a TXT en exports/ ──
+        # ── 5. Guardar resumen de fusion a TXT en exports/ ──
         self._save_fusion_summary_txt(
             patient_id=patient_id,
             pet_activity=self.pet_activity or {},
