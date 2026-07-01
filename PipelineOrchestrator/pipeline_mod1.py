@@ -996,6 +996,116 @@ class PipelineMod1:
         except Exception as e:
             logger.warning(f"  No se pudo mostrar dialogo de fusion: {e}")
 
+        # ── 4. Guardar resumen de fusion a TXT en exports/ ──
+        self._save_fusion_summary_txt(
+            patient_id=patient_id,
+            pet_activity=self.pet_activity or {},
+            ct_dims=ct_dims,
+            ct_spacing=ct_spacing,
+            ct_node_name=self.ct_node.GetName() if self.ct_node else "",
+            pet_dims=pet_dims,
+            pet_spacing=pet_spacing,
+            pet_node_name=self.pet_node.GetName() if self.pet_node else "",
+            patient_weight_kg=self.pipeline_config.get("patient_weight_kg"),
+        )
+
+    def _save_fusion_summary_txt(
+        self,
+        patient_id: str = "",
+        pet_activity: dict = None,
+        ct_dims: tuple = None,
+        ct_spacing: tuple = None,
+        ct_node_name: str = "",
+        pet_dims: tuple = None,
+        pet_spacing: tuple = None,
+        pet_node_name: str = "",
+        patient_weight_kg: float = None,
+    ):
+        """Guarda fusion_summary.txt en el directorio de exportacion."""
+        if pet_activity is None:
+            pet_activity = {}
+        export_dir = getattr(self, "image_output_dir", None)
+        if not export_dir:
+            export_dir = os.path.join(self.output_dir, "exports")
+        os.makedirs(export_dir, exist_ok=True)
+
+        pa = pet_activity
+        lines = []
+        lines.append("=" * 52)
+        lines.append("  3Dosim — Fusion CT+PET — Resumen")
+        lines.append("=" * 52)
+        lines.append("")
+        lines.append("PACIENTE")
+        lines.append(f"  ID:              {patient_id or '—'}")
+        if patient_weight_kg:
+            lines.append(f"  Peso:            {patient_weight_kg:.1f} kg")
+        lines.append("")
+        lines.append("CT")
+        if ct_dims and ct_spacing:
+            lines.append(f"  Dimensiones:     {ct_dims[0]} x {ct_dims[1]} x {ct_dims[2]}")
+            lines.append(f"  Espaciado:       {ct_spacing[0]:.3f} x {ct_spacing[1]:.3f} x {ct_spacing[2]:.3f} mm")
+        lines.append(f"  Nodo Slicer:     {ct_node_name or '—'}")
+        lines.append("")
+        lines.append("PET (desde DICOM raw)")
+        if pa.get("error"):
+            lines.append(f"  ERROR:           {pa['error']}")
+        else:
+            lines.append(f"  RescaleType:     {pa.get('rescale_type', 'N/A')}")
+            total_bq = pa.get("total_bq", 0)
+            total_gbq = pa.get("total_gbq", 0)
+            lines.append(f"  Total:           {total_bq:.4e} Bq")
+            lines.append(f"  Total:           {total_gbq:.4f} GBq")
+            total_mci = total_bq / 3.7e7
+            lines.append(f"  Total:           {total_mci:.2f} mCi")
+            lines.append(f"  Concentracion media: {pa.get('mean_bqml', 0):.2f} Bq/mL")
+            lines.append(f"  Concentracion max:   {pa.get('max_bqml', 0):.2f} Bq/mL")
+            lines.append(f"  Voxeles activos: {pa.get('nonzero_voxels', 0):,}")
+            lines.append(f"  Slices DICOM:    {pa.get('n_slices', 0)}")
+        if pet_dims and pet_spacing:
+            lines.append(f"  Dimensiones:     {pet_dims[0]} x {pet_dims[1]} x {pet_dims[2]}")
+            lines.append(f"  Espaciado:       {pet_spacing[0]:.3f} x {pet_spacing[1]:.3f} x {pet_spacing[2]:.3f} mm")
+        lines.append(f"  Nodo Slicer:     {pet_node_name or '—'}")
+        lines.append("")
+        lines.append("REGISTRO PET -> CT")
+        lines.append(f"  Metodo:          Elastix rigid")
+        lines.append(f"  Actividad conservada:  Si")
+        lines.append("")
+        lines.append("VERIFICACIONES")
+        rt = pa.get("rescale_type", "")
+        if rt.upper() == "BQML":
+            lines.append(f"  [OK] Unidades:   {rt} (Bq/mL)")
+        elif rt:
+            lines.append(f"  [WARN] Unidades: {rt} (no es BQML)")
+        else:
+            lines.append("  [WARN] Unidades: no disponible")
+        if total_gbq > 0.1 and total_gbq < 50:
+            lines.append(f"  [OK] Actividad:  {total_gbq:.3f} GBq — rango normal")
+        elif total_gbq <= 0.1 and total_gbq > 0:
+            lines.append(f"  [WARN] Actividad: {total_gbq:.4f} GBq — muy baja")
+        elif total_gbq >= 50:
+            lines.append(f"  [WARN] Actividad: {total_gbq:.2f} GBq — muy alta")
+        else:
+            lines.append("  [WARN] Actividad: en cero — revisar DICOM PET")
+        nonzero = pa.get("nonzero_voxels", 0)
+        if nonzero > 100:
+            lines.append(f"  [OK] Voxeles:    {nonzero:,} con actividad > 0")
+        elif nonzero > 0:
+            lines.append(f"  [WARN] Voxeles:  solo {nonzero} con actividad")
+        else:
+            lines.append("  [WARN] Voxeles:  sin actividad — revisar PET")
+        lines.append("")
+        lines.append("=" * 52)
+        lines.append(f"  Generado por 3Dosim Pipeline Mod1")
+        lines.append("=" * 52)
+
+        txt_path = os.path.join(export_dir, "fusion_summary.txt")
+        try:
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            logger.info(f"  Resumen fusion guardado -> {txt_path}")
+        except Exception as e:
+            logger.warning(f"  No se pudo guardar resumen fusion: {e}")
+
     def _anonymize(self):
         anonymize.anonymize(self.ct_node, self.ct_dir, self.pet_dir, self.anon_dir, self.pet_node)
 
