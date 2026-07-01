@@ -21,6 +21,14 @@ import logging
 import os
 import sys
 
+# ── Logging global: captura TODO a archivo ──
+try:
+    from PipelineOrchestrator.logging_setup import setup_global_logging
+    _log_path = setup_global_logging()
+except Exception as _e:
+    # Si falla, al menos que se vea en consola
+    print(f"[3Dosim] No se pudo iniciar logging global: {_e}", file=sys.stderr)
+
 logger = logging.getLogger("3DosimMain")
 
 

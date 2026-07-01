@@ -6,7 +6,7 @@
   "views": {
     "layout": "ConventionalView",
     "pet_opacity": 0.35,
-    "pet_colormap": "vtkMRMLColorTableNodeRainbow",
+    "pet_colormap": "3Dosim_InvertedRainbow",
     "ct_window": 400.0,
     "ct_level": 40.0,
     "pet_window": 40.0,

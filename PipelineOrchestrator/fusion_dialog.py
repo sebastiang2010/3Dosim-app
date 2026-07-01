@@ -65,7 +65,7 @@ def show_fusion_info_dialog(
     dialog = QDialog(main_window)
     dialog.setWindowTitle("3Dosim — Fusion CT+PET completada")
     dialog.setMinimumWidth(520)
-    dialog.setModal(False)  # NO bloquea
+    dialog.setModal(True)  # Bloquea hasta que el usuario cierre
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(20, 15, 20, 15)
@@ -239,7 +239,7 @@ def show_fusion_info_dialog(
     # ── Boton cerrar ──
     btn_layout = QHBoxLayout()
     btn_layout.addStretch(1)
-    close_btn = QPushButton("Cerrar (no bloquea)")
+    close_btn = QPushButton("Cerrar")
     close_btn.setStyleSheet("""
         QPushButton {
             padding: 8px 24px;
@@ -251,10 +251,13 @@ def show_fusion_info_dialog(
         }
         QPushButton:hover { background-color: #2980b9; }
     """)
-    close_btn.clicked.connect(dialog.close)
+    close_btn.clicked.connect(dialog.accept)  # accept() cierra correctamente el modal
     btn_layout.addWidget(close_btn)
     layout.addLayout(btn_layout)
 
-    # Mostrar NO modal
-    dialog.show()
-    logger.info("  Dialogo de fusion mostrado (NO modal)")
+    # Mostrar MODAL — bloquea hasta que el usuario cierre
+    try:
+        dialog.exec()
+        logger.info("  Dialogo de fusion cerrado por el usuario")
+    except Exception as e:
+        logger.warning(f"  Error en dialogo de fusion: {e}")

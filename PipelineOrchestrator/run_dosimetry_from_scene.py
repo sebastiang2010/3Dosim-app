@@ -59,7 +59,7 @@ print(f"[3Dosim SCRIPT INICIADO] argv={sys.argv}", flush=True)
 try:
     from PipelineOrchestrator import ai_supervisor
     _HAS_AI = True
-except ImportError:
+except Exception:
     ai_supervisor = None
     _HAS_AI = False
 
@@ -67,16 +67,24 @@ except ImportError:
 try:
     from PipelineOrchestrator.isodose_contours import create_isodose_contours
     _HAS_ISODOSE = True
-except ImportError:
+except Exception:
     create_isodose_contours = None
     _HAS_ISODOSE = False
 from typing import Optional
+
+# Views medicas automaticas
+try:
+    from PipelineOrchestrator.views import setup_medical_views
+    _HAS_VIEWS = True
+except Exception:
+    setup_medical_views = None
+    _HAS_VIEWS = False
 
 # Consola interactiva (comandos Qt como pipeline principal)
 try:
     from PipelineOrchestrator.comandos import ConsolaComandos
     _HAS_CONSOLE = True
-except ImportError:
+except Exception:
     ConsolaComandos = None
     _HAS_CONSOLE = False
 
@@ -174,41 +182,115 @@ log = logger.info
 # ======================================================================
 
 def load_scene(scene_path: str) -> bool:
-    """Carga escena .mrb en Slicer."""
+    """Carga escena .mrb en Slicer (version estable)."""
     import slicer
     import traceback
 
-    print(f"[3Dosim DEBUG] load_scene() llamado con: {scene_path}", flush=True)
-
     if not os.path.exists(scene_path):
-        print(f"[3Dosim ERROR] Escena NO EXISTE: {scene_path}", flush=True)
         logger.error(f"Escena no encontrada: {scene_path}")
         return False
 
-    tam_mb = os.path.getsize(scene_path) / 1024 / 1024
-    print(f"[3Dosim DEBUG] Escena existe: {tam_mb:.1f} MB", flush=True)
+    size_mb = os.path.getsize(scene_path) / 1024 / 1024
     logger.info(f"Cargando escena: {scene_path}")
-    logger.info(f"  Tamano: {tam_mb:.1f} MB")
+    logger.info(f"  Tamano: {size_mb:.1f} MB")
 
-    print(f"[3Dosim] Cargando escena... (puede tardar ~10s)", flush=True)
     try:
         success = slicer.util.loadScene(scene_path)
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"[3Dosim ERROR] EXCEPCION en loadScene: {e}", flush=True)
-        print(tb, flush=True)
         logger.error(f"EXCEPCION en slicer.util.loadScene: {e}")
         logger.error(tb)
         return False
 
     if not success:
-        print(f"[3Dosim ERROR] loadScene devolvio False!", flush=True)
         logger.error("slicer.util.loadScene devolvio False (escena no cargada)")
         return False
 
-    print(f"[3Dosim OK] Escena cargada correctamente!", flush=True)
     logger.info("Escena cargada correctamente")
     return True
+
+
+def _setup_labelmap_color_table(labelmap_node):
+    """Crea y asigna una tabla de colores personalizada al labelmap.
+
+    Mapea los indices del tissue_config a colores visibles en Slicer.
+    Oculta la segmentacion TS (104 organos) y activa el labelmap como
+    capa label en los slices para evitar superposicion visual.
+    """
+    import slicer
+
+    if labelmap_node is None:
+        return
+
+    # ── Ocultar segmentationes TS (se superponen con el labelmap) ──
+    try:
+        for seg_n in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
+            seg_dn = seg_n.GetDisplayNode()
+            if seg_dn:
+                seg_dn.SetVisibility(False)
+                seg_dn.SetVisibility2D(False)
+                seg_dn.SetVisibility3D(False)
+                seg_dn.SetSliceIntersectionVisibility(False)
+                logger.info(f"  TS segmentacion oculta: {seg_n.GetName()}")
+    except Exception as e:
+        logger.warning(f"  No se pudo ocultar segmentacion: {e}")
+
+    # ── Display node del labelmap ──
+    dn = labelmap_node.GetDisplayNode()
+    if not dn:
+        from slicer import vtkMRMLLabelMapVolumeDisplayNode
+        dn = vtkMRMLLabelMapVolumeDisplayNode()
+        slicer.mrmlScene.AddNode(dn)
+        labelmap_node.SetAndObserveDisplayNodeID(dn.GetID())
+
+    # ── Color table personalizada ──
+    color_table = slicer.mrmlScene.AddNewNodeByClass(
+        "vtkMRMLColorTableNode", "3Dosim_Labelmap_Colors"
+    )
+    color_table.SetTypeToUser()
+    color_table.SetNumberOfColors(256)
+
+    # Default: fondo transparente
+    color_table.SetColor(0, "Background", 0.0, 0.0, 0.0, 0.0)
+    # Indices no definidos → gris semitransparente
+    for i in range(1, 256):
+        color_table.SetColor(i, f"Label_{i}", 0.3, 0.3, 0.3, 0.4)
+
+    # Colores especificos por tejido
+    color_table.SetColor(30,  "Tejido_blando", 0.6, 0.4, 0.3, 0.6)
+    color_table.SetColor(50,  "Pulmon",        0.8, 0.6, 0.7, 0.6)
+    color_table.SetColor(80,  "Hueso",         0.8, 0.8, 0.8, 0.8)
+    color_table.SetColor(90,  "Higado",        0.2, 0.4, 1.0, 0.8)
+    color_table.SetColor(100, "Tumor",         1.0, 0.2, 0.2, 0.8)
+    color_table.SetColor(200, "Peritumoral",   0.8, 0.6, 0.0, 0.8)
+
+    color_table.SetColorsModified()
+    dn.SetAndObserveColorNodeID(color_table.GetID())
+    dn.Modified()
+
+    # ── Activar labelmap como capa "label" en slices ──
+    try:
+        lm = slicer.app.layoutManager()
+        if lm:
+            for idx in range(lm.sliceViewCount()):
+                sv = lm.sliceWidget(idx).sliceView()
+                if sv:
+                    scn = sv.sliceCompositeNode()
+                    if scn:
+                        scn.SetLabelVolumeID(labelmap_node.GetID())
+                        scn.SetLabelOpacity(0.8)
+        logger.info("  Labelmap activado como capa label en slices")
+    except Exception as e:
+        logger.warning(f"  No se pudo activar labelmap en slices: {e}")
+
+    # ── Refrescar ──
+    try:
+        slicer.util.resetSliceViews()
+        slicer.app.processEvents()
+    except Exception:
+        pass
+
+    logger.info("  Tabla de colores personalizada asignada al labelmap")
 
 
 def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
@@ -482,10 +564,10 @@ def compute_dvh(
 ) -> dict:
     """
     Computa DVH para una estructura.
-
+    NOTA: volumen se computa externamente (caller tiene spacing).
     Returns:
         dict con:
-          - 'volume_ml': volumen de la estructura
+          - 'n_voxels': numero de voxeles (usar con spacing para volumen)
           - 'mean_dose_gy': dosis media
           - 'min_dose_gy': dosis minima
           - 'max_dose_gy': dosis maxima
@@ -848,7 +930,7 @@ def _export_dvh_png(dvh_curves, filepath):
         fig.savefig(filepath, dpi=150)
         plt.close(fig)
         logger.info(f"  DVH PNG exportado: {filepath}")
-    except ImportError:
+    except Exception:
         logger.warning("  matplotlib no disponible para exportar PNG")
 
 
@@ -894,7 +976,7 @@ def generate_pdf_report(
                                          KeepTogether, HRFlowable)
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-    except ImportError:
+    except Exception:
         logger.warning("  reportlab no disponible — usando matplotlib como fallback")
         return _generate_pdf_matplotlib_fallback(results, output_dir, dvh_curves)
 
@@ -1478,7 +1560,7 @@ def _generate_pdf_matplotlib_fallback(
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         from matplotlib.backends.backend_pdf import PdfPages
-    except ImportError:
+    except Exception:
         logger.warning("  matplotlib no disponible para PDF")
         return None
 
@@ -1626,6 +1708,13 @@ def _close_popup(dlg):
 
 
 def main():
+    # ── Logging global: captura TODO a archivo ──
+    try:
+        from PipelineOrchestrator.logging_setup import setup_global_logging
+        setup_global_logging()
+    except Exception as _e:
+        print(f"[3Dosim] No se pudo iniciar logging global: {_e}")
+
     parser = argparse.ArgumentParser(
         description="Pipeline de dosimetria desde escena existente"
     )
@@ -1812,7 +1901,11 @@ def main():
                 slicer.app.quit()
 
         logger.info("\n--- Paso 1: Cargar escena ---")
-        _log_consola("Paso 1/10: Cargando escena...")
+        _log_consola("Paso 1/10: Cargando escena (puede tardar ~2 min)...")
+        print("[3Dosim] ============================================", flush=True)
+        print("[3Dosim] CARGANDO ESCENA... (puede tardar hasta 2 minutos)", flush=True)
+        print("[3Dosim] NO CIERRE SLICER, ESPERE...", flush=True)
+        print("[3Dosim] ============================================", flush=True)
         if not load_scene(scene_path):
             logger.error("Abortando: no se pudo cargar la escena")
             _log_consola_error("Error cargando escena")
@@ -1822,6 +1915,30 @@ def main():
         logger.info("\n--- Paso 2: Buscar nodos ---")
         _log_consola("Paso 2/10: Buscando nodos (CT, PET, Labelmap)...")
         nodes = find_nodes()
+
+        # Configurar vistas medicas para que el usuario VEA la escena
+        if _HAS_VIEWS:
+            logger.info("\n--- Configurar vistas medicas ---")
+            _log_consola("Configurando vistas 3D + slices + fusion...")
+            try:
+                seg_nodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+                seg_node = seg_nodes[0] if seg_nodes else None
+                setup_medical_views(
+                    ct_node=nodes.get("ct"),
+                    pet_node=nodes.get("pet"),
+                    ct_masked_node=nodes.get("ct_masked"),
+                    segmentation_node=seg_node,
+                    layout_name="ConventionalView",
+                    pet_opacity=0.35,
+                    link_slices=True,
+                )
+                print("[3Dosim OK] Vistas medicas configuradas", flush=True)
+                _log_consola_ok("Vistas medicas listas (CT+PET+segmentacion)")
+            except Exception as e:
+                print(f"[3Dosim WARNING] setup_medical_views fallo: {e}", flush=True)
+                logger.warning(f"setup_medical_views fallo: {e}")
+        else:
+            print("[3Dosim WARNING] views.py no disponible, saltando vistas", flush=True)
 
         labelmap_nifti = args.labelmap or LABELMAP_DEFAULT
         if nodes["labelmap"] is None and os.path.exists(labelmap_nifti):
@@ -1939,9 +2056,42 @@ def main():
                         except Exception as e:
                             logger.warning(f"  No se pudo actualizar nodo labelmap: {e}")
 
-                        # (peritumoral NO se importa como segmento — tomaria ~15s con 104 organos)
-                        # La labelmap ya esta actualizada y es suficiente para DVH/reporte.
-                        # Para visualizar: usar nodo labelmap directamente.
+                        # ── Importar peritumoral como segmento en Slicer ──
+                        try:
+                            seg_nodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+                            if seg_nodes:
+                                seg_node = seg_nodes[0]
+                                # Crear labelmap temporal solo con peritumoral
+                                # peritumoral esta en (nx,ny,nz), Slicer usa (nz,ny,nx)
+                                temp_arr = peritumoral.astype(np.int16) * PRETUMOR_INDEX
+                                temp_arr_slicer = temp_arr.transpose(2, 1, 0)
+                                import vtk as _vtk
+                                temp_lm = slicer.mrmlScene.AddNewNodeByClass(
+                                    "vtkMRMLLabelMapVolumeNode", "__peri_temp__")
+                                slicer.util.updateVolumeFromArray(temp_lm, temp_arr_slicer)
+                                # Copiar geometria del labelmap_node
+                                temp_lm.SetOrigin(labelmap_node.GetOrigin())
+                                temp_lm.SetSpacing(labelmap_node.GetSpacing())
+                                mat = _vtk.vtkMatrix4x4()
+                                labelmap_node.GetIJKToRASMatrix(mat)
+                                temp_lm.SetIJKToRASMatrix(mat)
+                                # Importar como segmento
+                                seg_logic = slicer.modules.segmentations.logic()
+                                seg_logic.ImportLabelmapToSegmentationNode(temp_lm, seg_node)
+                                # Renombrar ultimo segmento y colorear amarillo
+                                seg = seg_node.GetSegmentation()
+                                n_seg = seg.GetNumberOfSegments()
+                                if n_seg > 0:
+                                    last_id = seg.GetSegmentIDs()[n_seg - 1]
+                                    segment = seg.GetSegment(last_id)
+                                    segment.SetName("Peritumoral")
+                                    segment.SetColor(0.8, 0.6, 0.0)
+                                # Limpiar
+                                slicer.mrmlScene.RemoveNode(temp_lm)
+                                logger.info("  Peritumoral importado como segmento (color amarillo)")
+                                _log_consola_ok("Peritumoral visible como segmento en Slicer")
+                        except Exception as e:
+                            logger.warning(f"  No se pudo importar peritumoral como segmento: {e}")
                     else:
                         logger.warning("  No se genero zona peritumoral (sin higado alrededor del tumor)")
                         _log_consola("Zona peritumoral: sin higado alrededor del tumor")
@@ -1952,6 +2102,9 @@ def main():
             _log_consola(f"Zona peritumoral: omitida ({e})")
             import traceback
             logger.warning(traceback.format_exc())
+
+        # Asignar tabla de colores al labelmap (despues de peritumoral)
+        _setup_labelmap_color_table(labelmap_node)
 
         # Actividad
         if args.activity is not None:
@@ -2243,6 +2396,25 @@ def main():
                     _log_consola_ok("Vista: solo CT + Dosis rainbow")
                 except Exception as e:
                     logger.warning(f"  Ocultando nodos: {e}")
+                # ── Saltar al voxel con maxima dosis ──
+                try:
+                    if dose_node is not None:
+                        import vtk as _vtk
+                        max_idx = np.unravel_index(np.argmax(dose_gy), dose_gy.shape)
+                        ijk = [float(max_idx[2]), float(max_idx[1]), float(max_idx[0]), 1.0]
+                        mat_ras = _vtk.vtkMatrix4x4()
+                        dose_node.GetIJKToRASMatrix(mat_ras)
+                        ras = [0.0, 0.0, 0.0, 0.0]
+                        mat_ras.MultiplyPoint(ijk, ras)
+                        from qt import QTimer
+                        QTimer.singleShot(500,
+                            lambda r=ras[:3]: slicer.modules.markups.logic().JumpSlicesToLocation(r[0], r[1], r[2], True))
+                        logger.info(f"  Saltando al voxel de maxima dosis: "
+                                    f"IJK({max_idx[0]},{max_idx[1]},{max_idx[2]}) "
+                                    f"-> RAS({ras[0]:.1f},{ras[1]:.1f},{ras[2]:.1f})")
+                        _log_consola_ok(f"Maxima dosis: {dose_gy.max():.2f} Gy")
+                except Exception as e:
+                    logger.warning(f"  No se pudo saltar al maximo de dosis: {e}")
                 # ── Isodosis (NO BLOQUEANTE: corre en background via QTimer) ──
                 if not args.no_isodose and _HAS_ISODOSE and create_isodose_contours:
                     logger.info("\n--- Isodosis: programada en background ---")
@@ -2415,6 +2587,7 @@ def main():
         for name, s in results["structures"].items():
             f.write(f"  {name.upper()} (indice={s['index']}):\n")
             f.write(f"    Voxeles:     {s['n_voxels']}\n")
+            f.write(f"    Volumen:     {s['volume_cm3']:.2f} cm3\n")
             f.write(f"    Dosis media: {s['mean_dose_gy']:.2f} Gy\n")
             f.write(f"    Dosis min:   {s['min_dose_gy']:.2f} Gy\n")
             f.write(f"    Dosis max:   {s['max_dose_gy']:.2f} Gy\n")

@@ -1283,6 +1283,13 @@ class PipelineMod3:
 
 def main():
     """Entry point CLI para PipelineMod3."""
+    # ── Logging global: captura TODO a archivo ──
+    try:
+        from PipelineOrchestrator.logging_setup import setup_global_logging
+        setup_global_logging()
+    except Exception as _e:
+        print(f"[3Dosim] No se pudo iniciar logging global: {_e}")
+
     import argparse
 
     parser = argparse.ArgumentParser(

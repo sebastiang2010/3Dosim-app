@@ -92,17 +92,18 @@ def _show_validation_dialog(titulo="Segmentacion", context="segmentacion") -> bo
         True si el medico aprueba, False si rechaza.
     """
     try:
-        from qt import QLabel, QVBoxLayout, QDialog, QPushButton, QHBoxLayout, QEventLoop
+        from qt import QLabel, QVBoxLayout, QDialog, QPushButton, QHBoxLayout, QEventLoop, Qt
         import slicer
 
         app = slicer.app
         main = slicer.util.mainWindow()
 
-        # Dialogo NO MODAL sin WindowStaysOnTopHint
+        # Dialogo NO MODAL pero siempre visible encima de Slicer
         dialog = QDialog(main)
         dialog.setWindowTitle(f"3Dosim — Validar {titulo}")
         dialog.setMinimumWidth(450)
         dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowStaysOnTopHint)
 
         layout = QVBoxLayout()
         layout.setSpacing(12)

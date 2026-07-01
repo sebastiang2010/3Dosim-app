@@ -13,14 +13,28 @@ NOTA: el kernel DEBE estar normalizado (sum=1) antes de llamar.
 NO multiplicar por T_mean despues — identico al flujo MATLAB.
 """
 
+import hashlib
 import numpy as np
 import time
 import logging
+import sys
+import platform
 from typing import Optional, Tuple
 
 logger = logging.getLogger("FFTDose")
 
-# Cache para kernel FFT (el kernel es siempre el mismo 51x51x51)
+# ── Workers para FFT ──
+# Windows: workers=-1 puede deadlockear con scipy/MKL.
+# Linux OK con workers=-1 (OpenMP).
+_IS_WINDOWS = platform.system() == "Windows"
+FFT_WORKERS = 1 if _IS_WINDOWS else -1  # Windows safe, Linux optimo
+logger.info(f"FFTDose: platform={platform.system()}, FFT_WORKERS={FFT_WORKERS}")
+sys.stdout.flush()
+
+# Cache para kernel FFT
+# Clave: (fft_shape, md5(kernel_bytes)) para evitar usar un kernel FFT
+# erroneo cuando el kernel cambia pero fft_shape es el mismo.
+# El hash del kernel (51x51x51 float32 ≈ 51KB) es ~1us.
 _KERNEL_FFT_CACHE: dict = {}
 
 # -------------------------------------------------------------------
@@ -30,77 +44,150 @@ PERITUMORAL_MM = 10.0  # 1 cm alrededor del tumor (fijo, requerimiento medico)
 Y90_T_MEAN_S = 64.1 * 3600 / np.log(2)  # 332916 s — vida media Y-90
 
 
+def _kernel_cache_key(kernel: np.ndarray, fft_shape: tuple) -> tuple:
+    """Genera clave de cache para kernel FFT.
+
+    Incluye hash del contenido del kernel para evitar resultados
+    incorrectos si se usan kernels diferentes con el mismo fft_shape.
+
+    Args:
+        kernel: array 3D float32 del kernel
+        fft_shape: tupla con tamano FFT optimo
+
+    Returns:
+        tuple: (fft_shape, md5_hexdigest)
+    """
+    md5 = hashlib.md5(kernel.tobytes(), usedforsecurity=False)
+    return (fft_shape, md5.hexdigest())
+
+
+def _fft_conv_impl(
+    activity_pad, kernel_f32, fft_shape, kr, activity_shape, K_fft
+):
+    """Ejecuta FFT + IFFT + recorte (run en thread separado para timeout)."""
+    from scipy.fft import rfftn, irfftn
+
+    t_fft = time.time()
+    A_fft = rfftn(activity_pad, s=fft_shape, workers=FFT_WORKERS)
+    dt_fft_a = time.time() - t_fft
+
+    t_mul = time.time()
+    conv_fft = A_fft * K_fft
+    dt_mul = time.time() - t_mul
+
+    t_ifft = time.time()
+    conv_full = irfftn(conv_fft, s=fft_shape, workers=FFT_WORKERS)
+    dt_ifft = time.time() - t_ifft
+
+    # Recortar: fft_shape -> valid range -> 'same' -> original
+    full_shape = tuple(activity_pad.shape[i] + kernel_f32.shape[i] - 1 for i in range(3))
+    slices_valid = tuple(slice(0, fs) for fs in full_shape)
+    conv_valid = conv_full[slices_valid]
+
+    slices_same = tuple(
+        slice(kr_i, kr_i + ap_i) for kr_i, ap_i in zip(kr, activity_pad.shape)
+    )
+    conv_padded = conv_valid[slices_same]
+
+    slices_orig = tuple(
+        slice(kr_i, kr_i + a_i) for kr_i, a_i in zip(kr, activity_shape)
+    )
+    result = np.asarray(conv_padded[slices_orig], dtype=np.float64)
+
+    return result, dt_fft_a, dt_mul, dt_ifft
+
+
 def convolve_imfilter_symmetric(
     activity: np.ndarray,
     kernel: np.ndarray,
+    timeout_s: float = 300.0,
 ) -> np.ndarray:
     """
     Convolucion 3D equivalente a MATLAB:
       imfilter(activity, kernel, 'conv', 'same', 'symmetric')
 
-    Usa scipy.fft.rfftn (real-input FFT) con workers=-1 (multi-thread)
+    Usa scipy.fft.rfftn (real-input FFT) con workers=FFT_WORKERS
     y next_fast_len para tamano FFT optimo.
 
     IMPORTANTE: el kernel DEBE estar normalizado (sum=1, hecho por el
     llamante). Esta funcion NO normaliza.
 
-    Pasos:
-      1. Padding reflectivo de activity (emula 'symmetric')
-      2. FFT convolution manual con rfftn + irfftn + float32
-      3. Kernel FFT cacheado por shape (evita recalcular)
-      4. Recortar padding reflectivo
-
     Args:
-        activity: array 3D (actividad en Bq/voxel)
+        activity: array 3D (actividad en GBq/voxel)
         kernel: array 3D (kernel de dosis, YA normalizado sum=1)
+        timeout_s: timeout en segundos para la FFT (default 300s = 5 min)
 
     Returns:
         result: array 3D del mismo tamano que activity
     """
     from scipy.fft import rfftn, irfftn, next_fast_len
+    import concurrent.futures
 
     t0 = time.time()
     kr = tuple(k // 2 for k in kernel.shape)
 
-    # Convertir a float32 (FFT mas rapida)
-    kernel_f32 = kernel.astype(np.float32)
+    # ── Convertir a float32 ──
+    t_convert = time.time()
+    kernel_f32 = np.asarray(kernel, dtype=np.float32)
     activity_f32 = np.asarray(activity, dtype=np.float32)
+    dt_convert = time.time() - t_convert
 
-    # Padding reflectivo igual a MATLAB 'symmetric'
-    activity_pad = np.pad(activity_f32, tuple((d, d) for d in kr), mode='reflect')
+    # ── Padding symmetric ──
+    t_pad = time.time()
+    activity_pad = np.pad(activity_f32, tuple((d, d) for d in kr), mode='symmetric')
+    dt_pad = time.time() - t_pad
 
-    # Tamano FFT optimo
+    # ── Tamano FFT optimo ──
     full_shape = tuple(
         activity_pad.shape[i] + kernel.shape[i] - 1
         for i in range(3)
     )
-    fft_shape = tuple(next_fast_len(s) for s in full_shape)
+    fft_shape = tuple(next_fast_len(s, real=True) for s in full_shape)
 
     logger.info(f"  Activity: {activity.shape} -> pad {kr} -> "
-                f"{activity_pad.shape} -> FFT {fft_shape}")
+                f"{activity_pad.shape} -> full {full_shape} -> FFT {fft_shape}")
 
-    # Kernel FFT cacheado por shape
-    cache_key = fft_shape
+    # ── Kernel FFT cacheado ──
+    t_cache = time.time()
+    cache_key = _kernel_cache_key(kernel_f32, fft_shape)
     if cache_key not in _KERNEL_FFT_CACHE:
+        kernel_fft_shifted = np.fft.ifftshift(kernel_f32)
         _KERNEL_FFT_CACHE[cache_key] = rfftn(
-            kernel_f32, s=fft_shape, workers=-1
+            kernel_fft_shifted, s=fft_shape, workers=FFT_WORKERS
         )
+        logger.info(f"  Kernel FFT: computado (cache miss, {len(_KERNEL_FFT_CACHE)} entradas)")
+    else:
+        logger.info(f"  Kernel FFT: desde cache")
     K_fft = _KERNEL_FFT_CACHE[cache_key]
+    dt_cache = time.time() - t_cache
 
-    A_fft = rfftn(activity_pad, s=fft_shape, workers=-1)
-    conv_full = irfftn(A_fft * K_fft, s=fft_shape, workers=-1)
-
-    # Recortar a 'same'
-    offset = tuple((s - ap) // 2 for s, ap in zip(full_shape, activity_pad.shape))
-    slices_same = tuple(slice(o, o + ap) for o, ap in zip(offset, activity_pad.shape))
-    conv_padded = conv_full[slices_same]
-
-    # Recortar padding reflectivo -> tamano original
-    slices_orig = tuple(slice(d, -d) if d > 0 else slice(None) for d in kr)
-    result = np.asarray(conv_padded[slices_orig], dtype=np.float64)
+    # ── Ejecutar FFT + IFFT con timeout ──
+    logger.info(f"  Lanzando FFT (timeout={timeout_s:.0f}s, workers={FFT_WORKERS})...")
+    sys.stdout.flush()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            _fft_conv_impl,
+            activity_pad, kernel_f32, fft_shape, kr, activity.shape, K_fft,
+        )
+        try:
+            result, dt_fft_a, dt_mul, dt_ifft = future.result(timeout=timeout_s)
+        except concurrent.futures.TimeoutError:
+            logger.error(f"  FFT TIMEOUT despues de {timeout_s:.0f}s — "
+                         f"shape={fft_shape}, fallback a convolucion lenta")
+            raise RuntimeError(
+                f"FFT convolution timeout ({timeout_s:.0f}s) en shape {fft_shape}. "
+                f"Actividad: {activity.shape}, FFT: {fft_shape}"
+            )
 
     t1 = time.time()
-    logger.info(f"  FFT convolution: {t1 - t0:.2f}s")
+    dt_total = t1 - t0
+    logger.info(f"  ⏱ FFT convolution: {dt_total:.2f}s total")
+    logger.info(f"     Convertir float32:  {dt_convert:.3f}s")
+    logger.info(f"     Padding symmetric:  {dt_pad:.3f}s")
+    logger.info(f"     Cache lookup:       {dt_cache:.3f}s")
+    logger.info(f"     FFT actividad:      {dt_fft_a:.3f}s")
+    logger.info(f"     Multiplicacion:     {dt_mul:.3f}s")
+    logger.info(f"     IFFT:               {dt_ifft:.3f}s")
     logger.info(f"  Result: min={result.min():.4e}, max={result.max():.4e}, "
                 f"mean={result.mean():.4e}")
 

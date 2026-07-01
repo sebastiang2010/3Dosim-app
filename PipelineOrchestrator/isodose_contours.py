@@ -42,7 +42,7 @@ def _get_jet_colors(n=10):
         if n != len(cmap):
             x_old = np.linspace(0, 1, len(cmap))
             x_new = np.linspace(0, 1, n)
-            _JET_COLORS = [tuple(c) for c in np.interp(x_new, x_old, cmap[:, 0]), np.interp(x_new, x_old, cmap[:, 1]), np.interp(x_new, x_old, cmap[:, 2])]
+            _JET_COLORS = list(zip(np.interp(x_new, x_old, cmap[:, 0]), np.interp(x_new, x_old, cmap[:, 1]), np.interp(x_new, x_old, cmap[:, 2])))
         else:
             _JET_COLORS = [tuple(c) for c in cmap]
     return _JET_COLORS

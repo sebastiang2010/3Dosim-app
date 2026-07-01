@@ -18,7 +18,7 @@ def setup_medical_views(
     segmentation_node=None,
     layout_name: str = "ConventionalView",
     pet_opacity: float = 0.35,
-    pet_colormap: str = "vtkMRMLColorTableNodeRainbow",
+    pet_colormap: str = "3Dosim_InvertedRainbow",
     ct_window: float = 400.0,
     ct_level: float = 40.0,
     pet_window: float = 40.0,
@@ -101,7 +101,9 @@ def setup_medical_views(
             pet_dn.SetDefaultColorMap()
             pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
 
-        # Colormap Rainbow para PET
+        # Colormap para PET (resolver shorthand inverted rainbow)
+        if pet_colormap == "3Dosim_InvertedRainbow":
+            pet_colormap = ensure_inverted_rainbow()
         pet_dn.SetAndObserveColorNodeID(pet_colormap)
         pet_dn.AutoWindowLevelOff()
         pet_dn.SetWindowLevel(pet_window, pet_level)
@@ -197,6 +199,79 @@ def setup_medical_views(
     logger.info("")
 
 
+def ensure_inverted_rainbow():
+    """Crea/retorna un color table node Rainbow invertido (rojo=bajo, azul=alto).
+
+    El Rainbow estandar va azul→verde→rojo. Este lo invierte a rojo→verde→azul
+    para que en PET los voxeles calientes (alta actividad) se vean azules y los
+    frios en rojo, que suele ser mas intuitivo en dosimetria.
+
+    Returns:
+        str: ID del nodo color table ("vtkMRMLColorTableNode*").
+    """
+    try:
+        import slicer
+    except ImportError:
+        return "vtkMRMLColorTableNodeRainbow"
+
+    node_name = "3Dosim_InvertedRainbow"
+    for existing in slicer.util.getNodesByClass("vtkMRMLColorTableNode"):
+        if existing.GetName() == node_name:
+            logger.info(f"  Reusando color table existente: {node_name}")
+            return existing.GetID()
+
+    try:
+        # Creamos el nodo color table via Slicer API estandar
+        ct = slicer.mrmlScene.AddNewNodeByClass(
+            "vtkMRMLColorTableNode", node_name)
+        ct.SetAttribute("Category", "3Dosim")
+        ct.SetTypeToUser()
+
+        # Inverted rainbow: rojo (bajo) -> amarillo -> verde -> cian -> azul (alto)
+        n_colors = 256
+
+        # 5 puntos de control del arcoiris invertido
+        stops = [
+            (0.00, 1.0, 0.0, 0.0),  # rojo
+            (0.25, 1.0, 1.0, 0.0),  # amarillo
+            (0.50, 0.0, 1.0, 0.0),  # verde
+            (0.75, 0.0, 1.0, 1.0),  # cian
+            (1.00, 0.0, 0.0, 1.0),  # azul
+        ]
+
+        # Usar LookupTable directamente (API VTK mas confiable)
+        lut = ct.GetLookupTable()
+        lut.SetNumberOfTableValues(n_colors)
+        lut.SetTableRange(0, n_colors - 1)
+        lut.SetRampToLinear()
+
+        for i in range(n_colors):
+            t = i / max(n_colors - 1, 1)
+            # Interpolar entre stops
+            for s_idx in range(len(stops) - 1):
+                t0, r0, g0, b0 = stops[s_idx]
+                t1, r1, g1, b1 = stops[s_idx + 1]
+                if t0 <= t <= t1:
+                    frac = (t - t0) / (t1 - t0) if t1 != t0 else 0
+                    r = r0 + (r1 - r0) * frac
+                    g = g0 + (g1 - g0) * frac
+                    b = b0 + (b1 - b0) * frac
+                    lut.SetTableValue(i, r, g, b, 1.0)
+                    break
+
+        ct.SetNamesFromColors()
+        lut.Modified()
+        ct.Modified()
+
+        logger.info(f"  Creado color table: {node_name} ({n_colors} colores, invertido)")
+        return ct.GetID()
+    except Exception as e:
+        logger.warning(f"  No se pudo crear color table invertido: {e}. Usando rainbow standard.")
+        import traceback
+        logger.debug(traceback.format_exc())
+        return "vtkMRMLColorTableNodeRainbow"
+
+
 def load_pipeline_config(config_path=None) -> dict:
     """Carga la configuracion global del pipeline desde pipeline_config.jsonc.
 
@@ -224,7 +299,7 @@ def load_pipeline_config(config_path=None) -> dict:
         "views": {
             "layout": "ConventionalView",
             "pet_opacity": 0.35,
-            "pet_colormap": "vtkMRMLColorTableNodeRainbow",
+            "pet_colormap": "3Dosim_InvertedRainbow",
             "ct_window": 400.0,
             "ct_level": 40.0,
             "pet_window": 40.0,

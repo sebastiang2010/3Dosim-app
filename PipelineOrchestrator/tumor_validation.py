@@ -77,17 +77,18 @@ def _show_tumor_validation_dialog(context="sintetico") -> bool:
         True si el medico aprueba, False si rechaza.
     """
     try:
-        from qt import QLabel, QVBoxLayout, QDialog, QPushButton, QHBoxLayout, QEventLoop
+        from qt import QLabel, QVBoxLayout, QDialog, QPushButton, QHBoxLayout, QEventLoop, Qt
         import slicer
 
         app = slicer.app
         main = slicer.util.mainWindow()
 
-        # Dialogo NO MODAL
+        # Dialogo NO MODAL pero siempre visible encima de Slicer
         dialog = QDialog(main)
         dialog.setWindowTitle("3Dosim — Validar Tumor")
         dialog.setMinimumWidth(450)
         dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowStaysOnTopHint)
 
         layout = QVBoxLayout()
         layout.setSpacing(12)
@@ -214,8 +215,8 @@ def _show_tumor_validation_dialog(context="sintetico") -> bool:
             main_rect.y() + (main_rect.height() - dlg_rect.height()) // 2,
         )
 
-        logger.info("  VALIDACION TUMOR — dialogo NO MODAL, Slicer COMPLETAMENTE operativo")
-        logger.info("  Navegue slices, revise tumor en 3D, luego APROBAR o RECHAZAR")
+        logger.info("  VALIDACION TUMOR — dialogo siempre visible, Slicer COMPLETAMENTE operativo")
+        logger.info("  Navegue slices, revise tumor en 3D, luego APROBAR o RECHAZAR (dialogo siempre al frente)")
 
         dialog.show()
         dialog.raise_()

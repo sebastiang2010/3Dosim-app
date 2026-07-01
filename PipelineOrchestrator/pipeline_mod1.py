@@ -891,9 +891,17 @@ class PipelineMod1:
                 slicer.mrmlScene.AddNode(pet_dn)
                 pet_dn.SetDefaultColorMap()
                 self.pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
-            pet_dn.SetAndObserveColorNodeID("vtkMRMLColorTableNodeRainbow")
+            from PipelineOrchestrator.views import ensure_inverted_rainbow
+            color_id = ensure_inverted_rainbow()
+            logger.info(f"  Aplicando colormap PET: {color_id}")
+            pet_dn.SetAndObserveColorNodeID(color_id)
+            # Forzar actualizacion del lookup table en VTK
+            color_node = slicer.mrmlScene.GetNodeByID(color_id)
+            if color_node:
+                color_node.GetLookupTable().Modified()
             pet_dn.AutoWindowLevelOff()
             pet_dn.SetWindowLevel(40.0, 20.0)
+            pet_dn.SetApplyThreshold(False)  # Sin threshold
             slicer.util.setSliceViewerLayers(
                 background=bg_node, foreground=self.pet_node, foregroundOpacity=0.35)
             bg_dn = bg_node.GetDisplayNode()
@@ -925,14 +933,25 @@ class PipelineMod1:
             logger.info("  No hay PET o directorio PET, saltando lectura de actividad")
             self.pet_activity = None
 
-        # ── 3. Mostrar dialogo informativo NO MODAL ──
+        # ── 3. Mostrar dialogo informativo MODAL (bloquea hasta cerrar) ──
         try:
             from PipelineOrchestrator.fusion_dialog import show_fusion_info_dialog
             ct_dims = self.ct_node.GetImageData().GetDimensions() if self.ct_node else None
             ct_spacing = self.ct_node.GetSpacing() if self.ct_node else None
             pet_dims = self.pet_node.GetImageData().GetDimensions() if self.pet_node else None
             pet_spacing = self.pet_node.GetSpacing() if self.pet_node else None
-            patient_id = os.path.basename(os.path.normpath(self.data_dir))
+            # Extraer ID: CLI > DICOM > extraer numero del directorio
+            pid = self.patient_id
+            if not pid:
+                pid = (self.pet_node.GetAttribute("DICOM.PatientID") or
+                       self.ct_node.GetAttribute("DICOM.PatientID") or "")
+            if not pid:
+                # Intentar extraer numero del nombre del directorio: "Paciente_2" → "2"
+                dir_name = os.path.basename(os.path.normpath(self.data_dir))
+                import re
+                m = re.search(r'(\d+)', dir_name)
+                pid = m.group(1) if m else dir_name
+            patient_id = pid
             show_fusion_info_dialog(
                 pet_activity=self.pet_activity or {},
                 ct_dims=ct_dims,
@@ -948,7 +967,7 @@ class PipelineMod1:
                 registration_method="Elastix rigid",
                 registration_conserved=True,
             )
-            logger.info("  Dialogo informativo de fusion mostrado (NO modal)")
+            logger.info("  Dialogo informativo de fusion cerrado por el usuario (modal)")
         except Exception as e:
             logger.warning(f"  No se pudo mostrar dialogo de fusion: {e}")
 
@@ -1024,12 +1043,17 @@ class PipelineMod1:
                 except Exception as e:
                     logger.debug(f"  Error leyendo DICOM {modality}: {e}")
             info[modality]["DICOM"] = dicom_tags
-        # Guardar JSON
+        # Guardar JSON — usar PatientID real de DICOM si esta disponible
         export_dir = getattr(self, "image_output_dir", None)
         if not export_dir:
             export_dir = os.path.join(self.output_dir, "exports")
         os.makedirs(export_dir, exist_ok=True)
-        pid = self.patient_id.strip() or "unknown"
+        dicom_patient_id = (
+            info.get("CT", {}).get("DICOM", {}).get("PatientID") or
+            info.get("PET", {}).get("DICOM", {}).get("PatientID") or
+            ""
+        )
+        pid = dicom_patient_id or self.patient_id.strip() or "unknown"
         json_path = os.path.join(export_dir, f"{pid}_info.json")
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(info, f, indent=2, ensure_ascii=False)

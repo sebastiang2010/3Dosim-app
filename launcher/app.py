@@ -1192,9 +1192,28 @@ class LauncherWindow(QMainWindow):
     # LAUNCH SLICER
     # ────────────────────────────────────────────────────────────
 
+    def _kill_slicer(self):
+        """Mata cualquier proceso Slicer existente para evitar single-instance conflict."""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['powershell', '-NoProfile', '-Command',
+                 "Get-Process -Name 'Slicer' -ErrorAction SilentlyContinue | Stop-Process -Force"],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0:
+                self._log.log("Slicer previo cerrado (evita single-instance conflict)", "ok")
+            # Esperar a que el proceso termine
+            import time
+            time.sleep(1)
+        except Exception as e:
+            self._log.log(f"Error cerrando Slicer previo: {e}", "warn")
+
     def _launch_slicer(self, mod_id: int, config: dict):
         """Lanza Slicer con el pipeline correspondiente."""
         _trace(f"_launch_slicer({mod_id}) — inicio")
+        # Matar Slicer previo ANTES de lanzar uno nuevo (single-instance)
+        self._kill_slicer()
         if not os.path.exists(_SLICER_EXE):
             _trace(f"_launch_slicer — SLICER_EXE no existe: {_SLICER_EXE}")
             QMessageBox.critical(self, "Error",
@@ -1298,6 +1317,9 @@ class LauncherWindow(QMainWindow):
             if not gen_pdf:
                 cmd.append("--no-pdf")
 
+            # Mantener Slicer abierto para visualizar dosis
+            cmd.append("--show")
+
         # String solo para display (con comillas en paths con espacios)
         cmd_str = " ".join(
             f'"{x}"' if " " in x else x for x in cmd
@@ -1305,6 +1327,10 @@ class LauncherWindow(QMainWindow):
 
         self._log.log(f"🚀 Lanzando Slicer...")
         self._log.log(f"  $ {cmd_str[:200]}...", "info")
+        if mod_id == 3:
+            self._log.log("  - Carga de escena: ~2 min (64 MB)")
+            self._log.log("  - Kernel FFT: ~30-50s")
+            self._log.log("  - Slicer se cierra solo al terminar")
         self._status.setText(f"Ejecutando Mod{mod_id} en Slicer...")
         self._progress.setVisible(True)
         self._progress.setRange(0, 0)  # Indeterminate
