@@ -360,14 +360,14 @@ class PipelineMod1:
         self._save_scene("12_segment_body")
         self.tomar_screenshot("12_segment_body")
 
-        # Exportar labelmap
+        # Exportar labelmap (NIfTI + NRRD ya van a disco)
+        # NOTA: NO se guarda escena ni screenshot post-labelmap porque
+        # el nodo 3Dosim_Labelmap (89MB) dentro del MRB cuelga Slicer.
         self._log_consola("Exportando labelmap dosimetrica con IDs de tissue_config...")
         if not self._checkpoint_step(self.STEP_EXPORT_LABELMAP, "Exportar labelmap dosimetrica",
                                       self._export_labelmap,
                                       data_func=lambda: {"output_dir": self.labelmap_dir}):
             logger.warning("Exportacion de labelmap fallo, continuando...")
-        self._save_scene("13_labelmap_exportada")
-        self.tomar_screenshot("13_labelmap_exportada")
 
         # Pipeline Mod1 completado
         logger.info("")
