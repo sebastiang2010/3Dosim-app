@@ -303,6 +303,9 @@ def load_pipeline_config(config_path=None) -> dict:
             "pet_level": 20.0,
             "link_slices": True,
         },
+        "save_scene": {
+            "frequency": "minimal",
+        },
         "pipeline": {
             "force_validation_on_restore": True,
             "config_version": 1,

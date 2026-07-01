@@ -56,6 +56,9 @@
     "ct_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\CT",
     "pet_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\PET"
   },
+  "save_scene": {
+    "frequency": "minimal"
+  },
   "segmentation": {
     "totalsegmentator": {
       "fast": true,

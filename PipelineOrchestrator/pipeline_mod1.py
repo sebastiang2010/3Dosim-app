@@ -761,8 +761,22 @@ class PipelineMod1:
         except Exception as e:
             logger.warning(f"No se pudo generar representacion 3D: {e}")
 
-    def _save_scene(self, tag=None):
+    def _save_scene(self, tag=None, force=False):
+        """Guarda la escena 3Dosim.mrb.
+
+        Args:
+            tag: Identificador opcional para el paso (log).
+            force: Si True, guarda siempre ignorando config save_scene.frequency.
+        """
         import slicer
+        # ── Verificar config de frecuencia ──
+        freq = self.pipeline_config.get("save_scene", {}).get("frequency", "minimal")
+        if not force and freq == "minimal":
+            allowed = {"01_post_load_dicom", "12_segment_body"}
+            if tag not in allowed:
+                logger.info(f"  Escena '{tag}' omitida (save_scene.frequency=minimal)")
+                return None
+
         # ── Mostrar cartel no-modal "Guardando escena..." ──
         dialog = None
         try:
