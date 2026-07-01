@@ -31,6 +31,7 @@ Uso:
 
 import os
 import logging
+from typing import Optional
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -201,6 +202,8 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
     result["max_bqml"] = float(np.max(stacked_bqml))
     result["min_bqml"] = float(np.min(stacked_bqml[stacked_bqml > 0])) if np.any(stacked_bqml > 0) else 0.0
     result["nonzero_voxels"] = int(np.sum(stacked_bq > 0))
+    # Exponer el array 3D Bq/mL para crear nodo calibrado
+    result["stacked_bqml_array"] = stacked_bqml
 
     logger.info(f"  RescaleType: {rescale_type}")
     logger.info(f"  Slopes: {min(slopes):.4f} ~ {max(slopes):.4f}")
@@ -209,3 +212,94 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
     logger.info(f"  Bq/mL medio: {result['mean_bqml']:.2f}")
 
     return result
+
+
+def create_calibrated_pet_node(pet_dir: str, reference_node) -> Optional[object]:
+    """Crea un nodo volumen Slicer con valores calibrados en Bq/mL reales.
+
+    Lee los DICOM PET raw con pydicom (per-slice RescaleSlope/Intercept),
+    construye el array 3D corregido y lo carga en un nuevo nodo Slicer
+    usando la geometria (origin, spacing, IJKToRAS) del reference_node.
+
+    Args:
+        pet_dir: Directorio con archivos DICOM PET.
+        reference_node: vtkMRMLScalarVolumeNode cargado por Slicer (referencia
+                        de geometria y dimensiones).
+
+    Returns:
+        vtkMRMLScalarVolumeNode con Bq/mL calibrados, o None si falla.
+    """
+    if not os.path.isdir(pet_dir):
+        logger.error(f"  Directorio PET no encontrado: {pet_dir}")
+        return None
+    if reference_node is None:
+        logger.error("  reference_node es None, no se puede crear nodo calibrado")
+        return None
+
+    try:
+        import slicer
+        import vtk
+    except ImportError:
+        logger.warning("  slicer no disponible, no se puede crear nodo PET calibrado")
+        return None
+
+    # 1. Leer actividad PET con pydicom
+    logger.info("  Leyendo DICOM PET raw para calibracion Bq/mL...")
+    activity = read_pet_dicom_activity(pet_dir)
+    if activity.get("error"):
+        logger.warning(f"  No se pudo leer actividad PET: {activity['error']}")
+        return None
+
+    bqml_array = activity.get("stacked_bqml_array")
+    if bqml_array is None:
+        logger.warning("  stacked_bqml_array no disponible en resultado PET")
+        return None
+
+    # 2. Verificar dimensiones contra el nodo de referencia (Slicer)
+    try:
+        ref_array = slicer.util.arrayFromVolume(reference_node)
+    except Exception:
+        logger.warning("  No se pudo leer array del nodo referencia")
+        return None
+
+    logger.info(f"  Array pydicom shape: {bqml_array.shape}")
+    logger.info(f"  Array Slicer  shape: {ref_array.shape}")
+
+    if bqml_array.shape != ref_array.shape:
+        logger.warning(
+            f"  Dimensiones NO coinciden: pydicom {bqml_array.shape} vs "
+            f"Slicer {ref_array.shape}. No se puede crear nodo calibrado."
+        )
+        return None
+
+    # 3. Verificar rango de valores
+    logger.info(f"  Rango Bq/mL pydicom:  {float(bqml_array.min()):.2f} ~ {float(bqml_array.max()):.2f}")
+    logger.info(f"  Rango Bq/mL Slicer:   {float(ref_array.min()):.2f} ~ {float(ref_array.max()):.2f}")
+
+    # 4. Crear nuevo nodo volumen con la misma geometria
+    new_node = slicer.mrmlScene.AddNewNodeByClass(
+        "vtkMRMLScalarVolumeNode", "PET_BqmL"
+    )
+    new_node.SetOrigin(reference_node.GetOrigin())
+    new_node.SetSpacing(reference_node.GetSpacing())
+    ijk_to_ras = vtk.vtkMatrix4x4()
+    reference_node.GetIJKToRASMatrix(ijk_to_ras)
+    new_node.SetIJKToRASMatrix(ijk_to_ras)
+
+    slicer.util.updateVolumeFromArray(new_node, bqml_array)
+
+    # 5. Crear display node para que sea visible
+    pet_dn = new_node.GetDisplayNode()
+    if not pet_dn:
+        from slicer import vtkMRMLScalarVolumeDisplayNode
+        pet_dn = vtkMRMLScalarVolumeDisplayNode()
+        slicer.mrmlScene.AddNode(pet_dn)
+        pet_dn.SetDefaultColorMap()
+        new_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
+
+    new_range = (float(bqml_array.min()), float(bqml_array.max()))
+    logger.info(f"  Nodo PET calibrado creado: {new_node.GetName()}")
+    logger.info(f"  Rango escalar Bq/mL: {new_range[0]:.2f} ~ {new_range[1]:.2f}")
+    logger.info(f"  Total: {activity['total_bq']:.4e} Bq = {activity['total_gbq']:.4f} GBq")
+
+    return new_node

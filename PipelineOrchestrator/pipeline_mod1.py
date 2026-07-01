@@ -48,9 +48,10 @@ class PipelineMod1:
     STEP_VALIDATE      = "validate_segmentation"
     STEP_ADD_TUMOR     = "add_synthetic_tumor"
     STEP_VALIDATE_TUMOR = "validate_tumor"
-    STEP_HEALTHY_LIVER  = "create_healthy_liver"
-    STEP_SEGMENT_BODY   = "segment_body"
+    STEP_HEALTHY_LIVER   = "create_healthy_liver"
+    STEP_SEGMENT_BODY    = "segment_body"
     STEP_EXPORT_LABELMAP = "export_labelmap"
+    STEP_CALIBRATE_PET   = "calibrate_pet_bqml"
 
     def __init__(self, data_dir: str, reset: bool = False, mcp_port: int = 0,
                  no_consola: bool = False, segmenter: str = "totalsegmentator",
@@ -183,6 +184,9 @@ class PipelineMod1:
             logger.error("Fallo critico en carga DICOM. Abortando.")
             self._report()
             return
+
+        # Calibrar PET a Bq/mL reales (paso no-checkpoint: se ejecuta siempre)
+        self._calibrate_pet_bqml()
 
         self._save_scene("01_post_load_dicom")
         self.tomar_screenshot("01_carga_dicom")
@@ -908,6 +912,35 @@ class PipelineMod1:
         dims = self.ct_node.GetImageData().GetDimensions()
         spacing = self.ct_node.GetSpacing()
         logger.info(f"  CT: {dims[0]}x{dims[1]}x{dims[2]}, {spacing[0]:.3f}x{spacing[1]:.3f}x{spacing[2]:.3f} mm")
+
+    def _calibrate_pet_bqml(self):
+        """Calibra el nodo PET a Bq/mL reales usando pydicom (per-slice).
+
+        Reemplaza self.pet_node por un nodo nuevo con valores Bq/mL
+        calculados desde los DICOM raw con RescaleSlope/Intercept por slice.
+        Si falla, conserva el nodo original y loguea warning.
+        """
+        if not self.pet_node or not os.path.isdir(self.pet_dir):
+            logger.info("  No hay PET o directorio PET, saltando calibracion Bq/mL")
+            return
+        try:
+            from PipelineOrchestrator.pet_dicom_reader import create_calibrated_pet_node
+            logger.info("  Calibrando PET a Bq/mL desde DICOM raw (per-slice rescale)...")
+            new_node = create_calibrated_pet_node(self.pet_dir, self.pet_node)
+            if new_node is not None:
+                old_name = self.pet_node.GetName()
+                old_node = self.pet_node
+                new_node.SetName(old_name)
+                self.pet_node = new_node
+                import slicer
+                slicer.mrmlScene.RemoveNode(old_node)
+                logger.info(f"  PET calibrado: nodo reemplazado '{old_name}' con Bq/mL reales")
+            else:
+                logger.warning("  No se creo nodo calibrado, conservando nodo PET original")
+        except Exception as e:
+            logger.warning(f"  Error en calibracion PET: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
 
     def _read_dicom_patient_id(self) -> str:
         """Lee el PatientID real desde los archivos DICOM con pydicom.
