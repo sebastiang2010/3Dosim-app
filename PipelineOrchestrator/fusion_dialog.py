@@ -251,7 +251,7 @@ def show_fusion_info_dialog(
         }
         QPushButton:hover { background-color: #2980b9; }
     """)
-    close_btn.clicked.connect(dialog.accept)  # accept() cierra correctamente el modal
+    close_btn.clicked.connect(lambda: dialog.accept())  # lambda evita pasar checked(bool) a accept()
     btn_layout.addWidget(close_btn)
     layout.addLayout(btn_layout)
 

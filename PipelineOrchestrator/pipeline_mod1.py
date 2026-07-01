@@ -873,6 +873,37 @@ class PipelineMod1:
         spacing = self.ct_node.GetSpacing()
         logger.info(f"  CT: {dims[0]}x{dims[1]}x{dims[2]}, {spacing[0]:.3f}x{spacing[1]:.3f}x{spacing[2]:.3f} mm")
 
+    def _read_dicom_patient_id(self) -> str:
+        """Lee el PatientID real desde los archivos DICOM con pydicom.
+
+        Prueba primero PET, luego CT. Retorna '' si no se puede leer.
+        """
+        for directory in [self.pet_dir, self.ct_dir]:
+            if not directory or not os.path.isdir(directory):
+                continue
+            try:
+                import pydicom
+                for fname in sorted(os.listdir(directory)):
+                    fpath = os.path.join(directory, fname)
+                    if not os.path.isfile(fpath):
+                        continue
+                    try:
+                        ds = pydicom.dcmread(fpath, stop_before_pixels=True, force=True)
+                        pid = getattr(ds, "PatientID", None)
+                        if pid is not None:
+                            val = str(pid.val if hasattr(pid, "val") else pid)
+                            if val.strip():
+                                logger.info(f"  PatientID real desde DICOM: {val}")
+                                return val.strip()
+                    except Exception:
+                        continue
+            except ImportError:
+                logger.debug("  pydicom no disponible para leer PatientID")
+                break
+            except Exception:
+                continue
+        return ""
+
     def _show_fusion(self):
         import slicer
         lm = slicer.app.layoutManager()
@@ -940,11 +971,11 @@ class PipelineMod1:
             ct_spacing = self.ct_node.GetSpacing() if self.ct_node else None
             pet_dims = self.pet_node.GetImageData().GetDimensions() if self.pet_node else None
             pet_spacing = self.pet_node.GetSpacing() if self.pet_node else None
-            # Extraer ID: CLI > DICOM > extraer numero del directorio
+            # Extraer ID: CLI > DICOM (via pydicom) > extraer numero del directorio
             pid = self.patient_id
             if not pid:
-                pid = (self.pet_node.GetAttribute("DICOM.PatientID") or
-                       self.ct_node.GetAttribute("DICOM.PatientID") or "")
+                # Leer PatientID real desde archivos DICOM con pydicom
+                pid = self._read_dicom_patient_id()
             if not pid:
                 # Intentar extraer numero del nombre del directorio: "Paciente_2" → "2"
                 dir_name = os.path.basename(os.path.normpath(self.data_dir))

@@ -12,11 +12,15 @@ def setup_logger(name: str = "3DosimTest") -> logging.Logger:
     """Configura y retorna el logger global."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
-    
-    # Consola
+
+    # NO propagar al root logger (evita duplicacion con logging_setup.py)
+    logger.propagate = False
+
+    # Consola: solo el mensaje, sin timestamp (el Tee de logging_setup.py
+    # ya captura stdout con timestamp global)
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter(
-        "[%(asctime)s] %(levelname)-8s %(message)s", datefmt="%H:%M:%S"
+        "%(message)s"
     ))
     logger.addHandler(handler)
 

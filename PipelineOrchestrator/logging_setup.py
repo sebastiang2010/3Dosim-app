@@ -74,7 +74,7 @@ def setup_global_logging() -> str:
 
     # Abrir archivo en modo append con utf-8
     try:
-        log_file = open(log_path, "w", encoding="utf-8")
+        log_file = open(log_path, "a", encoding="utf-8")
     except Exception as e:
         # Fallback: escribir a donde se pueda
         fallback = os.path.join(os.path.dirname(__file__), "..", "pipeline_crash.log")
