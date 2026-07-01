@@ -80,6 +80,7 @@ def run_mod1(args):
         no_consola=args.no_consola,
         segmenter=args.segmenter,
         stop_before_segment=args.stop_before_segment,
+        stop_after_fusion=args.stop_after_fusion,
         force_cpu=args.force_cpu,
         patient_id=args.patient_id,
     )
@@ -142,6 +143,7 @@ def run_legacy(args):
         no_consola=args.no_consola,
         segmenter=args.segmenter,
         stop_before_segment=args.stop_before_segment,
+        stop_after_fusion=args.stop_after_fusion,
         force_cpu=args.force_cpu,
         mcnp_isotope=args.isotope,
         mcnp_n_particles=int(args.n_particles) if args.n_particles else None,
@@ -207,6 +209,11 @@ def main():
         "--stop-before-segment",
         action="store_true",
         help="Ejecuta hasta antes de segmentacion, luego muestra parametros TS y sale",
+    )
+    parser.add_argument(
+        "--stop-after-fusion",
+        action="store_true",
+        help="Ejecuta solo hasta fusion CT+PET (test rapido, sin TotalSegmentator)",
     )
     parser.add_argument(
         "--patient-id",

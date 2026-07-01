@@ -55,7 +55,8 @@ class PipelineMod1:
 
     def __init__(self, data_dir: str, reset: bool = False, mcp_port: int = 0,
                  no_consola: bool = False, segmenter: str = "totalsegmentator",
-                 stop_before_segment: bool = False, force_cpu: bool = True,
+                 stop_before_segment: bool = False, stop_after_fusion: bool = False,
+                 force_cpu: bool = True,
                  patient_id: str = None):
         self.data_dir = data_dir
         self.patient_id = patient_id or ""
@@ -97,6 +98,9 @@ class PipelineMod1:
         self.stop_before_segment = stop_before_segment
         if stop_before_segment:
             logger.info("  Modo:           STOP antes de segmentacion (manual)")
+        self.stop_after_fusion = stop_after_fusion
+        if stop_after_fusion:
+            logger.info("  Modo:           STOP despues de fusion (test rapido)")
 
         # Consola
         self.no_consola = no_consola
@@ -226,6 +230,10 @@ class PipelineMod1:
             logger.warning("No se pudo mostrar fusion, continuando de todos modos")
         self._save_scene("04_fusion_ct_pet_registrada")
         self.tomar_screenshot("04_fusion_ct_pet_registrada")
+
+        if self.stop_after_fusion:
+            self._stop_after_fusion_handler()
+            return
 
         if not self._checkpoint_step(self.STEP_ANONYMIZE, "Anonimizando imagenes",
                                       self._anonymize,
@@ -740,6 +748,22 @@ class PipelineMod1:
         if body_candidates and not getattr(self, 'body_node', None):
             self.body_node = body_candidates[0]
 
+        # Renombrar nodos a nombres canonicos (aplica siempre, incluso al restaurar escena)
+        if self.ct_node:
+            ct_name = self.ct_node.GetName()
+            if ct_name not in ("CT", "CT_sin_camilla"):
+                self.ct_node.SetName("CT")
+                logger.info(f"  CT renombrado de '{ct_name}' a 'CT'")
+        if self.pet_node:
+            pet_name = self.pet_node.GetName()
+            if pet_name not in ("PET", "PET_BqmL", "PET_CT"):
+                if self.checkpoint.is_completed(self.STEP_RESAMPLE_PET):
+                    self.pet_node.SetName("PET_CT")
+                    logger.info(f"  PET renombrado de '{pet_name}' a 'PET_CT'")
+                else:
+                    self.pet_node.SetName("PET")
+                    logger.info(f"  PET renombrado de '{pet_name}' a 'PET'")
+
     def _show_segmentation_3d(self, seg_node=None):
         import slicer
         import vtk
@@ -841,6 +865,22 @@ class PipelineMod1:
                 except Exception:
                     pass
 
+    def _stop_after_fusion_handler(self):
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info(" PIPELINE DETENIDO DESPUES DE FUSION (test rapido)")
+        logger.info("=" * 60)
+        logger.info("")
+        logger.info("Pasos completados:")
+        logger.info("  1. check_slicer")
+        logger.info("  2. load_dicom")
+        logger.info("  3. calibrate_pet (Bq/mL)")
+        logger.info("  4. remove_couch_air")
+        logger.info("  5. resample_pet")
+        logger.info("  6. fusion CT+PET")
+        logger.info("")
+        logger.info("Escena guardada en: 04_fusion_ct_pet_registrada")
+
     def _stop_before_segment_handler(self):
         logger.info("")
         logger.info("=" * 60)
@@ -929,27 +969,31 @@ class PipelineMod1:
         logger.info(f"  CT: {dims[0]}x{dims[1]}x{dims[2]}, {spacing[0]:.3f}x{spacing[1]:.3f}x{spacing[2]:.3f} mm")
 
     def _calibrate_pet_bqml(self):
-        """Calibra el nodo PET a Bq/mL reales usando pydicom (per-slice).
+        """Calibra el nodo PET a Bq/mL desde DICOM raw (per-slice).
 
-        Reemplaza self.pet_node por un nodo nuevo con valores Bq/mL
-        calculados desde los DICOM raw con RescaleSlope/Intercept por slice.
-        Si falla, conserva el nodo original y loguea warning.
+        Lee DICOM raw con pydicom, aplica RescaleSlope/Intercept por slice
+        (solo si RescaleType == BQML), y crea un nuevo nodo con geometria
+        DICOM nativa (200x200x127, spacing 4.07x4.07x2 mm).
+
+        NO recalibra si el PET ya fue resampleado a CT (evita mismatch de
+        geometria al restaurar escena guardada).
         """
         if not self.pet_node or not os.path.isdir(self.pet_dir):
             logger.info("  No hay PET o directorio PET, saltando calibracion Bq/mL")
             return
+        if self.checkpoint.is_completed(self.STEP_RESAMPLE_PET):
+            logger.info("  PET ya resampleado a CT, saltando recalibracion Bq/mL")
+            return
         try:
             from PipelineOrchestrator.pet_dicom_reader import create_calibrated_pet_node
             logger.info("  Calibrando PET a Bq/mL desde DICOM raw (per-slice rescale)...")
-            new_node = create_calibrated_pet_node(self.pet_dir, self.pet_node)
+            new_node = create_calibrated_pet_node(self.pet_dir)
             if new_node is not None:
-                old_name = self.pet_node.GetName()
                 old_node = self.pet_node
-                new_node.SetName(old_name)
                 self.pet_node = new_node
                 import slicer
                 slicer.mrmlScene.RemoveNode(old_node)
-                logger.info(f"  PET calibrado: nodo reemplazado '{old_name}' con Bq/mL reales")
+                logger.info(f"  PET calibrado: '{new_node.GetName()}' con Bq/mL reales")
             else:
                 logger.warning("  No se creo nodo calibrado, conservando nodo PET original")
         except Exception as e:
@@ -1308,21 +1352,23 @@ class PipelineMod1:
             logger.info("PET ya tiene la misma geometria que CT")
             return
         try:
+            from PipelineOrchestrator.utils import track_time
             from SlicerDosim.SlicerDosimLib import registration
             pet_resampled_node = slicer.mrmlScene.AddNewNodeByClass(
-                "vtkMRMLScalarVolumeNode", self.pet_node.GetName() + "_resampled_to_CT")
+                "vtkMRMLScalarVolumeNode", "PET_tmp")
             reg = registration.DosimetryRegistration()
-            registered_pet = reg.register(
-                fixed_node=self.ct_node, moving_node=self.pet_node,
-                method=registration.DosimetryRegistration.METHOD_ELASTIX_RIGID,
-                output_volume_node=pet_resampled_node)
+            with track_time("Registro elastix PET->CT (rigido)"):
+                registered_pet = reg.register(
+                    fixed_node=self.ct_node, moving_node=self.pet_node,
+                    method=registration.DosimetryRegistration.METHOD_ELASTIX_RIGID,
+                    output_volume_node=pet_resampled_node)
             if registered_pet is None or registered_pet.GetImageData() is None:
                 raise RuntimeError("Registro Elastix fallo")
-            registered_pet.SetName(self.pet_node.GetName())
+            registered_pet.SetName("PET_CT")
             old_pet = self.pet_node
             self.pet_node = registered_pet
             slicer.mrmlScene.RemoveNode(old_pet)
-            logger.info("PET re-muestreado a geometria CT: EXITOSO")
+            logger.info("PET re-muestreado a geometria CT: EXITOSO ('PET_CT')")
         except Exception as e:
             logger.error(f"Error en re-muestreo PET: {e}")
             import traceback
@@ -1335,9 +1381,11 @@ class PipelineMod1:
             self.ct_masked_node = masked_node
 
     def _segment(self):
+        from PipelineOrchestrator.utils import track_time
         ct_input = self.ct_node.GetName() if self.ct_node else None
-        seg_node = segmentation.run_segmentation(
-            ct_input, self.output_dir, force_cpu=self.force_cpu)
+        with track_time("TotalSegmentator (segmentacion completa)"):
+            seg_node = segmentation.run_segmentation(
+                ct_input, self.output_dir, force_cpu=self.force_cpu)
         self.segmentation_node = seg_node
 
     def _validate_segmentation_auto(self):
@@ -1473,12 +1521,15 @@ class PipelineMod1:
         from TotalSegmentator import TotalSegmentatorLogic
         logic = TotalSegmentatorLogic()
         logic.setupPythonRequirements()
-        logic.process(
-            inputVolume=ct_node, outputSegmentation=body_seg_node,
-            task=task, fast=fast, cpu=force_cpu, subset=subset)
+        from PipelineOrchestrator.utils import track_time
+        with track_time("TotalSegmentator (segmentacion corporal)"):
+            logic.process(
+                inputVolume=ct_node, outputSegmentation=body_seg_node,
+                task=task, fast=fast, cpu=force_cpu, subset=subset)
         self.body_node = body_seg_node
 
     def _export_labelmap(self):
+        from PipelineOrchestrator.utils import track_time
         import slicer
         ct_node = getattr(self, 'ct_node', None) or getattr(self, 'ct_masked_node', None)
         seg_node = getattr(self, 'segmentation_node', None)
@@ -1513,10 +1564,11 @@ class PipelineMod1:
         if not tissue_config_path:
             logger.warning("tissue_config.json no encontrado — usando fallback")
             tissue_config_path = tissue_config_candidates[0]
-        resultado = labelmap_exporter.export_labelmap(
-            segmentation_node=seg_node, ct_node=ct_node,
-            tissue_config_path=tissue_config_path,
-            output_dir=labelmap_dir, body_segmentation_node=body_node)
+        with track_time("Generando labelmap dosimetrica"):
+            resultado = labelmap_exporter.export_labelmap(
+                segmentation_node=seg_node, ct_node=ct_node,
+                tissue_config_path=tissue_config_path,
+                output_dir=labelmap_dir, body_segmentation_node=body_node)
         # Mostrar resumen en Slicer via status bar (NO QMessageBox — cuelga Slicer)
         nifti = resultado.get("nifti_path") or "N/A"
         nrrd = resultado.get("nrrd_path") or "N/A"

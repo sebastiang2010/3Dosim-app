@@ -6,6 +6,8 @@ Logger, paths, helpers sin dependencias de Slicer.
 import logging
 import os
 import sys
+import time
+from contextlib import contextmanager
 
 
 def setup_logger(name: str = "3DosimTest") -> logging.Logger:
@@ -99,6 +101,37 @@ def show_progress(message: str):
         slicer.app.processEvents()
     except ImportError:
         pass  # Fuera de Slicer, silencioso
+
+
+@contextmanager
+def track_time(description: str, timeout: int = 5):
+    """Context manager para procesos que pueden demorar.
+
+    Muestra cartel en consola y Slicer status bar si el proceso
+    tarda mas de ``timeout`` segundos. Sirve para cualquier modulo.
+
+    Args:
+        description: Descripcion del proceso (ej. 'Generando labelmap')
+        timeout: Segundos de tolerancia antes de mostrar cartel (default 5)
+
+    Uso:
+        with track_time("Generando labelmap dosimetrica"):
+            # proceso largo
+            time.sleep(10)
+    """
+    t0 = time.time()
+    logger.info(f"  Iniciando: {description}...")
+    try:
+        yield
+    finally:
+        elapsed = time.time() - t0
+        if elapsed > timeout:
+            mensaje = (
+                f"  {description} — tardo {elapsed:.0f}s, "
+                "todavia ejecutandose..."
+            )
+            logger.info(mensaje)
+            show_progress(mensaje)
 
 
 def kill_existing_slicer():
