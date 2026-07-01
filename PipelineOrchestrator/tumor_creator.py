@@ -275,15 +275,18 @@ def _do_load_file(
         logger.warning("  Intentando re-muestrear...")
         # Re-muestrear usando el nodo cargado a la geometria del CT
         try:
-            from SlicerDosim.SlicerDosimLib import registration
-            reg = registration.DosimetryRegistration()
-            resampled_node = reg.register(
-                fixed_node=ct_node,
-                moving_node=tumor_labelmap_node,
-                method=registration.DosimetryRegistration.METHOD_BRAINS_RESAMPLE,
-                output_volume_node=None,
-            )
-            if resampled_node and resampled_node.GetImageData():
+            import slicer
+            resampled_node = slicer.mrmlScene.AddNewNodeByClass(
+                "vtkMRMLScalarVolumeNode", "tumor_resampled_tmp")
+            params = {
+                'inputVolume': tumor_labelmap_node.GetID(),
+                'referenceVolume': ct_node.GetID(),
+                'outputVolume': resampled_node.GetID(),
+                'pixelType': 'float',
+                'interpolationMode': 'NearestNeighbor',
+            }
+            slicer.cli.run(slicer.modules.brainsresample, None, params, wait_for_completion=True)
+            if resampled_node.GetImageData():
                 tumor_mask = (slicer.util.arrayFromVolume(resampled_node) > 0).astype(np.uint8)
                 tumor_voxels = int(np.sum(tumor_mask))
                 tumor_volume_cc = tumor_voxels * voxel_vol_cc
