@@ -111,23 +111,25 @@ def setup_medical_views(
         logger.info(f"  PET colormap: {pet_colormap}")
 
         # Auto-calcular window/level desde percentiles de los datos
-        # para que funcione con cualquier rango (raw counts, SUV, Bq/mL)
+        # para que funcione con cualquier rango (raw counts, SUV, Bq/mL).
+        # Solo usa valores > 0 para ignorar fondo negativo (aire/background).
         pet_dn.AutoWindowLevelOff()
         try:
             import numpy as np
             arr = slicer.util.arrayFromVolume(pet_node)
             if arr is not None and arr.size > 0:
-                valid = arr[~np.isnan(arr) & np.isfinite(arr)]
+                valid = arr[~np.isnan(arr) & np.isfinite(arr) & (arr > 0)]
                 if valid.size > 0:
-                    p2, p98 = float(np.percentile(valid, 2)), float(np.percentile(valid, 98))
+                    p2 = float(np.percentile(valid, 2))
+                    p98 = float(np.percentile(valid, 98))
                     if p98 > p2:
                         pet_window = p98 - p2
                         pet_level = (p98 + p2) / 2.0
-                        logger.info(f"  PET window/level auto (P2-P98): {pet_window:.2f}/{pet_level:.2f}")
+                        logger.info(f"  PET window/level auto (>0, P2-P98): {pet_window:.2f}/{pet_level:.2f}")
                     else:
                         logger.info(f"  PET valores planos, usando config: {pet_window}/{pet_level}")
                 else:
-                    logger.info(f"  PET sin valores validos, usando config: {pet_window}/{pet_level}")
+                    logger.info(f"  PET sin valores >0, usando config: {pet_window}/{pet_level}")
             else:
                 logger.info(f"  PET vacio, usando config: {pet_window}/{pet_level}")
         except Exception as e:
