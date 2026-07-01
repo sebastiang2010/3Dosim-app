@@ -109,7 +109,30 @@ def setup_medical_views(
             pet_colormap = ensure_inverted_rainbow()
         pet_dn.SetAndObserveColorNodeID(pet_colormap)
         logger.info(f"  PET colormap: {pet_colormap}")
+
+        # Auto-calcular window/level desde percentiles de los datos
+        # para que funcione con cualquier rango (raw counts, SUV, Bq/mL)
         pet_dn.AutoWindowLevelOff()
+        try:
+            import numpy as np
+            arr = slicer.util.arrayFromVolume(pet_node)
+            if arr is not None and arr.size > 0:
+                valid = arr[~np.isnan(arr) & np.isfinite(arr)]
+                if valid.size > 0:
+                    p2, p98 = float(np.percentile(valid, 2)), float(np.percentile(valid, 98))
+                    if p98 > p2:
+                        pet_window = p98 - p2
+                        pet_level = (p98 + p2) / 2.0
+                        logger.info(f"  PET window/level auto (P2-P98): {pet_window:.2f}/{pet_level:.2f}")
+                    else:
+                        logger.info(f"  PET valores planos, usando config: {pet_window}/{pet_level}")
+                else:
+                    logger.info(f"  PET sin valores validos, usando config: {pet_window}/{pet_level}")
+            else:
+                logger.info(f"  PET vacio, usando config: {pet_window}/{pet_level}")
+        except Exception as e:
+            logger.warning(f"  No se pudo auto-calcular PET window/level: {e}")
+            logger.info(f"  Usando config: {pet_window}/{pet_level}")
         pet_dn.SetWindowLevel(pet_window, pet_level)
 
         # Mostrar fusion en slices 2D

@@ -824,7 +824,8 @@ class PipelineMod1:
                 os.environ["TEMP"] = old_temp
             elapsed = time.time() - t0
             if success:
-                logger.info(f"  Escena guardada ({elapsed:.0f}s): {os.path.basename(filepath)}")
+                new_size = os.path.getsize(filepath)
+                logger.info(f"  Escena guardada ({elapsed:.0f}s): {os.path.basename(filepath)} ({new_size/1024/1024:.0f} MB)")
                 return filepath
             else:
                 logger.warning(f"  saveScene devolvio False ({elapsed:.0f}s)")
