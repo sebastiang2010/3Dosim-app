@@ -100,6 +100,10 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
     voxel_vol_cm3 = None
     slice_positions = []
     all_warnings = []
+    # Geometria DICOM (del primer slice util, para crear nodo calibrado)
+    dicom_spacing = None       # (pix_x, pix_y, slice_thick) en mm
+    dicom_origin = None        # (x, y, z) del primer slice en RAS
+    dicom_direction = None     # 6 valores de ImageOrientationPatient
 
     for fname in dcm_files[:500]:  # safety cap
         fpath = os.path.join(pet_dir, fname)
@@ -125,6 +129,17 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
         # --- 2a. Leer RescaleType (solo del primer slice util) ---
         if rescale_type is None:
             rescale_type = getattr(ds, "RescaleType", None) or ""
+            # Capturar geometria DICOM del primer slice
+            pix_spacing = getattr(ds, "PixelSpacing", None)
+            slice_thick = getattr(ds, "SliceThickness", None)
+            if pix_spacing and slice_thick:
+                dicom_spacing = (float(pix_spacing[0]), float(pix_spacing[1]), float(slice_thick))
+            img_pos = getattr(ds, "ImagePositionPatient", None)
+            if img_pos:
+                dicom_origin = (float(img_pos[0]), float(img_pos[1]), float(img_pos[2]))
+            img_orient = getattr(ds, "ImageOrientationPatient", None)
+            if img_orient:
+                dicom_direction = tuple(float(x) for x in img_orient)
 
         # --- 2b. Leer RescaleSlope y RescaleIntercept ---
         slope = float(getattr(ds, "RescaleSlope", 1.0))
@@ -202,6 +217,11 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
     result["max_bqml"] = float(np.max(stacked_bqml))
     result["min_bqml"] = float(np.min(stacked_bqml[stacked_bqml > 0])) if np.any(stacked_bqml > 0) else 0.0
     result["nonzero_voxels"] = int(np.sum(stacked_bq > 0))
+    # Geometria DICOM para crear nodo calibrado (cuando Slicer no coincide)
+    result["dicom_spacing_mm"] = dicom_spacing         # (pix_x, pix_y, slice_thick)
+    result["dicom_origin"] = dicom_origin               # (x, y, z) primer slice
+    result["dicom_direction"] = dicom_direction          # 6 cosenos directores
+    result["dicom_slice_positions"] = [float(slice_positions[i]) for i in sort_idx]
     # Exponer el array 3D Bq/mL para crear nodo calibrado
     result["stacked_bqml_array"] = stacked_bqml
 
@@ -212,6 +232,83 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
     logger.info(f"  Bq/mL medio: {result['mean_bqml']:.2f}")
 
     return result
+
+
+def _create_node_from_dicom_geometry(bqml_array: np.ndarray,
+                                      activity: dict) -> Optional[object]:
+    """Crea nodo Slicer con geometria derivada de DICOM directa.
+
+    Usada cuando la shape del array pydicom no coincide con el nodo
+    de referencia de Slicer (ej: Slicer agrega slices extra).
+    """
+    import slicer
+    import vtk
+    nz, ny, nx = bqml_array.shape  # Slicer orden: KJI
+
+    spacing = activity.get("dicom_spacing_mm")
+    origin = activity.get("dicom_origin")
+    direction = activity.get("dicom_direction")
+    slice_positions = activity.get("dicom_slice_positions", [])
+
+    if not spacing or not origin or not direction or not slice_positions:
+        logger.error("  Faltan datos de geometria DICOM")
+        return None
+
+    # Calcular espaciado Z real (puede diferir de SliceThickness)
+    if len(slice_positions) > 1:
+        z_spacing = abs(slice_positions[-1] - slice_positions[0]) / (len(slice_positions) - 1)
+    else:
+        z_spacing = spacing[2]
+
+    # Crear nodo
+    new_node = slicer.mrmlScene.AddNewNodeByClass(
+        "vtkMRMLScalarVolumeNode", "PET_BqmL"
+    )
+
+    # Spacing: (x, y, z)
+    new_node.SetSpacing(float(spacing[0]), float(spacing[1]), float(z_spacing))
+
+    # IJKToRAS matrix from DICOM direction cosines
+    # Direction cosines: row_x, row_y, row_z, col_x, col_y, col_z
+    rx, ry, rz, cx, cy, cz = direction
+    ijk_to_ras = vtk.vtkMatrix4x4()
+    ijk_to_ras.SetElement(0, 0, rx * spacing[0])
+    ijk_to_ras.SetElement(1, 0, ry * spacing[0])
+    ijk_to_ras.SetElement(2, 0, rz * spacing[0])
+    ijk_to_ras.SetElement(0, 1, cx * spacing[1])
+    ijk_to_ras.SetElement(1, 1, cy * spacing[1])
+    ijk_to_ras.SetElement(2, 1, cz * spacing[1])
+    # Z axis = cross product of row and column direction
+    kx = ry * cz - rz * cy
+    ky = rz * cx - rx * cz
+    kz = rx * cy - ry * cx
+    ijk_to_ras.SetElement(0, 2, kx * z_spacing)
+    ijk_to_ras.SetElement(1, 2, ky * z_spacing)
+    ijk_to_ras.SetElement(2, 2, kz * z_spacing)
+    # Origin (use first slice position for RAS)
+    ijk_to_ras.SetElement(0, 3, origin[0])
+    ijk_to_ras.SetElement(1, 3, origin[1])
+    ijk_to_ras.SetElement(2, 3, origin[2])
+    ijk_to_ras.SetElement(3, 3, 1.0)
+    new_node.SetIJKToRASMatrix(ijk_to_ras)
+
+    # Volcar array Bq/mL
+    slicer.util.updateVolumeFromArray(new_node, bqml_array)
+
+    # Display node
+    pet_dn = new_node.GetDisplayNode()
+    if not pet_dn:
+        from slicer import vtkMRMLScalarVolumeDisplayNode
+        pet_dn = vtkMRMLScalarVolumeDisplayNode()
+        slicer.mrmlScene.AddNode(pet_dn)
+        pet_dn.SetDefaultColorMap()
+        new_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
+
+    new_range = (float(bqml_array.min()), float(bqml_array.max()))
+    logger.info(f"  Nodo PET Bq/mL desde geometria DICOM: {new_node.GetName()}")
+    logger.info(f"  Shape: {bqml_array.shape}, Spacing: {spacing[0]:.4f}x{spacing[1]:.4f}x{z_spacing:.4f}")
+    logger.info(f"  Rango: {new_range[0]:.2f} ~ {new_range[1]:.2f} Bq/mL")
+    return new_node
 
 
 def create_calibrated_pet_node(pet_dir: str, reference_node) -> Optional[object]:
@@ -266,11 +363,12 @@ def create_calibrated_pet_node(pet_dir: str, reference_node) -> Optional[object]
     logger.info(f"  Array Slicer  shape: {ref_array.shape}")
 
     if bqml_array.shape != ref_array.shape:
+        # Intentar con geometria derivada de DICOM directa
         logger.warning(
             f"  Dimensiones NO coinciden: pydicom {bqml_array.shape} vs "
-            f"Slicer {ref_array.shape}. No se puede crear nodo calibrado."
+            f"Slicer {ref_array.shape}. Usando geometria DICOM directa..."
         )
-        return None
+        return _create_node_from_dicom_geometry(bqml_array, activity)
 
     # 3. Verificar rango de valores
     logger.info(f"  Rango Bq/mL pydicom:  {float(bqml_array.min()):.2f} ~ {float(bqml_array.max()):.2f}")
