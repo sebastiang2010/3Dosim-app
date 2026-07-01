@@ -958,8 +958,11 @@ class PipelineMod1:
                 slicer.mrmlScene.AddNode(pet_dn)
                 pet_dn.SetDefaultColorMap()
                 self.pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
-            # Rainbow estandar de Slicer: azul=bajo, rojo=alto (match v3.14)
-            pet_dn.SetAndObserveColorNodeID("vtkMRMLColorTableNodeRainbow")
+            # Rainbow invertido: azul=bajo, rojo=alto (necesario porque el
+            # standard de Slicer va rojo→azul al reves de lo esperado)
+            from PipelineOrchestrator.views import ensure_inverted_rainbow
+            inverted_id = ensure_inverted_rainbow()
+            pet_dn.SetAndObserveColorNodeID(inverted_id)
             pet_dn.AutoWindowLevelOff()
             pet_dn.SetWindowLevel(40.0, 20.0)
             pet_dn.SetApplyThreshold(False)  # Sin threshold
