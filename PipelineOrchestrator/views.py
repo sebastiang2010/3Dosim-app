@@ -18,12 +18,14 @@ def setup_medical_views(
     segmentation_node=None,
     layout_name: str = "ConventionalView",
     pet_opacity: float = 0.35,
-    pet_colormap: str = "3Dosim_InvertedRainbow",
+    pet_colormap: str = "vtkMRMLColorTableNodeRainbow",
     ct_window: float = 400.0,
     ct_level: float = 40.0,
     pet_window: float = 40.0,
     pet_level: float = 20.0,
+    ct_threshold_air: float = -250.0,
     link_slices: bool = True,
+    reset_slices: bool = True,
 ):
     """Configura automaticamente las vistas medicas de Slicer.
 
@@ -101,9 +103,7 @@ def setup_medical_views(
             pet_dn.SetDefaultColorMap()
             pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
 
-        # Colormap para PET (resolver shorthand inverted rainbow)
-        if pet_colormap == "3Dosim_InvertedRainbow":
-            pet_colormap = ensure_inverted_rainbow()
+        # Colormap para PET (Rainbow estandar: azul=bajo, rojo=alto)
         pet_dn.SetAndObserveColorNodeID(pet_colormap)
         pet_dn.AutoWindowLevelOff()
         pet_dn.SetWindowLevel(pet_window, pet_level)
@@ -299,7 +299,7 @@ def load_pipeline_config(config_path=None) -> dict:
         "views": {
             "layout": "ConventionalView",
             "pet_opacity": 0.35,
-            "pet_colormap": "3Dosim_InvertedRainbow",
+            "pet_colormap": "vtkMRMLColorTableNodeRainbow",
             "ct_window": 400.0,
             "ct_level": 40.0,
             "pet_window": 40.0,

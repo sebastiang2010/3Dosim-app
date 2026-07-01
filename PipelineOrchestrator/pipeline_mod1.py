@@ -922,14 +922,8 @@ class PipelineMod1:
                 slicer.mrmlScene.AddNode(pet_dn)
                 pet_dn.SetDefaultColorMap()
                 self.pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
-            from PipelineOrchestrator.views import ensure_inverted_rainbow
-            color_id = ensure_inverted_rainbow()
-            logger.info(f"  Aplicando colormap PET: {color_id}")
-            pet_dn.SetAndObserveColorNodeID(color_id)
-            # Forzar actualizacion del lookup table en VTK
-            color_node = slicer.mrmlScene.GetNodeByID(color_id)
-            if color_node:
-                color_node.GetLookupTable().Modified()
+            # Rainbow estandar: azul=bajo, rojo=alto (intuitivo para PET)
+            pet_dn.SetAndObserveColorNodeID("vtkMRMLColorTableNodeRainbow")
             pet_dn.AutoWindowLevelOff()
             pet_dn.SetWindowLevel(40.0, 20.0)
             pet_dn.SetApplyThreshold(False)  # Sin threshold
@@ -1319,31 +1313,19 @@ class PipelineMod1:
             segmentation_node=seg_node, ct_node=ct_node,
             tissue_config_path=tissue_config_path,
             output_dir=labelmap_dir, body_segmentation_node=body_node)
-        try:
-            from qt import QMessageBox
-            msg_box = QMessageBox(slicer.util.mainWindow())
-            msg_box.setWindowTitle("Labelmap Dosimetrica Exportada")
-            msg_box.setIcon(QMessageBox.Information)
-            nifti = resultado.get("nifti_path") or "N/A"
-            nrrd = resultado.get("nrrd_path") or "N/A"
-            segs = resultado.get("num_segments", 0)
-            overlaps = resultado.get("overlap_voxels", 0)
-            indices = resultado.get("phantom_indices_used", [])
-            msg_box.setText(
-                f"<b>Labelmap exportada exitosamente</b><br><br>"
-                f"Segmentos procesados: {segs}<br>"
-                f"Indices phantom: {indices}<br>"
-                f"Overlap voxels: {overlaps}<br><br>"
-                f"<b>NIfTI:</b><br>  {nifti}<br><br>"
-                f"<b>NRRD:</b><br>  {nrrd}")
-            msg_box.setTextFormat(1)
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.setModal(False)
-            msg_box.show()
-            msg_box.raise_()
-            msg_box.activateWindow()
-        except Exception as e:
-            logger.warning(f"No se pudo mostrar dialogo labelmap: {e}")
+        # Mostrar resumen en Slicer via status bar (NO QMessageBox — cuelga Slicer)
+        nifti = resultado.get("nifti_path") or "N/A"
+        nrrd = resultado.get("nrrd_path") or "N/A"
+        segs = resultado.get("num_segments", 0)
+        overlaps = resultado.get("overlap_voxels", 0)
+        indices = resultado.get("phantom_indices_used", [])
+        logger.info(f"  === LABELMAP EXPORTADA ===")
+        logger.info(f"  Segmentos: {segs} | Overlap: {overlaps} | Indices: {indices}")
+        logger.info(f"  NIfTI: {nifti}")
+        logger.info(f"  NRRD:  {nrrd}")
+        slicer.util.showStatusMessage(
+            f"Labelmap exportada: {segs} segmentos, {overlaps} overlaps", 8000)
+        slicer.app.processEvents()
 
     def _save_results_json(self):
         import json
