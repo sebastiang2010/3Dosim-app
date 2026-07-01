@@ -1353,20 +1353,23 @@ class PipelineMod1:
             return
         try:
             from PipelineOrchestrator.utils import track_time
-            from SlicerDosim.SlicerDosimLib import registration
             pet_resampled_node = slicer.mrmlScene.AddNewNodeByClass(
                 "vtkMRMLScalarVolumeNode", "PET_tmp")
-            reg = registration.DosimetryRegistration()
-            with track_time("Registro elastix PET->CT (rigido)"):
-                registered_pet = reg.register(
-                    fixed_node=self.ct_node, moving_node=self.pet_node,
-                    method=registration.DosimetryRegistration.METHOD_ELASTIX_RIGID,
-                    output_volume_node=pet_resampled_node)
-            if registered_pet is None or registered_pet.GetImageData() is None:
-                raise RuntimeError("Registro Elastix fallo")
-            registered_pet.SetName("PET_CT")
+            pet_resampled_node.SetName("PET_tmp")
+            params = {
+                'inputVolume': self.pet_node.GetID(),
+                'referenceVolume': self.ct_node.GetID(),
+                'outputVolume': pet_resampled_node.GetID(),
+                'pixelType': 'float',
+                'interpolationMode': 'NearestNeighbor',
+            }
+            with track_time("Resample PET->CT (BRAINS)"):
+                slicer.cli.run(slicer.modules.brainsresample, None, params, wait_for_completion=True)
+            if pet_resampled_node.GetImageData() is None:
+                raise RuntimeError("BRAINS Resample fallo")
+            pet_resampled_node.SetName("PET_CT")
             old_pet = self.pet_node
-            self.pet_node = registered_pet
+            self.pet_node = pet_resampled_node
             slicer.mrmlScene.RemoveNode(old_pet)
             logger.info("PET re-muestreado a geometria CT: EXITOSO ('PET_CT')")
         except Exception as e:
