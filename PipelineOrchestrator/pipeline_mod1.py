@@ -758,9 +758,31 @@ class PipelineMod1:
             logger.warning(f"No se pudo generar representacion 3D: {e}")
 
     def _save_scene(self, tag=None):
+        import slicer
+        # ── Mostrar cartel no-modal "Guardando escena..." ──
+        dialog = None
         try:
-            import slicer
-            from datetime import datetime
+            from qt import QDialog, QVBoxLayout, QLabel, QApplication
+            main_w = slicer.util.mainWindow()
+            dialog = QDialog(main_w)
+            dialog.setWindowTitle("3Dosim — Guardando escena")
+            dialog.setModal(False)
+            dialog.setMinimumWidth(320)
+            layout = QVBoxLayout(dialog)
+            msg = QLabel(
+                "<b>Guardando escena...</b><br>"
+                "Puede tomar hasta 2 minutos si la escena es grande.<br>"
+                "No cerrar Slicer."
+            )
+            msg.setWordWrap(True)
+            msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+            layout.addWidget(msg)
+            dialog.show()
+            QApplication.processEvents()
+        except Exception:
+            dialog = None  # Qt no disponible, seguir sin cartel
+
+        try:
             # Una sola escena — se sobrescribe acumulando cada paso
             filename = "3Dosim.mrb"
             scene_dir = getattr(self, "scene_output_dir", None)
@@ -792,6 +814,13 @@ class PipelineMod1:
         except Exception as e:
             logger.warning(f"No se pudo guardar escena '{tag}': {e}")
             return None
+        finally:
+            if dialog is not None:
+                try:
+                    dialog.close()
+                    dialog.deleteLater()
+                except Exception:
+                    pass
 
     def _stop_before_segment_handler(self):
         logger.info("")
@@ -929,10 +958,8 @@ class PipelineMod1:
                 slicer.mrmlScene.AddNode(pet_dn)
                 pet_dn.SetDefaultColorMap()
                 self.pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
-            # Rainbow invertido: rojo=bajo, azul=alto (estandar en dosimetria)
-            from PipelineOrchestrator.views import ensure_inverted_rainbow
-            inverted_id = ensure_inverted_rainbow()
-            pet_dn.SetAndObserveColorNodeID(inverted_id)
+            # Rainbow estandar de Slicer: azul=bajo, rojo=alto (match v3.14)
+            pet_dn.SetAndObserveColorNodeID("vtkMRMLColorTableNodeRainbow")
             pet_dn.AutoWindowLevelOff()
             pet_dn.SetWindowLevel(40.0, 20.0)
             pet_dn.SetApplyThreshold(False)  # Sin threshold

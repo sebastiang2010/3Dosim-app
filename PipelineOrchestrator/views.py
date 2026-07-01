@@ -103,9 +103,7 @@ def setup_medical_views(
             pet_dn.SetDefaultColorMap()
             pet_node.SetAndObserveDisplayNodeID(pet_dn.GetID())
 
-        # Colormap para PET: usar inverted rainbow (rojo=bajo, azul=alto) por defecto
-        if pet_colormap == "vtkMRMLColorTableNodeRainbow":
-            pet_colormap = ensure_inverted_rainbow()
+        # Colormap para PET (Rainbow estandar: azul=bajo, rojo=alto)
         pet_dn.SetAndObserveColorNodeID(pet_colormap)
         pet_dn.AutoWindowLevelOff()
         pet_dn.SetWindowLevel(pet_window, pet_level)
@@ -266,11 +264,13 @@ def ensure_inverted_rainbow():
         ct.Modified()
 
         logger.info(f"  Creado color table: {node_name} ({n_colors} colores, invertido)")
+        logger.info(f"  ID: {ct.GetID()}")
         return ct.GetID()
     except Exception as e:
-        logger.warning(f"  No se pudo crear color table invertido: {e}. Usando rainbow standard.")
+        logger.warning(f"  [ERROR LUT] No se pudo crear color table invertido: {e}")
         import traceback
-        logger.debug(traceback.format_exc())
+        logger.warning(f"  [ERROR LUT] Traceback: {traceback.format_exc()}")
+        logger.info("  Usando rainbow standard como fallback.")
         return "vtkMRMLColorTableNodeRainbow"
 
 
