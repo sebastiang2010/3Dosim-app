@@ -238,6 +238,10 @@ def export_labelmap(
     # Crear labelmap acumuladora (inicialmente 0 = Aire, index 1)
     final_labelmap = np.zeros((ct_dims[2], ct_dims[1], ct_dims[0]), dtype=np.int16)
 
+    # Acumulador binario: 1 = voxel ocupado por algun organo
+    # Sirve para restar body explicitamente sin depender de final_labelmap == 0
+    any_organ = np.zeros((ct_dims[2], ct_dims[1], ct_dims[0]), dtype=bool)
+
     # Exportar cada segmento por separado y acumular
     errors = []
     export_count = 0
@@ -268,6 +272,9 @@ def export_labelmap(
             new_region = (mask > 0) & ((final_labelmap == 0) | (phantom_idx > final_labelmap))
             final_labelmap[new_region] = phantom_idx
 
+            # Acumular en any_organ para restar de body despues
+            any_organ[new_region] = True
+
             export_count += 1
 
         except Exception as e:
@@ -275,6 +282,7 @@ def export_labelmap(
             logger.warning(f"  Error en segmento '{seg_name}': {e}")
 
     # --- 4. Incorporar body segmentation si existe ---
+    body_mask = None
     if body_segmentation_node is not None:
         logger.info("  Incorporando body segmentation...")
         try:
@@ -284,8 +292,9 @@ def export_labelmap(
             )
             if body_mask is not None:
                 body_idx = 30  # Tejido_blando
-                # Body llena donde no hay organo asignado
-                body_region = (body_mask > 0) & (final_labelmap == 0)
+                # Body = contorno corporal MENOS organos (resta EXPLICITA)
+                # Usa any_organ, no final_labelmap == 0
+                body_region = (body_mask > 0) & ~any_organ
                 final_labelmap[body_region] = body_idx
                 logger.info(f"  Body incorporado: {int(body_region.sum())} voxeles nuevos")
         except Exception as e:
@@ -305,9 +314,9 @@ def export_labelmap(
         logger.info("  [OK] Sin solapamiento entre segmentos")
 
     # Verificar que no haya voxeles sin asignar dentro del body
-    if body_segmentation_node is not None:
-        unassigned_inside_body = (body_mask > 0) & (final_labelmap == 0) if 'body_mask' in dir() else 0
-        if isinstance(unassigned_inside_body, np.ndarray) and unassigned_inside_body.sum() > 0:
+    if body_mask is not None:
+        unassigned_inside_body = (body_mask > 0) & ~any_organ & (final_labelmap == 0)
+        if unassigned_inside_body.sum() > 0:
             logger.warning(f"  {int(unassigned_inside_body.sum())} voxeles dentro del body sin asignar")
             final_labelmap[body_mask > 0] = 30  # Default Tejido_blando
 

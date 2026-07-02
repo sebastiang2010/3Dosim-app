@@ -235,14 +235,18 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
 
 
 def _create_node_from_dicom_geometry(bqml_array: np.ndarray,
-                                      activity: dict) -> Optional[object]:
-    """Crea nodo Slicer con geometria derivada de DICOM directa.
+                                      activity: dict,
+                                      ref_node=None) -> Optional[object]:
+    """Crea nodo Slicer con Bq/mL calibrados y geometria compatible con CT.
 
-    Usada cuando la shape del array pydicom no coincide con el nodo
-    de referencia de Slicer (ej: Slicer agrega slices extra).
+    Si se provee ``ref_node`` (nodo PET original cargado por Slicer), su
+    matriz IJKToRAS (que ya esta en RAS y es compatible con CT) se escala
+    por la relacion de spacings DICOM/Slicer. Esto evita el mismatch de
+    coordenadas LPS (pydicom) vs RAS (Slicer) que rompia BRAINS Resample.
     """
     import slicer
     import vtk
+    import numpy as np
     nz, ny, nx = bqml_array.shape  # Slicer orden: KJI
 
     spacing = activity.get("dicom_spacing_mm")
@@ -268,28 +272,51 @@ def _create_node_from_dicom_geometry(bqml_array: np.ndarray,
     # Spacing: (x, y, z)
     new_node.SetSpacing(float(spacing[0]), float(spacing[1]), float(z_spacing))
 
-    # IJKToRAS matrix from DICOM direction cosines
-    # Direction cosines: row_x, row_y, row_z, col_x, col_y, col_z
-    rx, ry, rz, cx, cy, cz = direction
-    ijk_to_ras = vtk.vtkMatrix4x4()
-    ijk_to_ras.SetElement(0, 0, rx * spacing[0])
-    ijk_to_ras.SetElement(1, 0, ry * spacing[0])
-    ijk_to_ras.SetElement(2, 0, rz * spacing[0])
-    ijk_to_ras.SetElement(0, 1, cx * spacing[1])
-    ijk_to_ras.SetElement(1, 1, cy * spacing[1])
-    ijk_to_ras.SetElement(2, 1, cz * spacing[1])
-    # Z axis = cross product of row and column direction
-    kx = ry * cz - rz * cy
-    ky = rz * cx - rx * cz
-    kz = rx * cy - ry * cx
-    ijk_to_ras.SetElement(0, 2, kx * z_spacing)
-    ijk_to_ras.SetElement(1, 2, ky * z_spacing)
-    ijk_to_ras.SetElement(2, 2, kz * z_spacing)
-    # Origin (use first slice position for RAS)
-    ijk_to_ras.SetElement(0, 3, origin[0])
-    ijk_to_ras.SetElement(1, 3, origin[1])
-    ijk_to_ras.SetElement(2, 3, origin[2])
-    ijk_to_ras.SetElement(3, 3, 1.0)
+    # ── IJKToRAS ──
+    if ref_node is not None:
+        # Usar IJKToRAS del nodo PET original de Slicer (RAS, compatible con CT)
+        # escalando las columnas por la relacion de spacings
+        logger.info("  Usando IJKToRAS del nodo PET original de Slicer (escalado)")
+        ref_ijk = ref_node.GetIJKToRASMatrix()
+        ref_spacing = ref_node.GetSpacing()  # (sx, sy, sz) del nodo Slicer
+        ijk_to_ras = vtk.vtkMatrix4x4()
+        ijk_to_ras.DeepCopy(ref_ijk)
+        # Escalar columnas de spacing: col_i *= dicom_spacing[i] / ref_spacing[i]
+        for col in range(3):
+            if ref_spacing[col] != 0:
+                factor = float(spacing[col]) / float(ref_spacing[col])
+                for row in range(3):
+                    old_val = ijk_to_ras.GetElement(row, col)
+                    ijk_to_ras.SetElement(row, col, old_val * factor)
+        # Ajustar origen Z para que coincida con el primer slice DICOM
+        # (mantener x,y del ref, ajustar z al primer slice position)
+        first_z = float(slice_positions[0])
+        ijk_to_ras.SetElement(2, 3, first_z)
+        logger.info(f"  Spacing DICOM: {spacing[0]:.4f}x{spacing[1]:.4f}x{z_spacing:.4f}, "
+                    f"ref spacing: {ref_spacing[0]:.4f}x{ref_spacing[1]:.4f}x{ref_spacing[2]:.4f}")
+    else:
+        # Original: derivar de direction cosines DICOM (LPS)
+        # Direction cosines: row_x, row_y, row_z, col_x, col_y, col_z
+        rx, ry, rz, cx, cy, cz = direction
+        ijk_to_ras = vtk.vtkMatrix4x4()
+        ijk_to_ras.SetElement(0, 0, rx * spacing[0])
+        ijk_to_ras.SetElement(1, 0, ry * spacing[0])
+        ijk_to_ras.SetElement(2, 0, rz * spacing[0])
+        ijk_to_ras.SetElement(0, 1, cx * spacing[1])
+        ijk_to_ras.SetElement(1, 1, cy * spacing[1])
+        ijk_to_ras.SetElement(2, 1, cz * spacing[1])
+        # Z axis = cross product of row and column direction
+        kx = ry * cz - rz * cy
+        ky = rz * cx - rx * cz
+        kz = rx * cy - ry * cx
+        ijk_to_ras.SetElement(0, 2, kx * z_spacing)
+        ijk_to_ras.SetElement(1, 2, ky * z_spacing)
+        ijk_to_ras.SetElement(2, 2, kz * z_spacing)
+        # Origin (use first slice position)
+        ijk_to_ras.SetElement(0, 3, origin[0])
+        ijk_to_ras.SetElement(1, 3, origin[1])
+        ijk_to_ras.SetElement(2, 3, origin[2])
+        ijk_to_ras.SetElement(3, 3, 1.0)
     new_node.SetIJKToRASMatrix(ijk_to_ras)
 
     # Volcar array Bq/mL

@@ -366,6 +366,9 @@ class ConfigDialog(QDialog):
         ("Radio tumor sintetico (mm)",          "tumor_radius",   "spin",   10),
         ("Archivo tumor NIfTI (load_file)",     "tumor_file",     "file",   ""),
         ("",                                     "",              "sep",    ""),
+        ("Interpolacion resample PET→CT",       "resample_interp","combo",  "NearestNeighbor",
+         ["NearestNeighbor", "Linear", "BSpline", "WindowedSinc", "ResampleInPlace"]),
+        ("",                                     "",              "sep",    ""),
         ("TS Fast mode",                         "ts_fast",       "check",  True),
         ("TS Force CPU",                         "ts_force_cpu",  "check",  True),
     ]
@@ -669,6 +672,7 @@ class ConfigDialog(QDialog):
             "tumor_mode": ("tumor", "mode"),
             "tumor_radius": ("tumor", "synthetic_radius_mm"),
             "tumor_file": ("tumor", "load_file_path"),
+            "resample_interp": ("resample", "interpolation"),
             "isotope": ("mcnp_source", "isotope"),
             "n_particles": ("mcnp_run", "n_particles"),
             "flip_y": ("geometry", "flip_y"),
@@ -1158,6 +1162,7 @@ class LauncherWindow(QMainWindow):
             ts = config.get("segmentation", {}).get("totalsegmentator", {})
             defaults["ts_fast"] = ts.get("fast", True)
             defaults["ts_force_cpu"] = ts.get("force_cpu", True)
+            defaults["resample_interp"] = config.get("resample", {}).get("interpolation", "NearestNeighbor")
 
         elif mod_id == 2:
             # Auto-detectar scene_path desde scene_output_dir del config central
@@ -1466,6 +1471,10 @@ class LauncherWindow(QMainWindow):
                     ts["fast"] = config["ts_fast"]
                 if "ts_force_cpu" in config:
                     ts["force_cpu"] = config["ts_force_cpu"]
+                # Resample
+                resample = cfg.setdefault("resample", {})
+                if "resample_interp" in config:
+                    resample["interpolation"] = config["resample_interp"]
 
             elif mod_id == 2:
                 if "isotope" in config:

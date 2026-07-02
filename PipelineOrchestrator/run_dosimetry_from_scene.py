@@ -331,6 +331,10 @@ def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
             if "sin_camilla" not in name_lower:  # no contaminar con CT_masked
                 nodes["ct"] = vol
                 logger.info(f"  CT: {name}")
+        elif "pet_ct" in name_lower:
+            # Priorizar PET_CT (PET resampled al espacio del CT) para kernel
+            nodes["pet"] = vol
+            logger.info(f"  PET_CT (prioritario): {name}")
         elif "pet" in name_lower:
             nodes["pet"] = vol
             logger.info(f"  PET: {name}")
@@ -352,11 +356,20 @@ def find_nodes(labelmap_name: str = "3Dosim_labelmap") -> dict:
                 break
 
     if nodes["pet"] is None:
+        # Primero intentar PET_CT (resampled), luego PET original
         for vol in all_volumes:
             name = vol.GetName()
-            if "pet" in name.lower() or "pt_" in name.lower():
+            if "pet_ct" in name.lower():
                 nodes["pet"] = vol
+                logger.info(f"  PET_CT (fallback prioritario): {name}")
                 break
+        if nodes["pet"] is None:
+            for vol in all_volumes:
+                name = vol.GetName()
+                if "pet" in name.lower() or "pt_" in name.lower():
+                    nodes["pet"] = vol
+                    logger.info(f"  PET (fallback): {name}")
+                    break
 
     # Buscar segmentacion como fallback para labelmap
     if nodes["labelmap"] is None:
@@ -1914,7 +1927,21 @@ def main():
 
         logger.info("\n--- Paso 2: Buscar nodos ---")
         _log_consola("Paso 2/10: Buscando nodos (CT, PET, Labelmap)...")
+        print("[3Dosim] Buscando nodos en escena...", flush=True)
         nodes = find_nodes()
+        _found = []
+        if nodes.get("ct"): _found.append(f"CT='{nodes['ct'].GetName()}'")
+        if nodes.get("pet"): _found.append(f"PET='{nodes['pet'].GetName()}'")
+        if nodes.get("labelmap"): _found.append(f"Labelmap='{nodes['labelmap'].GetName()}'")
+        if nodes.get("ct_masked"): _found.append(f"CT_masked='{nodes['ct_masked'].GetName()}'")
+        if nodes.get("segmentation"): _found.append(f"Segmentation='{nodes['segmentation'].GetName()}'")
+        _not_found = [k for k in ("ct", "pet", "labelmap") if not nodes.get(k)]
+        logger.info(f"  Nodos encontrados: {', '.join(_found) if _found else 'NINGUNO'}")
+        if _not_found:
+            logger.warning(f"  Nodos NO encontrados: {', '.join(_not_found)}")
+        print(f"[3Dosim] Nodos: {', '.join(_found) if _found else 'NINGUNO'}", flush=True)
+        if _not_found:
+            print(f"[3Dosim] Faltan: {', '.join(_not_found)}", flush=True)
 
         # Configurar vistas medicas para que el usuario VEA la escena
         if _HAS_VIEWS:
@@ -1941,6 +1968,7 @@ def main():
             print("[3Dosim WARNING] views.py no disponible, saltando vistas", flush=True)
 
         labelmap_nifti = args.labelmap or LABELMAP_DEFAULT
+        print(f"[3Dosim] Buscando labelmap: en escena={'SI' if nodes['labelmap'] else 'NO'}, NIfTI={labelmap_nifti}", flush=True)
         if nodes["labelmap"] is None and os.path.exists(labelmap_nifti):
             logger.info(f"  Cargando labelmap desde NIfTI: {labelmap_nifti}")
             labelmap_node = slicer.util.loadVolume(labelmap_nifti)
@@ -2122,6 +2150,8 @@ def main():
             return 1
 
         logger.info(f"  Actividad: {activity_bq:.2e} Bq = {activity_gbq:.4f} GBq")
+        _log_consola_ok(f"Actividad: {activity_gbq:.4f} GBq")
+        print(f"[3Dosim OK] Actividad: {activity_gbq:.4f} GBq", flush=True)
         _ai_review("Carga + Labelmap + Actividad", True, {
             "activity_gbq": activity_gbq,
             "labelmap_shape": list(dims),
@@ -2160,7 +2190,9 @@ def main():
         t0 = time.time()
 
         # ── Construir distribucion de actividad A (Bq por voxel) ──
+        # IMPORTANTE: usar PET_CT (PET resampled al espacio del CT) para el kernel
         if pet_node is not None and labelmap is not None:
+            logger.info(f"  Usando volumen PET_CT para kernel: {pet_node.GetName()}")
             pet_arr = slicer.util.arrayFromVolume(pet_node)  # (nz, ny, nx)
             pet_arr = pet_arr.transpose(2, 1, 0).astype(np.float64)  # (nx, ny, nz)
             pet_arr = np.maximum(pet_arr, 0)  # sin negativos
@@ -2255,6 +2287,7 @@ def main():
         _close_popup(popup)
         _log_consola_ok(f"Kernel convolucionado: max={dose_gy.max():.2f} Gy, "
                         f"media={dose_gy[dose_gy>0].mean() if np.any(dose_gy>0) else 0:.2f} Gy")
+        print(f"[3Dosim OK] Kernel convolucionado en {dt:.1f}s — max={dose_gy.max():.2f} Gy", flush=True)
         _ai_review("Kernel convolution", True, {
             "dose_gy_max": float(dose_gy.max()),
             "dose_gy_mean_positive": float(dose_gy[dose_gy>0].mean()) if np.any(dose_gy>0) else 0,
@@ -2741,4 +2774,37 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as _fatal:
+        import traceback
+        _tb = traceback.format_exc()
+        # Log a archivo
+        try:
+            logger.error(f"FATAL: {_fatal}")
+            logger.error(_tb)
+        except Exception:
+            pass
+        # Log a stderr para launcher
+        print(f"[3Dosim FATAL] {_fatal}", file=sys.stderr)
+        print(_tb, file=sys.stderr)
+        # Mostrar dialogo en Slicer si esta disponible
+        try:
+            import slicer
+            from qt import QMessageBox
+            QMessageBox.critical(
+                None, "3Dosim — Error Fatal",
+                f"Error no controlado:\n\n{_fatal}\n\n"
+                f"Revise la consola de Slicer para detalles.\n"
+                f"Slicer se cerrara en 60 segundos."
+            )
+            # Esperar y cerrar
+            import time as _t
+            _t0 = _t.time()
+            while _t.time() - _t0 < 60:
+                slicer.app.processEvents()
+                _t.sleep(0.5)
+            slicer.app.quit()
+        except Exception:
+            pass
+        sys.exit(1)

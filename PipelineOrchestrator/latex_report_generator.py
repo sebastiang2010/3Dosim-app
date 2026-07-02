@@ -423,6 +423,11 @@ def generate_latex_report(
     mird_liver = mird_data.get("liver", {}).get("mean_dose_gy", 0)
     ratio = float(mird_tumor) / max(float(mird_liver), 0.001) if mird_liver else 0
 
+        # ── Método de dosis y fusión ──
+    dose_method = meta.get("dose_method", "")
+    dose_file = meta.get("dose_file", mctal_name)
+    fusion_info = results_data.get("fusion", {})
+
     template_vars = {
         # ── Portada ──
         "patient_id": patient_id,
@@ -436,6 +441,22 @@ def generate_latex_report(
         "dim_y": int(dims[1]) if len(dims) > 1 else 0,
         "dim_z": int(dims[2]) if len(dims) > 2 else 0,
         "flip": flip_val,
+        # ── Método de dosis ──
+        "dose_method": dose_method,
+        "dose_file": dose_file,
+        # ── Fusión CT+PET ──
+        "fusion_ct_dim_x": int(fusion_info.get("ct_dim_x", 0)),
+        "fusion_ct_dim_y": int(fusion_info.get("ct_dim_y", 0)),
+        "fusion_ct_dim_z": int(fusion_info.get("ct_dim_z", 0)),
+        "fusion_ct_spacing_x": float(fusion_info.get("ct_spacing_x", 0)),
+        "fusion_ct_spacing_y": float(fusion_info.get("ct_spacing_y", 0)),
+        "fusion_ct_spacing_z": float(fusion_info.get("ct_spacing_z", 0)),
+        "fusion_pet_dim_x": int(fusion_info.get("pet_dim_x", 0)),
+        "fusion_pet_dim_y": int(fusion_info.get("pet_dim_y", 0)),
+        "fusion_pet_dim_z": int(fusion_info.get("pet_dim_z", 0)),
+        "fusion_method": str(fusion_info.get("registration_method", "")),
+        "fusion_conserved": bool(fusion_info.get("registration_conserved", False)),
+        "fusion_total_gbq": float(fusion_info.get("total_gbq", 0)),
         # ── Constantes físicas ──
         "y90_half_life_h": y90_half_life_h,
         "lamda_decay": lamda_decay,
@@ -517,10 +538,20 @@ def _demo_data() -> dict:
         "metadata": {
             "scene": "3Dosim_scene.mrb",
             "mctal": "mctal_demo.m",
+            "dose_method": "MCTALL",
+            "dose_file": "mctal_demo.m",
             "activity_gbq": 3.137,
             "dimensions": [512, 512, 171],
             "nps": 100000000,
             "flip": True,
+        },
+        "fusion": {
+            "ct_dim_x": 512, "ct_dim_y": 512, "ct_dim_z": 171,
+            "ct_spacing_x": 0.976, "ct_spacing_y": 0.976, "ct_spacing_z": 3.0,
+            "pet_dim_x": 128, "pet_dim_y": 128, "pet_dim_z": 171,
+            "registration_method": "BRAINS Resample",
+            "registration_conserved": True,
+            "total_gbq": 3.137,
         },
         "structures": {
             "higado": {

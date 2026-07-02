@@ -28,7 +28,8 @@ def show_fusion_info_dialog(
     pet_node_name: str = "",
     patient_id: str = "",
     patient_weight_kg: float = None,
-    registration_method: str = "Elastix rigid",
+    registration_method: str = "BRAINS Resample",
+    registration_interpolation: str = "NearestNeighbor",
     registration_time_s: float = 0.0,
     registration_conserved: bool = True,
 ):
@@ -47,7 +48,8 @@ def show_fusion_info_dialog(
         pet_node_name: nombre del nodo PET en Slicer
         patient_id: identificador del paciente
         patient_weight_kg: peso del paciente (kg)
-        registration_method: metodo de registro usado
+        registration_method: metodo de registro (BRAINS Resample)
+        registration_interpolation: tipo de interpolacion usada
         registration_time_s: tiempo de registro en segundos
         registration_conserved: si la actividad se conservo post-registro
     """
@@ -186,6 +188,7 @@ def show_fusion_info_dialog(
     # ── Registro ──
     _add_section("Registro PET → CT")
     _add_info("Metodo", registration_method)
+    _add_info("Interpolacion", registration_interpolation)
     if registration_time_s > 0:
         _add_info("Duracion", f"{registration_time_s:.1f} s")
     if registration_conserved:

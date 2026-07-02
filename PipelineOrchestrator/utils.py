@@ -107,12 +107,12 @@ def show_progress(message: str):
 def track_time(description: str, timeout: int = 5):
     """Context manager para procesos que pueden demorar.
 
-    Muestra cartel en consola y Slicer status bar si el proceso
-    tarda mas de ``timeout`` segundos. Sirve para cualquier modulo.
+    Muestra un cartel QDialog con barra de progreso INMEDIATAMENTE al inicio.
+    El cartel se cierra automaticamente al terminar.
 
     Args:
         description: Descripcion del proceso (ej. 'Generando labelmap')
-        timeout: Segundos de tolerancia antes de mostrar cartel (default 5)
+        timeout: (ignorado, mantenido por compatibilidad)
 
     Uso:
         with track_time("Generando labelmap dosimetrica"):
@@ -121,17 +121,96 @@ def track_time(description: str, timeout: int = 5):
     """
     t0 = time.time()
     logger.info(f"  Iniciando: {description}...")
+    show_progress(f"Iniciando: {description}")
+    dialog = None
+
+    # Mostrar cartel INMEDIATAMENTE
+    try:
+        dialog = _show_progress_dialog(description)
+    except Exception:
+        pass
+
     try:
         yield
     finally:
         elapsed = time.time() - t0
-        if elapsed > timeout:
-            mensaje = (
-                f"  {description} — tardo {elapsed:.0f}s, "
-                "todavia ejecutandose..."
-            )
-            logger.info(mensaje)
-            show_progress(mensaje)
+        # Cerrar dialog si se abrio
+        if dialog is not None:
+            try:
+                dialog.close()
+                dialog.deleteLater()
+                from qt import QApplication
+                QApplication.processEvents()
+            except Exception:
+                pass
+        mensaje = f"  {description} — {elapsed:.0f}s, completado."
+        logger.info(mensaje)
+        show_progress(mensaje)
+
+
+def _show_progress_dialog(description: str):
+    """Muestra QDialog no-modal con indicador de progreso mientras corre un proceso."""
+    try:
+        from qt import QDialog, QVBoxLayout, QLabel, QApplication, QProgressBar
+        import slicer
+        main_w = slicer.util.mainWindow()
+        dlg = QDialog(main_w)
+        dlg.setWindowTitle("3Dosim — Procesando...")
+        dlg.setModal(False)
+        dlg.setMinimumWidth(400)
+        layout = QVBoxLayout(dlg)
+        msg = QLabel(
+            f"<b>{description}</b><br><br>"
+            f"Por favor espere..."
+        )
+        msg.setWordWrap(True)
+        msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+        layout.addWidget(msg)
+        progress = QProgressBar()
+        progress.setRange(0, 0)  # Indeterminado
+        progress.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #bdc3c7;
+                border-radius: 8px;
+                text-align: center;
+                height: 22px;
+            }
+            QProgressBar::chunk {
+                background-color: #3498db;
+                border-radius: 7px;
+            }
+        """)
+        layout.addWidget(progress)
+        dlg.show()
+        QApplication.processEvents()
+        return dlg
+    except Exception:
+        return None
+
+
+def _show_dialog(description: str, mensaje: str = ""):
+    """Muestra QDialog no-modal con mensaje de proceso completado."""
+    try:
+        from qt import QDialog, QVBoxLayout, QLabel, QApplication
+        import slicer
+        main_w = slicer.util.mainWindow()
+        dlg = QDialog(main_w)
+        dlg.setWindowTitle("3Dosim — Proceso completado")
+        dlg.setModal(False)
+        dlg.setMinimumWidth(400)
+        layout = QVBoxLayout(dlg)
+        msg = QLabel(
+            f"<b>{description}</b><br><br>"
+            f"{mensaje}<br>"
+        )
+        msg.setWordWrap(True)
+        msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+        layout.addWidget(msg)
+        dlg.show()
+        QApplication.processEvents()
+        return dlg
+    except Exception:
+        return None
 
 
 def kill_existing_slicer():

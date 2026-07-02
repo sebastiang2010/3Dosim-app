@@ -83,6 +83,7 @@ class PipelineMod1:
         self.ct_node_name = None
         self.pet_node_name = None
         self.pet_activity = None
+        self.pet_activity_before_resample = None
 
         # MCP
         self.mcp = MCP()
@@ -213,7 +214,8 @@ class PipelineMod1:
         # Resample PET
         if not self._checkpoint_step(self.STEP_RESAMPLE_PET, "Re-muestreando PET a geometria CT",
                                       self._resample_pet_to_ct,
-                                      data_func=lambda: {"pet_resampled": self.pet_node is not None}):
+                                      data_func=lambda: {"pet_resampled": self.pet_node is not None,
+                                                         "pet_node_name": self.pet_node.GetName() if self.pet_node else None}):
             logger.warning("Re-muestreo PET fallo, continuando con PET original...")
         self._save_scene("03_pet_resampled")
         self.tomar_screenshot("03_pet_resampled")
@@ -550,6 +552,7 @@ class PipelineMod1:
         if not data:
             return
         import slicer
+        logger.info(f"  Restaurando estado para paso '{step_name}': {list(data.keys())}")
         restore_map = {
             "ct_node": "ct_node", "pet_node": "pet_node",
             "segmentation_node": "segmentation_node",
@@ -558,13 +561,16 @@ class PipelineMod1:
         }
         for data_key, attr_name in restore_map.items():
             if data_key in data and data[data_key] is not None:
+                logger.info(f"    Restaurando {data_key}={data[data_key]}")
                 if data_key.endswith("_name"):
                     try:
                         node = slicer.util.getNode(data[data_key])
                         actual_attr = data_key.replace("_name", "_node")
                         if hasattr(self, actual_attr):
                             setattr(self, actual_attr, node)
-                    except Exception:
+                            logger.info(f"      OK: nodo '{node.GetName()}' restaurado en self.{actual_attr}")
+                    except Exception as e:
+                        logger.warning(f"      No se encontro nodo '{data[data_key]}': {e}")
                         self._restore_node_by_type(data_key, data[data_key])
                 else:
                     setattr(self, attr_name, data[data_key])
@@ -704,6 +710,7 @@ class PipelineMod1:
         import slicer
         scene_path = os.path.join(self.scene_output_dir, "3Dosim.mrb")
         if not os.path.exists(scene_path):
+            logger.info("  No hay escena guardada, empezando fresco")
             return
         checkpoint_keys = [
             self.STEP_LOAD_DICOM, self.STEP_REMOVE_COUCH,
@@ -711,14 +718,23 @@ class PipelineMod1:
         ]
         needs_restore = any(self.checkpoint.is_completed(k) for k in checkpoint_keys)
         if not needs_restore:
+            logger.info("  Checkpoints no requieren restauracion, empezando fresco")
             return
-        logger.info(f"  Cargando escena guardada: {scene_path}")
-        try:
-            success = slicer.util.loadScene(scene_path)
-            if success:
-                logger.info("  Escena cargada OK desde checkpoint")
-        except Exception as e:
-            logger.warning(f"No se pudo cargar escena: {e}")
+        from PipelineOrchestrator.utils import track_time
+        with track_time("Cargando escena guardada"):
+            logger.info(f"  Cargando escena guardada: {scene_path}")
+            try:
+                success = slicer.util.loadScene(scene_path)
+                if success:
+                    logger.info("  Escena cargada OK desde checkpoint")
+                    # Listar nodos cargados para debug
+                    vol_nodes = slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
+                    for n in vol_nodes:
+                        logger.info(f"    Volumen cargado: '{n.GetName()}'")
+                else:
+                    logger.warning("  Fallo al cargar escena")
+            except Exception as e:
+                logger.warning(f"No se pudo cargar escena: {e}")
         self._scan_scene_for_nodes()
 
     def _scan_scene_for_nodes(self):
@@ -727,6 +743,11 @@ class PipelineMod1:
         vol_nodes = slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
         seg_nodes_list = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
         logger.info(f"  Escaneando: {len(vol_nodes)} volumenes, {len(seg_nodes_list)} segmentaciones")
+        
+        # Listar todos los nodos volumen para debug
+        for n in vol_nodes:
+            logger.info(f"    Volumen: '{n.GetName()}' ({n.GetImageData().GetDimensions() if n.GetImageData() else 'sin datos'})")
+        
         ct_candidates = [n for n in vol_nodes if "CT" in n.GetName() or "ct" in n.GetName().lower()]
         if ct_candidates and not getattr(self, 'ct_node', None):
             self.ct_node = ct_candidates[0]
@@ -736,8 +757,10 @@ class PipelineMod1:
         if masked and not getattr(self, 'ct_masked_node', None):
             self.ct_masked_node = masked[0]
         pet_candidates = [n for n in vol_nodes if "PET" in n.GetName() or "pet" in n.GetName().lower()]
+        logger.info(f"  Candidatos PET encontrados: {[n.GetName() for n in pet_candidates]}")
         if pet_candidates and not getattr(self, 'pet_node', None):
             self.pet_node = pet_candidates[0]
+            logger.info(f"  PET asignado: '{self.pet_node.GetName()}'")
         if seg_nodes_list and not getattr(self, 'segmentation_node', None):
             ts_nodes = [n for n in seg_nodes_list if "TotalSegmentator" in n.GetName()]
             self.segmentation_node = ts_nodes[0] if ts_nodes else seg_nodes_list[0]
@@ -796,7 +819,7 @@ class PipelineMod1:
         # ── Verificar config de frecuencia ──
         freq = self.pipeline_config.get("save_scene", {}).get("frequency", "minimal")
         if not force and freq == "minimal":
-            allowed = {"01_post_load_dicom", "12_segment_body"}
+            allowed = {"01_post_load_dicom", "03_pet_resampled", "12_segment_body"}
             if tag not in allowed:
                 logger.info(f"  Escena '{tag}' omitida (save_scene.frequency=minimal)")
                 return None
@@ -914,92 +937,103 @@ class PipelineMod1:
     # ==================================================================
 
     def _load_dicom(self):
-        import slicer
-        from DICOMLib import DICOMUtils
-        for d in [self.ct_dir, self.pet_dir]:
-            if not os.path.isdir(d):
-                raise FileNotFoundError(f"Directorio no encontrado: {d}")
-        original_db_dir = DICOMUtils.openTemporaryDatabase()
-        try:
-            for dir_path, label in [(self.ct_dir, "CT"), (self.pet_dir, "PET")]:
-                logger.info(f"  Indexando {label}...")
-                ok = DICOMUtils.importDicom(dir_path)
-                if not ok:
-                    raise RuntimeError(f"Fallo indexacion {label}")
-            series_uids = DICOMUtils.allSeriesUIDsInDatabase()
-            if not series_uids:
-                raise RuntimeError("No se encontraron series DICOM")
-            loaded_node_ids = DICOMUtils.loadSeriesByUID(series_uids)
-        except Exception as e:
+        from PipelineOrchestrator.utils import track_time
+        with track_time("Cargando DICOM (CT + PET)"):
+            import slicer
+            from DICOMLib import DICOMUtils
+            for d in [self.ct_dir, self.pet_dir]:
+                if not os.path.isdir(d):
+                    raise FileNotFoundError(f"Directorio no encontrado: {d}")
+            original_db_dir = DICOMUtils.openTemporaryDatabase()
+            try:
+                for dir_path, label in [(self.ct_dir, "CT"), (self.pet_dir, "PET")]:
+                    logger.info(f"  Indexando {label}...")
+                    ok = DICOMUtils.importDicom(dir_path)
+                    if not ok:
+                        raise RuntimeError(f"Fallo indexacion {label}")
+                series_uids = DICOMUtils.allSeriesUIDsInDatabase()
+                if not series_uids:
+                    raise RuntimeError("No se encontraron series DICOM")
+                loaded_node_ids = DICOMUtils.loadSeriesByUID(series_uids)
+            except Exception as e:
+                DICOMUtils.closeTemporaryDatabase(original_db_dir, cleanup=True)
+                raise RuntimeError(f"Error cargando DICOM: {e}")
             DICOMUtils.closeTemporaryDatabase(original_db_dir, cleanup=True)
-            raise RuntimeError(f"Error cargando DICOM: {e}")
-        DICOMUtils.closeTemporaryDatabase(original_db_dir, cleanup=True)
-        loaded_ct, loaded_pet = False, False
-        for node_id in loaded_node_ids:
-            node = slicer.mrmlScene.GetNodeByID(node_id)
-            if not node:
-                continue
-            name = node.GetName().upper()
-            if "CT" in name and not loaded_ct:
-                self.ct_node = node
-                loaded_ct = True
-            elif ("PET" in name or "PT" in name or "NM" in name) and not loaded_pet:
-                self.pet_node = node
-                loaded_pet = True
-        if not loaded_ct:
+            loaded_ct, loaded_pet = False, False
             for node_id in loaded_node_ids:
                 node = slicer.mrmlScene.GetNodeByID(node_id)
-                if node:
+                if not node:
+                    continue
+                name = node.GetName().upper()
+                if "CT" in name and not loaded_ct:
                     self.ct_node = node
                     loaded_ct = True
-                    break
-        if not loaded_pet and len(loaded_node_ids) > 1:
-            for node_id in loaded_node_ids:
-                node = slicer.mrmlScene.GetNodeByID(node_id)
-                if node and node != self.ct_node:
+                elif ("PET" in name or "PT" in name or "NM" in name) and not loaded_pet:
                     self.pet_node = node
                     loaded_pet = True
-                    break
-        if not loaded_ct:
-            raise RuntimeError("No se pudo cargar CT desde DICOM")
-        if not loaded_pet:
-            logger.warning("  PET no identificado")
-        dims = self.ct_node.GetImageData().GetDimensions()
-        spacing = self.ct_node.GetSpacing()
-        logger.info(f"  CT: {dims[0]}x{dims[1]}x{dims[2]}, {spacing[0]:.3f}x{spacing[1]:.3f}x{spacing[2]:.3f} mm")
+            if not loaded_ct:
+                for node_id in loaded_node_ids:
+                    node = slicer.mrmlScene.GetNodeByID(node_id)
+                    if node:
+                        self.ct_node = node
+                        loaded_ct = True
+                        break
+            if not loaded_pet and len(loaded_node_ids) > 1:
+                for node_id in loaded_node_ids:
+                    node = slicer.mrmlScene.GetNodeByID(node_id)
+                    if node and node != self.ct_node:
+                        self.pet_node = node
+                        loaded_pet = True
+                        break
+            if not loaded_ct:
+                raise RuntimeError("No se pudo cargar CT desde DICOM")
+            if not loaded_pet:
+                logger.warning("  PET no identificado")
+            dims = self.ct_node.GetImageData().GetDimensions()
+            spacing = self.ct_node.GetSpacing()
+            logger.info(f"  CT: {dims[0]}x{dims[1]}x{dims[2]}, {spacing[0]:.3f}x{spacing[1]:.3f}x{spacing[2]:.3f} mm")
 
     def _calibrate_pet_bqml(self):
-        """Calibra el nodo PET a Bq/mL desde DICOM raw (per-slice).
+        """Lee actividad PET desde DICOM raw para logging y dialogo.
 
-        Lee DICOM raw con pydicom, aplica RescaleSlope/Intercept por slice
-        (solo si RescaleType == BQML), y crea un nuevo nodo con geometria
-        DICOM nativa (200x200x127, spacing 4.07x4.07x2 mm).
-
-        NO recalibra si el PET ya fue resampleado a CT (evita mismatch de
-        geometria al restaurar escena guardada).
+        NO reemplaza el nodo PET de Slicer — el nodo cargado por Slicer
+        ya tiene Bq/mL correctos y coordenadas RAS validas para BRAINS.
+        Solo calcula estadisticas de actividad para el dialogo de fusion.
         """
         if not self.pet_node or not os.path.isdir(self.pet_dir):
-            logger.info("  No hay PET o directorio PET, saltando calibracion Bq/mL")
+            logger.info("  No hay PET o directorio PET, saltando lectura actividad")
             return
-        if self.checkpoint.is_completed(self.STEP_RESAMPLE_PET):
-            logger.info("  PET ya resampleado a CT, saltando recalibracion Bq/mL")
-            return
-        try:
-            from PipelineOrchestrator.pet_dicom_reader import create_calibrated_pet_node
-            logger.info("  Calibrando PET a Bq/mL desde DICOM raw (per-slice rescale)...")
-            new_node = create_calibrated_pet_node(self.pet_dir)
-            if new_node is not None:
-                old_node = self.pet_node
-                self.pet_node = new_node
-                import slicer
-                slicer.mrmlScene.RemoveNode(old_node)
-                logger.info(f"  PET calibrado: '{new_node.GetName()}' con Bq/mL reales")
-            else:
-                logger.warning("  No se creo nodo calibrado, conservando nodo PET original")
-        except Exception as e:
-            logger.warning(f"  Error en calibracion PET: {e}")
-            import traceback
-            logger.debug(traceback.format_exc())
+        from PipelineOrchestrator.utils import track_time
+        with track_time("Leyendo actividad PET desde DICOM raw"):
+            try:
+                from PipelineOrchestrator.pet_dicom_reader import read_pet_dicom_activity
+                logger.info("  Leyendo actividad PET desde DICOM raw para dialogo de fusion...")
+                activity = read_pet_dicom_activity(self.pet_dir)
+                if activity.get("error"):
+                    logger.warning(f"  Error leyendo DICOM PET: {activity['error']}")
+                    return
+                # Calcular actividad desde datos DICOM (para log y dialogo)
+                bqml_array = activity.get("stacked_bqml_array")
+                if bqml_array is not None:
+                    import numpy as np
+                    spacing = activity.get("dicom_spacing_mm", (1.0, 1.0, 1.0))
+                    voxel_vol_mL = float(spacing[0] * spacing[1] * spacing[2]) / 1000.0
+                    total_bq = float(np.sum(bqml_array[bqml_array > 0])) * voxel_vol_mL
+                    self.pet_activity_before_resample = {
+                        "total_bq": total_bq,
+                        "total_gbq": total_bq / 1e9,
+                        "mean_bqml": float(np.mean(bqml_array[bqml_array > 0])) if np.any(bqml_array > 0) else 0.0,
+                        "max_bqml": float(np.max(bqml_array)) if bqml_array.size > 0 else 0.0,
+                        "nonzero_voxels": int(np.sum(bqml_array > 0)),
+                        "n_slices": bqml_array.shape[0],
+                        "voxel_vol_mL": voxel_vol_mL,
+                    }
+                    logger.info(f"  Actividad PET (DICOM raw): {total_bq:.4e} Bq  ({total_bq/1e9:.4f} GBq)")
+                # NO reemplaza self.pet_node — Slicer ya tiene Bq/mL correctos
+            except Exception as e:
+                logger.warning(f"  Error leyendo actividad PET: {e}")
+                import traceback
+                logger.debug(traceback.format_exc())
 
     def _read_dicom_patient_id(self) -> str:
         """Lee el PatientID real desde los archivos DICOM con pydicom.
@@ -1084,7 +1118,6 @@ class PipelineMod1:
                     logger.warning(f"  Advertencia PET: {w}")
             except Exception as e:
                 logger.warning(f"  No se pudo leer actividad PET desde DICOM: {e}")
-                self.pet_activity = None
         else:
             logger.info("  No hay PET o directorio PET, saltando lectura de actividad")
             self.pet_activity = None
@@ -1115,6 +1148,7 @@ class PipelineMod1:
         # ── 4. Mostrar dialogo informativo MODAL (bloquea hasta cerrar) ──
         try:
             from PipelineOrchestrator.fusion_dialog import show_fusion_info_dialog
+            resample_cfg = self.pipeline_config.get("resample", {})
             show_fusion_info_dialog(
                 pet_activity=self.pet_activity or {},
                 ct_dims=ct_dims,
@@ -1127,7 +1161,8 @@ class PipelineMod1:
                 pet_node_name=self.pet_node.GetName() if self.pet_node else "",
                 patient_id=patient_id,
                 patient_weight_kg=self.pipeline_config.get("patient_weight_kg"),
-                registration_method="Elastix rigid",
+                registration_method="BRAINS Resample",
+                registration_interpolation=resample_cfg.get("interpolation", "NearestNeighbor"),
                 registration_conserved=True,
             )
             logger.info("  Dialogo informativo de fusion cerrado por el usuario (modal)")
@@ -1205,7 +1240,10 @@ class PipelineMod1:
         lines.append(f"  Nodo Slicer:     {pet_node_name or '—'}")
         lines.append("")
         lines.append("REGISTRO PET -> CT")
-        lines.append(f"  Metodo:          Elastix rigid")
+        resample_cfg = self.pipeline_config.get("resample", {})
+        interp = resample_cfg.get("interpolation", "NearestNeighbor")
+        lines.append(f"  Metodo:          BRAINS Resample")
+        lines.append(f"  Interpolacion:   {interp}")
         lines.append(f"  Actividad conservada:  Si")
         lines.append("")
         lines.append("VERIFICACIONES")
@@ -1245,7 +1283,21 @@ class PipelineMod1:
             logger.warning(f"  No se pudo guardar resumen fusion: {e}")
 
     def _anonymize(self):
-        anonymize.anonymize(self.ct_node, self.ct_dir, self.pet_dir, self.anon_dir, self.pet_node)
+        from PipelineOrchestrator.utils import track_time
+        with track_time("Anonimizando imagenes DICOM"):
+            anonymize.anonymize(self.ct_node, self.ct_dir, self.pet_dir, self.anon_dir, self.pet_node)
+        # Restaurar nombres canónicos despues de anonimizar
+        if self.ct_node:
+            ct_name = self.ct_node.GetName()
+            if ct_name != "CT":
+                self.ct_node.SetName("CT")
+                logger.info(f"  CT restaurado a nombre canónico: '{ct_name}' -> 'CT'")
+        if self.pet_node:
+            pet_name = self.pet_node.GetName()
+            expected = "PET_CT" if self.checkpoint.is_completed(self.STEP_RESAMPLE_PET) else "PET"
+            if pet_name != expected:
+                self.pet_node.SetName(expected)
+                logger.info(f"  PET restaurado a nombre canónico: '{pet_name}' -> '{expected}'")
 
     def _export_dicom_info_json(self):
         """
@@ -1254,83 +1306,85 @@ class PipelineMod1:
         Similar al info_PET / info_CT del paciente.mat de Matlab.
         """
         import json
+        from PipelineOrchestrator.utils import track_time
         try:
             import slicer
         except Exception:
             logger.warning("slicer no disponible, no se puede exportar metadata DICOM")
             return
-        info = {"CT": {}, "PET": {}}
-        # Intentar extraer desde la base DICOM de Slicer via atributos de nodo
-        for modality, node, directory in [
-            ("CT", self.ct_node, self.ct_dir),
-            ("PET", self.pet_node, self.pet_dir)
-        ]:
-            if node is None:
-                continue
-            # Obtener UID de serie desde atributos del nodo
-            series_uid = node.GetAttribute("DICOM.seriesInstanceUID") or ""
-            study_uid = node.GetAttribute("DICOM.studyInstanceUID") or ""
-            info[modality]["SeriesInstanceUID"] = series_uid
-            info[modality]["StudyInstanceUID"] = study_uid
-            info[modality]["Modality"] = modality
-            # Nombre del nodo (ya anonimizado por _anonymize)
-            info[modality]["NodeName"] = node.GetName()
-            # Leer tags desde los archivos DICOM originales con pydicom
-            dicom_tags = {}
-            if os.path.isdir(directory):
-                try:
-                    import pydicom
-                    for fname in sorted(os.listdir(directory)):
-                        fpath = os.path.join(directory, fname)
-                        if not os.path.isfile(fpath):
-                            continue
-                        try:
-                            ds = pydicom.dcmread(fpath, stop_before_pixels=True, force=True)
-                            for tag_name in [
-                                "PatientName", "PatientID", "PatientBirthDate",
-                                "PatientSex", "StudyDate", "StudyTime",
-                                "StudyDescription", "StudyInstanceUID",
-                                "SeriesDescription", "SeriesInstanceUID",
-                                "SeriesDate", "SeriesTime",
-                                "Modality", "Manufacturer", "InstitutionName",
-                                "ManufacturerModelName", "DeviceSerialNumber",
-                                "ReferringPhysicianName", "OperatorsName",
-                                "AccessionNumber", "PatientAge", "PatientWeight",
-                                "NumberOfSeriesRelatedInstances",
-                                "Rows", "Columns", "SliceThickness",
-                                "PixelSpacing", "SpacingBetweenSlices",
-                                "RescaleIntercept", "RescaleSlope",
-                            ]:
-                                if hasattr(ds, tag_name) and getattr(ds, tag_name) is not None:
-                                    val = getattr(ds, tag_name)
-                                    if hasattr(val, "repval"):
-                                        val = val.repval
-                                    else:
-                                        val = str(val)
-                                    dicom_tags[tag_name] = val
-                            break  # solo leer el primer archivo de la serie
-                        except Exception:
-                            continue
-                except ImportError:
-                    logger.debug(f"  pydicom no disponible para {modality}, usando solo atributos Slicer")
-                except Exception as e:
-                    logger.debug(f"  Error leyendo DICOM {modality}: {e}")
-            info[modality]["DICOM"] = dicom_tags
-        # Guardar JSON — usar PatientID real de DICOM si esta disponible
-        export_dir = getattr(self, "image_output_dir", None)
-        if not export_dir:
-            export_dir = os.path.join(self.output_dir, "exports")
-        os.makedirs(export_dir, exist_ok=True)
-        dicom_patient_id = (
-            info.get("CT", {}).get("DICOM", {}).get("PatientID") or
-            info.get("PET", {}).get("DICOM", {}).get("PatientID") or
-            ""
-        )
-        pid = dicom_patient_id or self.patient_id.strip() or "unknown"
-        json_path = os.path.join(export_dir, f"{pid}_info.json")
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(info, f, indent=2, ensure_ascii=False)
-        logger.info(f"  Metadata DICOM exportada -> {json_path}")
+        with track_time("Exportando metadata DICOM"):
+            info = {"CT": {}, "PET": {}}
+            # Intentar extraer desde la base DICOM de Slicer via atributos de nodo
+            for modality, node, directory in [
+                ("CT", self.ct_node, self.ct_dir),
+                ("PET", self.pet_node, self.pet_dir)
+            ]:
+                if node is None:
+                    continue
+                # Obtener UID de serie desde atributos del nodo
+                series_uid = node.GetAttribute("DICOM.seriesInstanceUID") or ""
+                study_uid = node.GetAttribute("DICOM.studyInstanceUID") or ""
+                info[modality]["SeriesInstanceUID"] = series_uid
+                info[modality]["StudyInstanceUID"] = study_uid
+                info[modality]["Modality"] = modality
+                # Nombre del nodo (ya anonimizado por _anonymize)
+                info[modality]["NodeName"] = node.GetName()
+                # Leer tags desde los archivos DICOM originales con pydicom
+                dicom_tags = {}
+                if os.path.isdir(directory):
+                    try:
+                        import pydicom
+                        for fname in sorted(os.listdir(directory)):
+                            fpath = os.path.join(directory, fname)
+                            if not os.path.isfile(fpath):
+                                continue
+                            try:
+                                ds = pydicom.dcmread(fpath, stop_before_pixels=True, force=True)
+                                for tag_name in [
+                                    "PatientName", "PatientID", "PatientBirthDate",
+                                    "PatientSex", "StudyDate", "StudyTime",
+                                    "StudyDescription", "StudyInstanceUID",
+                                    "SeriesDescription", "SeriesInstanceUID",
+                                    "SeriesDate", "SeriesTime",
+                                    "Modality", "Manufacturer", "InstitutionName",
+                                    "ManufacturerModelName", "DeviceSerialNumber",
+                                    "ReferringPhysicianName", "OperatorsName",
+                                    "AccessionNumber", "PatientAge", "PatientWeight",
+                                    "NumberOfSeriesRelatedInstances",
+                                    "Rows", "Columns", "SliceThickness",
+                                    "PixelSpacing", "SpacingBetweenSlices",
+                                    "RescaleIntercept", "RescaleSlope",
+                                ]:
+                                    if hasattr(ds, tag_name) and getattr(ds, tag_name) is not None:
+                                        val = getattr(ds, tag_name)
+                                        if hasattr(val, "repval"):
+                                            val = val.repval
+                                        else:
+                                            val = str(val)
+                                        dicom_tags[tag_name] = val
+                                break  # solo leer el primer archivo de la serie
+                            except Exception:
+                                continue
+                    except ImportError:
+                        logger.debug(f"  pydicom no disponible para {modality}, usando solo atributos Slicer")
+                    except Exception as e:
+                        logger.debug(f"  Error leyendo DICOM {modality}: {e}")
+                info[modality]["DICOM"] = dicom_tags
+            # Guardar JSON — usar PatientID real de DICOM si esta disponible
+            export_dir = getattr(self, "image_output_dir", None)
+            if not export_dir:
+                export_dir = os.path.join(self.output_dir, "exports")
+            os.makedirs(export_dir, exist_ok=True)
+            dicom_patient_id = (
+                info.get("CT", {}).get("DICOM", {}).get("PatientID") or
+                info.get("PET", {}).get("DICOM", {}).get("PatientID") or
+                ""
+            )
+            pid = dicom_patient_id or self.patient_id.strip() or "unknown"
+            json_path = os.path.join(export_dir, f"{pid}_info.json")
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(info, f, indent=2, ensure_ascii=False)
+            logger.info(f"  Metadata DICOM exportada -> {json_path}")
 
     def _resample_pet_to_ct(self):
         try:
@@ -1345,43 +1399,102 @@ class PipelineMod1:
         ct_spacing = self.ct_node.GetSpacing()
         pet_dims = self.pet_node.GetImageData().GetDimensions()
         pet_spacing = self.pet_node.GetSpacing()
+        logger.info(f"  CT dims: {ct_dims}, spacing: {ct_spacing}")
+        logger.info(f"  PET dims: {pet_dims}, spacing: {pet_spacing}")
         if (ct_dims == pet_dims and
             abs(ct_spacing[0] - pet_spacing[0]) < 0.001 and
             abs(ct_spacing[1] - pet_spacing[1]) < 0.001 and
             abs(ct_spacing[2] - pet_spacing[2]) < 0.001):
-            logger.info("PET ya tiene la misma geometria que CT")
+            logger.info("PET ya tiene la misma geometria que CT - saltando resample")
             return
+        logger.info("PET tiene geometria diferente a CT - procediendo con resample")
         try:
-            from PipelineOrchestrator.utils import track_time
+            # ── Verificar que BRAINSResample existe ──
+            brains_module = getattr(slicer.modules, 'brainsresample', None)
+            if brains_module is None:
+                logger.error("  slicer.modules.brainsresample NO ENCONTRADO")
+                logger.error("  Verificar que BRAINS este habilitado en Slicer:")
+                logger.error("  Edit → Settings → Modules → habilitar 'BRAINSResample'")
+                raise RuntimeError("BRAINSResample no disponible en este Slicer")
+            logger.info(f"  Usando: {brains_module}")
+
             pet_resampled_node = slicer.mrmlScene.AddNewNodeByClass(
                 "vtkMRMLScalarVolumeNode", "PET_tmp")
             pet_resampled_node.SetName("PET_tmp")
+            # Leer configuracion de interpolacion desde pipeline_config
+            resample_cfg = self.pipeline_config.get("resample", {})
+            interp = resample_cfg.get("interpolation", "NearestNeighbor")
+            pixel_type = resample_cfg.get("pixel_type", "float")
             params = {
                 'inputVolume': self.pet_node.GetID(),
                 'referenceVolume': self.ct_node.GetID(),
                 'outputVolume': pet_resampled_node.GetID(),
-                'pixelType': 'float',
-                'interpolationMode': 'NearestNeighbor',
+                'pixelType': pixel_type,
+                'interpolationMode': interp,
             }
+            logger.info(f"  Input:  {self.pet_node.GetName()} ({pet_dims[0]}x{pet_dims[1]}x{pet_dims[2]})")
+            logger.info(f"  Ref:    {self.ct_node.GetName()} ({ct_dims[0]}x{ct_dims[1]}x{ct_dims[2]})")
+            logger.info(f"  Output: PET_tmp ({ct_dims[0]}x{ct_dims[1]}x{ct_dims[2]} esperado)")
+            logger.info(f"  Interpolacion: {interp} | Pixel type: {pixel_type}")
+            from PipelineOrchestrator.utils import track_time
             with track_time("Resample PET->CT (BRAINS)"):
-                slicer.cli.run(slicer.modules.brainsresample, None, params, wait_for_completion=True)
+                slicer.cli.run(brains_module, None, params, wait_for_completion=True)
             if pet_resampled_node.GetImageData() is None:
-                raise RuntimeError("BRAINS Resample fallo")
+                raise RuntimeError("BRAINS Resample fallo: nodo de salida sin datos")
+            # Verificar dimensiones del output
+            out_dims = pet_resampled_node.GetImageData().GetDimensions()
+            logger.info(f"  Output PET_tmp: {out_dims[0]}x{out_dims[1]}x{out_dims[2]}")
             pet_resampled_node.SetName("PET_CT")
             old_pet = self.pet_node
             self.pet_node = pet_resampled_node
             slicer.mrmlScene.RemoveNode(old_pet)
             logger.info("PET re-muestreado a geometria CT: EXITOSO ('PET_CT')")
+            # Clipear valores < 0 a 0 (la interpolacion puede generar negativos)
+            import numpy as np
+            clip_negatives = resample_cfg.get("clip_negatives", True)
+            if clip_negatives:
+                arr = slicer.util.arrayFromVolume(self.pet_node)
+                if arr is not None and arr.size > 0:
+                    neg_count = int(np.sum(arr < 0))
+                    if neg_count > 0:
+                        logger.info(f"  Clipeando {neg_count} voxeles negativos a 0")
+                    arr[arr < 0] = 0.0
+                    slicer.util.updateVolumeFromArray(self.pet_node, arr)
+            # Conservacion de actividad: el resample cambia la actividad total
+            # porque el grid CT tiene distinta geometria (ej: 512x512 vs 200x200).
+            # Se escala PET_CT para que la suma total coincida con la actividad
+            # calibrada pre-resample.
+            arr_post = slicer.util.arrayFromVolume(self.pet_node)
+            if arr_post is not None and arr_post.size > 0:
+                ct_spacing = self.ct_node.GetSpacing()
+                ct_voxel_vol_mL = ct_spacing[0] * ct_spacing[1] * ct_spacing[2] / 1000.0
+                total_bq_post = float(np.sum(arr_post)) * ct_voxel_vol_mL
+                if self.pet_activity_before_resample and total_bq_post > 0:
+                    true_bq = self.pet_activity_before_resample["total_bq"]
+                    factor = true_bq / total_bq_post
+                    if abs(factor - 1.0) > 0.001:
+                        logger.info(f"  Conservacion actividad: {total_bq_post:.4e} -> {true_bq:.4e} Bq  (factor={factor:.6f})")
+                        arr_post = arr_post.astype(np.float64) * factor
+                        arr_post = arr_post.astype(np.float32)
+                        slicer.util.updateVolumeFromArray(self.pet_node, arr_post)
+                        total_bq_final = float(np.sum(arr_post)) * ct_voxel_vol_mL
+                        logger.info(f"  Actividad post-correccion: {total_bq_final:.4e} Bq = {total_bq_final/1e9:.4f} GBq")
+                    else:
+                        logger.info(f"  Conservacion actividad OK (factor={factor:.6f})")
         except Exception as e:
             logger.error(f"Error en re-muestreo PET: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            logger.warning("Continuando con PET original")
+            logger.warning("Continuando con PET original (sin resample)")
+            # Re-lanzar para que _checkpoint_step NO marque como completado
+            raise
 
     def _remove_couch_air(self):
-        masked_node = couch_remover.remove_couch_and_air(self.ct_node)
-        if masked_node is not None:
-            self.ct_masked_node = masked_node
+        from PipelineOrchestrator.utils import track_time
+        with track_time("Eliminando camilla y aire"):
+            masked_node = couch_remover.remove_couch_and_air(self.ct_node)
+            if masked_node is not None:
+                self.ct_masked_node = masked_node
 
     def _segment(self):
         from PipelineOrchestrator.utils import track_time
@@ -1450,36 +1563,47 @@ class PipelineMod1:
 
     def _add_tumor(self):
         import slicer
-        logger.info("  Creando tumor (modo: {})...".format(
-            self.tumor_config.get("mode", "synthetic")))
-        result = tumor_creator.create_tumor(
-            segmentation_node=self.segmentation_node,
-            ct_node=self.ct_node,
-            tumor_config=self.tumor_config)
-        self._tumor_result = result
-        logger.info(f"  Volumen tumor: {result.get('tumor_volume_cc', 'N/A')} cm^3")
+        import traceback
+        from PipelineOrchestrator.utils import track_time
+        tumor_mode = self.tumor_config.get("mode", "synthetic")
+        logger.info(f"  Creando tumor (modo: {tumor_mode})...")
+        try:
+            with track_time("Creando tumor"):
+                result = tumor_creator.create_tumor(
+                    segmentation_node=self.segmentation_node,
+                    ct_node=self.ct_node,
+                    tumor_config=self.tumor_config)
+                self._tumor_result = result
+                logger.info(f"  Volumen tumor: {result.get('tumor_volume_cc', 'N/A')} cm^3")
+        except Exception as e:
+            tb = traceback.format_exc()
+            logger.error(f"  FALLO crear tumor (modo={tumor_mode}): {e}")
+            logger.error(f"  Traceback completo:\n{tb}")
+            raise
 
     def _create_healthy_liver(self):
         import slicer
         import vtk
+        from PipelineOrchestrator.utils import track_time
         seg_node = self.segmentation_node
         if seg_node is None:
             logger.error("No hay nodo de segmentacion")
             return
-        seg_ids = vtk.vtkStringArray()
-        seg_node.GetSegmentation().GetSegmentIDs(seg_ids)
-        tumor_names = {"Tumor_Sintetico", "Tumor_Cargado", "Tumor_Manual", "Tumor_TS"}
-        healthy_liver_name = "higado_sano"
-        found_tumor = False
-        found_healthy = False
-        for i in range(seg_ids.GetNumberOfValues()):
-            sid = seg_ids.GetValue(i)
-            segment = seg_node.GetSegmentation().GetSegment(sid)
-            if segment:
-                name = segment.GetName()
-                if name in tumor_names:
-                    found_tumor = True
-                    logger.info(f"  [OK] '{name}' presente")
+        with track_time("Creando higado sano"):
+            seg_ids = vtk.vtkStringArray()
+            seg_node.GetSegmentation().GetSegmentIDs(seg_ids)
+            tumor_names = {"Tumor_Sintetico", "Tumor_Cargado", "Tumor_Manual", "Tumor_TS"}
+            healthy_liver_name = "higado_sano"
+            found_tumor = False
+            found_healthy = False
+            for i in range(seg_ids.GetNumberOfValues()):
+                sid = seg_ids.GetValue(i)
+                segment = seg_node.GetSegmentation().GetSegment(sid)
+                if segment:
+                    name = segment.GetName()
+                    if name in tumor_names:
+                        found_tumor = True
+                        logger.info(f"  [OK] '{name}' presente")
                 if name == healthy_liver_name:
                     found_healthy = True
         if found_healthy:
@@ -1585,6 +1709,58 @@ class PipelineMod1:
         slicer.util.showStatusMessage(
             f"Labelmap exportada: {segs} segmentos, {overlaps} overlaps", 8000)
         slicer.app.processEvents()
+        # Mostrar QDialog informativo con resumen del labelmap
+        self._show_labelmap_dialog(segs, overlaps, indices, nifti, nrrd)
+
+    def _show_labelmap_dialog(self, segs: int, overlaps: int, indices: list,
+                               nifti_path: str, nrrd_path: str):
+        """Muestra QDialog modal con resumen del labelmap exportado.
+        
+        Bloquea el pipeline hasta que el usuario haga clic en Cerrar.
+        """
+        try:
+            from qt import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, Qt, QApplication
+            import slicer
+            main_w = slicer.util.mainWindow()
+            dlg = QDialog(main_w)
+            dlg.setWindowTitle("3Dosim — Labelmap Exportada")
+            dlg.setModal(True)  # Modal: bloquea pipeline hasta que se cierre
+            dlg.setMinimumWidth(500)
+            layout = QVBoxLayout(dlg)
+            # Titulo
+            title = QLabel("<b style='font-size:16px; color:#2ecc71;'>Labelmap dosimetrica exportada</b>")
+            title.setTextFormat(Qt.RichText)
+            layout.addWidget(title)
+            # Resumen
+            info = QLabel(
+                f"<b>Segmentos:</b> {segs}<br>"
+                f"<b>Voxels con overlap:</b> {overlaps}<br>"
+                f"<b>Indices usados:</b> {', '.join(str(i) for i in indices) if indices else 'N/A'}<br>"
+                f"<br>"
+                f"<b>NIfTI:</b> {nifti_path}<br>"
+                f"<b>NRRD:</b> {nrrd_path}"
+            )
+            info.setWordWrap(True)
+            info.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+            layout.addWidget(info)
+            # Boton cerrar
+            close_btn = QPushButton("Cerrar")
+            close_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2ecc71; color: white;
+                    border: none; border-radius: 8px;
+                    padding: 10px 24px; font-size: 14px; font-weight: bold;
+                }
+                QPushButton:hover { background-color: #27ae60; }
+            """)
+            close_btn.clicked.connect(dlg.accept)
+            btn_layout = QHBoxLayout()
+            btn_layout.addStretch()
+            btn_layout.addWidget(close_btn)
+            layout.addLayout(btn_layout)
+            dlg.exec_()  # exec_() es modal y bloquea hasta que se cierre
+        except Exception as e:
+            logger.warning(f"No se pudo mostrar dialogo de labelmap: {e}")
 
     def _save_results_json(self):
         import json
@@ -1654,6 +1830,21 @@ class PipelineMod1:
             tiempo = f"{paso['tiempo']:.1f}s" if paso['tiempo'] > 0 else "-"
             logger.info(f"  {status} {paso['nombre']:<45s} {tiempo:>8s}{cp}")
         logger.info(f"Output: {self.output_dir}")
+        # Listar volúmenes en la escena
+        try:
+            import slicer
+            vol_nodes = slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
+            seg_nodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+            logger.info(f"VOLUMENES EN ESCENA ({len(vol_nodes)}):")
+            for n in vol_nodes:
+                dims = n.GetImageData().GetDimensions() if n.GetImageData() else (0,0,0)
+                spacing = n.GetSpacing()
+                logger.info(f"  - {n.GetName():40s} dims={dims[0]}x{dims[1]}x{dims[2]} spacing={spacing[0]:.2f}x{spacing[1]:.2f}x{spacing[2]:.2f}")
+            logger.info(f"SEGMENTACIONES ({len(seg_nodes)}):")
+            for n in seg_nodes:
+                logger.info(f"  - {n.GetName()}")
+        except Exception:
+            pass
         all_ok = fails == 0
         if all_ok:
             logger.info(" RESULTADO: TODOS LOS PASOS EXITOSOS")

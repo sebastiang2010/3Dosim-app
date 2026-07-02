@@ -71,19 +71,59 @@
 
 % ── Secci\'on 1: Informaci\'on del Estudio ─────────────────────────
 \section{Informaci\'on del Estudio}
+
+\subsection{Datos del Paciente}
 \begin{tabular}{ll}
 \BLOCK{if patient_id}
   ID del Paciente: & {\bfseries \VAR{patient_id | latex}} \\
 \BLOCK{endif}
-  Actividad: & \VAR{activity_gbq | fmt4} GBq \\
+  Actividad administrada: & \VAR{activity_gbq | fmt4} GBq \\
   NPS (historias): & \VAR{nps | commas} \\
 \BLOCK{if dim_x}
-  Dimensiones grilla: & \VAR{dim_x} $\times$ \VAR{dim_y} $\times$ \VAR{dim_z} \\
+  Dimensiones grilla de dosis: & \VAR{dim_x} $\times$ \VAR{dim_y} $\times$ \VAR{dim_z} \\
 \BLOCK{endif}
 \BLOCK{if flip}
   Flip Y: & Aplicado \\
 \BLOCK{else}
   Flip Y: & No aplicado \\
+\BLOCK{endif}
+\end{tabular}
+
+\subsection{M\'etodo de C\'alculo de Dosis}
+\begin{tabular}{ll}
+\BLOCK{if dose_method}
+  M\'etodo: & {\bfseries \VAR{dose_method | latex}} \\
+\BLOCK{endif}
+\BLOCK{if dose_file}
+  Archivo de dosis: & \texttt{\VAR{dose_file | latex}} \\
+\BLOCK{endif}
+\BLOCK{if dose_method == "MCTALL"}
+  Fuente: & Archivo MCTAL de MCNP (FMESH4) \\
+  Conversi\'on: & $D\,[\mathrm{Gy}] = D\,[\mathrm{MeV/cm}^3] \times 1.6\times10^{-13} \times \tau \times A \times 1000$ \\
+\BLOCK{elif dose_method == "Kernel"}
+  Fuente: & Kernel precalculado (\texttt{kernel.mat}) \\
+  M\'etodo: & Convoluci\'on FFT con padding sim\'etrico \\
+  M\'ascara: & H\'igado + Tumor + Peritumoral (1 cm) \\
+\BLOCK{endif}
+\end{tabular}
+
+\subsection{Fusi\'on de Im\'agenes CT+PET}
+\begin{tabular}{ll}
+\BLOCK{if fusion_ct_dim_x > 0}
+  CT dimensiones: & $\VAR{fusion_ct_dim_x} \times \VAR{fusion_ct_dim_y} \times \VAR{fusion_ct_dim_z}$ \\
+  CT espaciado: & $\VAR{fusion_ct_spacing_x | fmt3} \times \VAR{fusion_ct_spacing_y | fmt3} \times \VAR{fusion_ct_spacing_z | fmt3}$ mm \\
+\BLOCK{endif}
+\BLOCK{if fusion_pet_dim_x > 0}
+  PET dimensiones: & $\VAR{fusion_pet_dim_x} \times \VAR{fusion_pet_dim_y} \times \VAR{fusion_pet_dim_z}$ \\
+\BLOCK{endif}
+\BLOCK{if fusion_method}
+  Registro: & \VAR{fusion_method | latex} \\
+\BLOCK{endif}
+\BLOCK{if fusion_conserved}
+  Actividad conservada: & S\'i \\
+\BLOCK{endif}
+\BLOCK{if fusion_total_gbq > 0}
+  Actividad PET medida: & \VAR{fusion_total_gbq | fmt4} GBq \\
 \BLOCK{endif}
 \end{tabular}
 

@@ -1058,16 +1058,45 @@ class PipelineMod3:
 
     def _export_report(self):
         """Exporta reporte JSON + TXT + PDF."""
+        # Determinar método de dosis
+        mctal_lower = (self.mctal_path or "").lower()
+        if "kernel" in mctal_lower or mctal_lower.endswith(".mat"):
+            dose_method = "Kernel"
+            dose_file = os.path.basename(self.mctal_path) if self.mctal_path else "kernel.mat"
+        else:
+            dose_method = "MCTALL"
+            dose_file = os.path.basename(self.mctal_path) if self.mctal_path else ""
+
         # Metadata
         self.results_data["metadata"] = {
             "scene": self.scene_path,
             "mctal": self.mctal_path,
+            "dose_method": dose_method,
+            "dose_file": dose_file,
             "activity_bq": self.activity_bq,
             "activity_gbq": self.activity_gbq,
             "dimensions": list(self.dims),
             "nps": int(getattr(self, '_mctal_nps', 0)),
             "flip": self.flip,
         }
+
+        # Información de fusión CT+PET (se llena si está disponible)
+        if "fusion" not in self.results_data:
+            ct_spacing = list(self.spacing) if hasattr(self, 'spacing') and self.spacing else []
+            _dims = list(self.dims) if hasattr(self, 'dims') and self.dims else []
+            self.results_data["fusion"] = {
+                "ct_dim_x": _dims[0] if len(_dims) > 0 else 0,
+                "ct_dim_y": _dims[1] if len(_dims) > 1 else 0,
+                "ct_dim_z": _dims[2] if len(_dims) > 2 else 0,
+                "ct_spacing_x": float(ct_spacing[0]) if len(ct_spacing) >= 1 else 0.0,
+                "ct_spacing_y": float(ct_spacing[1]) if len(ct_spacing) >= 2 else 0.0,
+                "ct_spacing_z": float(ct_spacing[2]) if len(ct_spacing) >= 3 else 0.0,
+                "pet_dim_x": 0, "pet_dim_y": 0, "pet_dim_z": 0,
+                "pet_spacing_x": 0.0, "pet_spacing_y": 0.0, "pet_spacing_z": 0.0,
+                "registration_method": "BRAINS Resample (desde pipeline Mod1)",
+                "registration_conserved": True,
+                "total_gbq": self.activity_gbq,
+            }
 
         # JSON
         report_path = os.path.join(self.output_dir, "dosimetria_report.json")

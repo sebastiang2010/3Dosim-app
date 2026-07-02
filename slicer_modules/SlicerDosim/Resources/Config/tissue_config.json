@@ -1875,10 +1875,10 @@
       "material_es": "Pulmon"
     },
     "15": {
-      "index": 50,
+      "index": 144,
       "segment": "esophagus",
-      "material_en": "Lung",
-      "material_es": "Pulmon"
+      "material_en": "Oesophagus",
+      "material_es": "Esofago"
     },
     "16": {
       "index": 145,
@@ -2163,40 +2163,40 @@
       "material_es": "Sangre"
     },
     "63": {
-      "index": 80,
+      "index": 128,
       "segment": "inferior_vena_cava",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Blood",
+      "material_es": "Sangre"
     },
     "64": {
-      "index": 80,
+      "index": 128,
       "segment": "portal_vein_and_splenic_vein",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Blood",
+      "material_es": "Sangre"
     },
     "65": {
-      "index": 80,
+      "index": 128,
       "segment": "iliac_artery_left",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Blood",
+      "material_es": "Sangre"
     },
     "66": {
-      "index": 80,
+      "index": 128,
       "segment": "iliac_artery_right",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Blood",
+      "material_es": "Sangre"
     },
     "67": {
-      "index": 80,
+      "index": 128,
       "segment": "iliac_vena_left",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Blood",
+      "material_es": "Sangre"
     },
     "68": {
-      "index": 80,
+      "index": 128,
       "segment": "iliac_vena_right",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Blood",
+      "material_es": "Sangre"
     },
     "69": {
       "index": 80,
@@ -2259,76 +2259,76 @@
       "material_es": "Hueso"
     },
     "79": {
-      "index": 80,
+      "index": 145,
       "segment": "spinal_cord",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Gallbladder, Pituitary gland, Trachea, Thymus, Tonsils, Ureters, ...",
+      "material_es": "Tejido_mixto"
     },
     "80": {
-      "index": 80,
+      "index": 129,
       "segment": "gluteus_maximus_left",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "81": {
-      "index": 80,
+      "index": 129,
       "segment": "gluteus_maximus_right",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "82": {
-      "index": 80,
+      "index": 129,
       "segment": "gluteus_medius_left",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "83": {
-      "index": 80,
+      "index": 129,
       "segment": "gluteus_medius_right",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "84": {
-      "index": 80,
+      "index": 129,
       "segment": "gluteus_minimus_left",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "85": {
-      "index": 80,
+      "index": 129,
       "segment": "gluteus_minimus_right",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "86": {
-      "index": 80,
+      "index": 129,
       "segment": "autochthon_left",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "87": {
-      "index": 80,
+      "index": 129,
       "segment": "autochthon_right",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "88": {
-      "index": 80,
+      "index": 129,
       "segment": "iliopsoas_left",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "89": {
-      "index": 80,
+      "index": 129,
       "segment": "iliopsoas_right",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Muscle tissue",
+      "material_es": "Tejido_muscular"
     },
     "90": {
-      "index": 80,
+      "index": 132,
       "segment": "brain",
-      "material_en": "Bone",
-      "material_es": "Hueso"
+      "material_en": "Brain",
+      "material_es": "Cerebro"
     },
     "91": {
       "index": 80,

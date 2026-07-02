@@ -254,6 +254,20 @@ def _do_load_file(
     tumor_volume_cc = tumor_voxels * voxel_vol_cc
     logger.info(f"  Tumor cargado: {tumor_voxels} voxeles, {tumor_volume_cc:.2f} cm^3")
 
+    # Log detallado de dimensiones y spacing
+    tumor_spacing = tumor_labelmap_node.GetSpacing()
+    tumor_dims_vtk = tumor_labelmap_node.GetImageData().GetDimensions()
+    ct_spacing = ct_node.GetSpacing()
+    ct_dims_vtk = ct_node.GetImageData().GetDimensions()
+    logger.info(f"  Tumor NIfTI — dims(vtk): {tumor_dims_vtk}, spacing: {tumor_spacing}")
+    logger.info(f"  Tumor NIfTI — dims(numpy): {tumor_mask.shape}  (z,y,x)")
+    logger.info(f"  CT          — dims(vtk): {ct_dims_vtk}, spacing: {ct_spacing}")
+    # Tamanio fisico en mm
+    tumor_size_mm = [tumor_dims_vtk[i] * tumor_spacing[i] for i in range(3)]
+    ct_size_mm = [ct_dims_vtk[i] * ct_spacing[i] for i in range(3)]
+    logger.info(f"  Tumor NIfTI — tamano fisico (mm): {tumor_size_mm[0]:.1f} x {tumor_size_mm[1]:.1f} x {tumor_size_mm[2]:.1f}")
+    logger.info(f"  CT          — tamano fisico (mm): {ct_size_mm[0]:.1f} x {ct_size_mm[1]:.1f} x {ct_size_mm[2]:.1f}")
+
     if tumor_voxels == 0:
         slicer.mrmlScene.RemoveNode(tumor_labelmap_node)
         raise RuntimeError(
@@ -526,20 +540,22 @@ def _do_ts_liver_lesions(
     logger.info("  │  Paciencia — Slicer mostrara barra de progreso en modulo TS│")
     logger.info("  └─────────────────────────────────────────────────────────────┘")
     logger.info("  (modelo entrenado en ~842 sujetos con lesiones hepaticas)")
+    from PipelineOrchestrator.utils import track_time
     t0 = _time.time()
     try:
         slicer.util.selectModule("TotalSegmentator")
         from TotalSegmentator import TotalSegmentatorLogic
         logic = TotalSegmentatorLogic()
         logic.setupPythonRequirements()
-        logic.process(
-            inputVolume=ct_node,
-            outputSegmentation=ts_seg_node,
-            task="liver_lesions",
-            fast=False,
-            cpu=tumor_config.get("force_cpu", True),
-            interactive=False,
-        )
+        with track_time("TotalSegmentator liver_lesions (5-20 min)"):
+            logic.process(
+                inputVolume=ct_node,
+                outputSegmentation=ts_seg_node,
+                task="liver_lesions",
+                fast=False,
+                cpu=tumor_config.get("force_cpu", True),
+                interactive=False,
+            )
     except Exception as e:
         elapsed = _time.time() - t0
         logger.error(f"  FALLO tras {elapsed/60:.1f} min: {e}")

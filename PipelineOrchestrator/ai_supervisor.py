@@ -161,14 +161,7 @@ def revisar_paso(pipeline_ctx: dict, consola=None):
             logger.info(msg)
             return
 
-    # Log que la IA esta revisando (no bloqueante)
-    msg_revisando = f"[IA revisando paso '{paso}']..."
-    if consola:
-        consola.log(msg_revisando)
-    else:
-        logger.info(msg_revisando)
-
-    # Llamar a la IA en thread separado y mostrar resultado
+    # La IA revisa en thread separado (no bloqueante)
     def revisar_thread():
         try:
             respuesta = client.consultar(

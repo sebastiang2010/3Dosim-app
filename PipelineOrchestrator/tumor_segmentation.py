@@ -243,10 +243,16 @@ def _extract_segment_mask(segmentation_node, segment_name: str) -> Optional[np.n
 
         # Buscar nodo de referencia CT para geometria
         ref_node = None
-        try:
-            ref_node = slicer.util.getNode("3Dosim_CT_anon")
-        except Exception:
-            pass
+        # Intentar nombres canonicos en orden
+        for ct_name in ("CT", "3Dosim_CT_anon", "CT_anon"):
+            try:
+                candidate = slicer.util.getNode(ct_name)
+                if candidate is not None:
+                    ref_node = candidate
+                    logger.info(f"  Usando CT de referencia: '{ct_name}'")
+                    break
+            except Exception:
+                pass
 
         # ExportSegmentsToLabelmapNode requiere un vtkStringArray (plural)
         # incluso para un solo segmento

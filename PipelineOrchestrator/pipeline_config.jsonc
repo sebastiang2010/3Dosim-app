@@ -19,6 +19,12 @@
     "refine_hu": false,
     "flip_rows": true
   },
+  "resample": {
+    "method": "BRAINS",
+    "interpolation": "BSpline",
+    "clip_negatives": true,
+    "pixel_type": "float"
+  },
   "patient_weight_kg": null,
   "pipeline": {
     "force_validation_on_restore": true,
