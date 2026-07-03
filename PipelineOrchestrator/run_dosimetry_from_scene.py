@@ -70,6 +70,14 @@ try:
 except Exception:
     create_isodose_contours = None
     _HAS_ISODOSE = False
+
+# Dose kernel (carga kernel.mat sin normalizar — preserva calibracion Gy)
+try:
+    from PipelineOrchestrator.dose_kernel import get_kernel
+    _HAS_DOSE_KERNEL = True
+except Exception:
+    get_kernel = None
+    _HAS_DOSE_KERNEL = False
 from typing import Optional
 
 # Views medicas automaticas
@@ -264,7 +272,7 @@ def _setup_labelmap_color_table(labelmap_node):
     color_table.SetColor(100, "Tumor",         1.0, 0.2, 0.2, 0.8)
     color_table.SetColor(200, "Peritumoral",   0.8, 0.6, 0.0, 0.8)
 
-    color_table.SetColorsModified()
+    color_table.SetNamesFromColors()
     dn.SetAndObserveColorNodeID(color_table.GetID())
     dn.Modified()
 
@@ -1678,11 +1686,11 @@ def load_kernel(kernel_path: str) -> np.ndarray:
         logger.info(f"  Centrando kernel: max en {max_pos} -> centro {center}, shift={shifts}")
         kernel = np.roll(kernel, shifts, axis=(0, 1, 2))
 
-    kernel_sum = kernel.sum()
-    if kernel_sum > 0:
-        kernel = kernel / kernel_sum
+    # NOTA: NO normalizar. El kernel.mat ya viene calibrado en Gy desde MATLAB
+    # (incluye MeV→J, t=1/λ, Actividad=1e9=1GBq, ÷masa).
+    # Normalizar (kernel/sum(kernel)) destruye las unidades fisicas.
     logger.info(f"  Kernel cargado: {kernel_path}")
-    logger.info(f"  Shape: {kernel.shape}, sum={kernel.sum():.6f}")
+    logger.info(f"  Shape: {kernel.shape}, sum={kernel.sum():.6e} (Gy, NO normalizado)")
     return kernel
 
 
@@ -2134,6 +2142,25 @@ def main():
         # Asignar tabla de colores al labelmap (despues de peritumoral)
         _setup_labelmap_color_table(labelmap_node)
 
+        # Restaurar vistas medicas (resetSliceViews en _setup_labelmap_color_table
+        # puede haber desconfigurado los slices)
+        if _HAS_VIEWS:
+            try:
+                seg_nodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+                seg_node = seg_nodes[0] if seg_nodes else None
+                setup_medical_views(
+                    ct_node=ct_node,
+                    pet_node=pet_node,
+                    ct_masked_node=nodes.get("ct_masked"),
+                    segmentation_node=seg_node,
+                    layout_name="ConventionalView",
+                    pet_opacity=0.35,
+                    link_slices=True,
+                )
+                logger.info("  Vistas medicas restauradas post-labelmap")
+            except Exception as e:
+                logger.warning(f"  setup_medical_views post-labelmap fallo: {e}")
+
         # Actividad
         if args.activity is not None:
             activity_gbq = args.activity
@@ -2174,7 +2201,7 @@ def main():
         logger.info("\n--- Paso 4: Convolucion con kernel (rapido) ---")
         _log_consola("Paso 4/10: Cargando kernel y convolucionando...")
 
-        kernel = load_kernel(kernel_path)
+        kernel = get_kernel(kernel_path, normalize=False) if _HAS_DOSE_KERNEL else load_kernel(kernel_path)
         if kernel is None:
             logger.error("  Kernel no cargado. Abortando.")
             return 1
@@ -2374,40 +2401,60 @@ def main():
             dose_node = calc.create_dose_volume(dose_gy, ref_node)
             if dose_node:
                 logger.info(f"  Nodo creado: {dose_node.GetName()}")
-                # Usar CT sin camilla como fondo si existe
+                # ── Restaurar vistas medicas PRIMERO (CT fondo + PET oculto) ──
+                # resetSliceViews en _setup_labelmap_color_table pudo desconfigurar todo
+                if _HAS_VIEWS:
+                    try:
+                        seg_nodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+                        seg_node = seg_nodes[0] if seg_nodes else None
+                        setup_medical_views(
+                            ct_node=ct_node,
+                            pet_node=pet_node,
+                            ct_masked_node=nodes.get("ct_masked"),
+                            segmentation_node=seg_node,
+                            layout_name="ConventionalView",
+                            pet_opacity=0.0,  # ocultar PET, solo CT fondo
+                            link_slices=True,
+                            reset_slices=False,  # NO resetear — ya asignamos manualmente
+                        )
+                        logger.info("  Vistas medicas restauradas (CT fondo, PET oculto)")
+                    except Exception as e:
+                        logger.warning(f"  setup_medical_views pre-dosis fallo: {e}")
+                # ── Asignar dosis como foreground ──
                 bg_node = nodes.get("ct_masked") or ct_node
                 slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
                 for sn in slice_nodes:
                     sn.SetBackgroundVolumeID(bg_node.GetID() if bg_node else ct_node.GetID())
                     sn.SetForegroundVolumeID(dose_node.GetID())
                     sn.SetForegroundOpacity(0.4)
-                # Activar layout medico con 3D
+                # Activar layout medico con 3D: CT fondo + Dosis overlay
                 try:
-                    slicer.util.setSliceViewerLayers(foreground=dose_node, foregroundOpacity=0.4)
-                    logger.info("  Overlay de dosis activado en slices")
+                    slicer.util.setSliceViewerLayers(
+                        background=bg_node,
+                        foreground=dose_node,
+                        foregroundOpacity=0.4,
+                    )
+                    logger.info("  Overlay de dosis activado en slices (CT fondo + Dosis)")
                 except Exception as e:
                     logger.warning(f"  setSliceViewerLayers: {e}")
-                # Asignar colormap a la dosis (desde config, default: Hot)
+                # Asignar colormap a la dosis (DisplayNode ya creado por create_dose_volume)
                 try:
-                    from views import load_pipeline_config
+                    from views import load_pipeline_config, ensure_inverted_rainbow
                     _cfg = load_pipeline_config()
-                    dose_cmap = _cfg.get("dose", {}).get("colormap", "Hot")
+                    dose_cmap = _cfg.get("dose", {}).get("colormap", "3Dosim_InvertedRainbow")
                     dose_dn = dose_node.GetDisplayNode()
-                    if not dose_dn:
-                        dose_node.CreateDefaultDisplayNodes()
-                        dose_dn = dose_node.GetDisplayNode()
                     if dose_dn:
-                        color_logic = slicer.vtkSlicerColorLogic()
-                        cmap_node = color_logic.GetNodeFromColorTable(dose_cmap)
+                        # Buscar color table: primero por nombre exacto, luego crear
+                        cmap_node = slicer.util.getNode(dose_cmap)
+                        if not cmap_node:
+                            cmap_id = ensure_inverted_rainbow()
+                            cmap_node = slicer.mrmlScene.GetNodeByID(cmap_id)
                         if cmap_node:
                             dose_dn.SetAndObserveColorNodeID(cmap_node.GetID())
                             logger.info(f"  Colormap '{dose_cmap}' asignado a Dosis")
+                            logger.info(f"  Window/Level: {dose_dn.GetWindow():.1f}/{dose_dn.GetLevel():.1f}")
                         else:
-                            # Fallback a Rainbow
-                            cmap_node = color_logic.GetNodeFromColorTable("Rainbow")
-                            if cmap_node:
-                                dose_dn.SetAndObserveColorNodeID(cmap_node.GetID())
-                                logger.info(f"  Colormap '{dose_cmap}' no encontrado, fallback a Rainbow")
+                            logger.warning(f"  No se pudo obtener colormap '{dose_cmap}'")
                 except Exception as e:
                     logger.warning(f"  No se pudo asignar colormap: {e}")
                 # ── Ocultar todo menos CT_sin_camilla + Dosis ──
@@ -2468,6 +2515,21 @@ def main():
                             if model_node:
                                 logger.info(f"  Isodosis OK: {model_node.GetName()}")
                                 _log_consola_ok("Curvas de isodosis generadas")
+                                # Restaurar slices: isodosis pudo desconfigurar background/foreground
+                                try:
+                                    bg_node = nodes.get("ct_masked") or ct_node
+                                    for sn in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
+                                        sn.SetBackgroundVolumeID(bg_node.GetID())
+                                        sn.SetForegroundVolumeID(dose_node.GetID())
+                                        sn.SetForegroundOpacity(0.4)
+                                    slicer.util.setSliceViewerLayers(
+                                        background=bg_node,
+                                        foreground=dose_node,
+                                        foregroundOpacity=0.4,
+                                    )
+                                    logger.info("  Slices restaurados post-isodosis (CT + Dosis)")
+                                except Exception as e:
+                                    logger.warning(f"  No se pudieron restaurar slices post-isodosis: {e}")
                             else:
                                 logger.info("  No se generaron isodosis")
                                 _log_consola("Isodosis: sin datos (niveles fuera de rango?)")

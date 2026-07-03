@@ -144,7 +144,7 @@ class DoseCalculator:
             reference_node: nodo de referencia para metadatos (CT/labelmap)
 
         Returns:
-            vtkMRMLScalarVolumeNode
+            vtkMRMLScalarVolumeNode con DisplayNode configurado
         """
         import slicer
         import vtk
@@ -165,7 +165,26 @@ class DoseCalculator:
             reference_node.GetIJKToRASMatrix(ref_ijk)
             dose_node.SetIJKToRASMatrix(ref_ijk)
 
-        self.logger.info(f"Nodo de dosis creado: Dosis_3D_Gy")
+        # Crear DisplayNode con window/level basado en los datos reales
+        dose_dn = dose_node.GetDisplayNode()
+        if not dose_dn:
+            dose_node.CreateDefaultDisplayNodes()
+            dose_dn = dose_node.GetDisplayNode()
+        if dose_dn:
+            # Auto window/level desde los datos (usa percentiles para ignorar ceros)
+            dose_dn.AutoWindowLevelOff()
+            positive = dose_gy[dose_gy > 0]
+            if positive.size > 0:
+                p2 = float(np.percentile(positive, 2))
+                p98 = float(np.percentile(positive, 98))
+                w = p98 - p2
+                l = (p98 + p2) / 2.0
+                dose_dn.SetWindowLevel(w, l)
+                self.logger.info(f"Nodo de dosis creado: Dosis_3D_Gy (WL={w:.1f}/{l:.1f})")
+            else:
+                dose_dn.AutoWindowLevelOn()
+                self.logger.info(f"Nodo de dosis creado: Dosis_3D_Gy (WL=auto)")
+
         return dose_node
 
     def compute_mird(

@@ -158,11 +158,12 @@ def setup_medical_views(
             logger.warning(f"  setSliceViewerLayers fallo: {e}")
 
     # --- 3. Resetear slices para que se vean inmediatamente ---
-    try:
-        slicer.util.resetSliceViews()
-        logger.info("  Slices reseteados - imagenes visibles")
-    except Exception:
-        pass
+    if reset_slices:
+        try:
+            slicer.util.resetSliceViews()
+            logger.info("  Slices reseteados - imagenes visibles")
+        except Exception:
+            pass
 
     # --- 4. Mostrar segmentacion en 2D y 3D ---
     if segmentation_node:

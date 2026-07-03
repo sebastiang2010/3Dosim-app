@@ -85,10 +85,10 @@
       90,
       100
     ],
-    "colormap": "Hot",
+    "colormap": "3Dosim_InvertedRainbow",
     "n_points": 200
   },
   "dose": {
-    "colormap": "Hot"
+    "colormap": "3Dosim_InvertedRainbow"
   }
 }

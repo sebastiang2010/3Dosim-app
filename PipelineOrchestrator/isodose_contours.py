@@ -119,25 +119,11 @@ def create_isodose_contours(dose_node, levels=None,
 
 def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
                          relative=False, levels_pct=None):
-    """Genera isodosis via SlicerRT Isodose module."""
-    import slicer
+    """Genera isodosis via SlicerRT Isodose module.
 
-    # Aplicar smooth3 (Gaussian) a la dosis antes de contornear - identico MATLAB smooth3(D3)
-    try:
-        dose_arr = slicer.util.arrayFromVolume(dose_node)
-        from scipy.ndimage import gaussian_filter
-        dose_smooth = gaussian_filter(dose_arr.astype(np.float64), sigma=1.0)
-        # Crear volumen temporal para isodosis
-        smooth_node = slicer.mrmlScene.AddNewNodeByClass(
-            "vtkMRMLScalarVolumeNode", f"{dose_node.GetName()}_Smoothed")
-        slicer.util.updateVolumeFromArray(smooth_node, dose_smooth)
-        smooth_node.SetSpacing(dose_node.GetSpacing())
-        smooth_node.SetOrigin(dose_node.GetOrigin())
-        smooth_node.SetIJKToRASMatrix(dose_node.GetIJKToRASMatrix())
-        logger.info("  Smooth3 (Gaussian sigma=1) aplicado para isodosis")
-    except Exception as e:
-        logger.warning(f"  Smooth3 fallo, usando dosis original: {e}")
-        smooth_node = dose_node
+    SlicerRT ya aplica su propio suavizado internamente — NO hacer smooth manual.
+    """
+    import slicer
 
     units_str = "%" if relative else "Gy"
     logger.info(f"Generando isodosis via SlicerRT: {len(levels)} niveles "
@@ -146,9 +132,9 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
     try:
         isodose_logic = slicer.modules.isodose.logic()
 
-        # Nodo de parametros Isodose
+        # Nodo de parametros Isodose — usar dose_node directamente (SlicerRT suaviza solo)
         param_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLIsodoseNode")
-        param_node.SetDoseVolumeNode(smooth_node)
+        param_node.SetDoseVolumeNode(dose_node)
         param_node.SetDoseUnits(0)  # 0 = Gy (el volumen esta en Gy)
 
         # ── Isolevels relativos (% de la dosis maxima) ──
@@ -159,7 +145,7 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
             logger.warning("  SetIsodoseRelativeDose no disponible en esta version de SlicerRT")
 
         # Tabla de colores
-        isodose_logic.SetupColorTableNodeForDoseVolumeNode(smooth_node)
+        isodose_logic.SetupColorTableNodeForDoseVolumeNode(dose_node)
         color_table_node = param_node.GetColorTableNode()
         if not color_table_node:
             logger.error("  No se pudo crear tabla de colores")
@@ -214,7 +200,11 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
 # ── VTK fallback (sin dependencia SlicerRT) ─────────────────────────────
 
 def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
-    """Genera isodosis usando vtkImageMarchingCubes (siempre disponible)."""
+    """Genera isodosis usando vtkImageMarchingCubes (siempre disponible).
+
+    Usa el dose_node directamente — sin smooth manual (VTK marching cubes
+    no necesita suavizado previo, los contornos se generan por nivel).
+    """
     import slicer
     import vtk
 
@@ -225,22 +215,6 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
         if not dose_img:
             logger.error("  El nodo de dosis no tiene ImageData")
             return None, None
-
-        # Aplicar smooth3 (Gaussian) a la dosis - identico MATLAB smooth3(D3)
-        try:
-            dose_arr = slicer.util.arrayFromVolume(dose_node)
-            from scipy.ndimage import gaussian_filter
-            dose_smooth = gaussian_filter(dose_arr.astype(np.float64), sigma=1.0)
-            smooth_node = slicer.mrmlScene.AddNewNodeByClass(
-                "vtkMRMLScalarVolumeNode", f"{dose_node.GetName()}_Smoothed_VTK")
-            slicer.util.updateVolumeFromArray(smooth_node, dose_smooth)
-            smooth_node.SetSpacing(dose_node.GetSpacing())
-            smooth_node.SetOrigin(dose_node.GetOrigin())
-            smooth_node.SetIJKToRASMatrix(dose_node.GetIJKToRASMatrix())
-            dose_img = smooth_node.GetImageData()
-            logger.info("  Smooth3 (Gaussian sigma=1) aplicado para isodosis VTK")
-        except Exception as e:
-            logger.warning(f"  Smooth3 fallo, usando dosis original VTK: {e}")
 
         # Nodo modelo
         base = f"{dose_node.GetName()}_IsodoseLevels"
