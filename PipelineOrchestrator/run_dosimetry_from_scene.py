@@ -2401,50 +2401,32 @@ def main():
             dose_node = calc.create_dose_volume(dose_gy, ref_node)
             if dose_node:
                 logger.info(f"  Nodo creado: {dose_node.GetName()}")
-                # ── Restaurar vistas medicas PRIMERO (CT fondo + PET oculto) ──
-                # resetSliceViews en _setup_labelmap_color_table pudo desconfigurar todo
-                if _HAS_VIEWS:
-                    try:
-                        seg_nodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
-                        seg_node = seg_nodes[0] if seg_nodes else None
-                        setup_medical_views(
-                            ct_node=ct_node,
-                            pet_node=pet_node,
-                            ct_masked_node=nodes.get("ct_masked"),
-                            segmentation_node=seg_node,
-                            layout_name="ConventionalView",
-                            pet_opacity=0.0,  # ocultar PET, solo CT fondo
-                            link_slices=True,
-                            reset_slices=False,  # NO resetear — ya asignamos manualmente
-                        )
-                        logger.info("  Vistas medicas restauradas (CT fondo, PET oculto)")
-                    except Exception as e:
-                        logger.warning(f"  setup_medical_views pre-dosis fallo: {e}")
-                # ── Asignar dosis como foreground ──
                 bg_node = nodes.get("ct_masked") or ct_node
-                slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
-                for sn in slice_nodes:
-                    sn.SetBackgroundVolumeID(bg_node.GetID() if bg_node else ct_node.GetID())
-                    sn.SetForegroundVolumeID(dose_node.GetID())
-                    sn.SetForegroundOpacity(0.4)
-                # Activar layout medico con 3D: CT fondo + Dosis overlay
+
+                # ── PASO 1: Ocultar todo lo que no queremos ver PRIMERO ──
+                # (si se hace después, los eventos de Slicer pueden desconfigurar slices)
                 try:
-                    slicer.util.setSliceViewerLayers(
-                        background=bg_node,
-                        foreground=dose_node,
-                        foregroundOpacity=0.4,
-                    )
-                    logger.info("  Overlay de dosis activado en slices (CT fondo + Dosis)")
+                    for seg_n in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
+                        seg_n.GetDisplayNode().SetVisibility(False)
+                        seg_n.GetDisplayNode().SetSliceIntersectionVisibility(False)
+                        logger.info(f"  Segmentacion oculta: {seg_n.GetName()}")
+                    if nodes.get("pet"):
+                        dn = nodes["pet"].GetDisplayNode()
+                        if dn: dn.SetVisibility(False)
+                    if labelmap_node:
+                        dn = labelmap_node.GetDisplayNode()
+                        if dn: dn.SetVisibility(False)
+                    logger.info("  Nodos auxiliares ocultos")
                 except Exception as e:
-                    logger.warning(f"  setSliceViewerLayers: {e}")
-                # Asignar colormap a la dosis (DisplayNode ya creado por create_dose_volume)
+                    logger.warning(f"  Ocultando nodos: {e}")
+
+                # ── PASO 2: Asignar colormap a la dosis ──
                 try:
                     from views import load_pipeline_config, ensure_inverted_rainbow
                     _cfg = load_pipeline_config()
                     dose_cmap = _cfg.get("dose", {}).get("colormap", "3Dosim_InvertedRainbow")
                     dose_dn = dose_node.GetDisplayNode()
                     if dose_dn:
-                        # Buscar color table: primero por nombre exacto, luego crear
                         cmap_node = slicer.util.getNode(dose_cmap)
                         if not cmap_node:
                             cmap_id = ensure_inverted_rainbow()
@@ -2453,29 +2435,32 @@ def main():
                             dose_dn.SetAndObserveColorNodeID(cmap_node.GetID())
                             logger.info(f"  Colormap '{dose_cmap}' asignado a Dosis")
                             logger.info(f"  Window/Level: {dose_dn.GetWindow():.1f}/{dose_dn.GetLevel():.1f}")
-                        else:
-                            logger.warning(f"  No se pudo obtener colormap '{dose_cmap}'")
                 except Exception as e:
                     logger.warning(f"  No se pudo asignar colormap: {e}")
-                # ── Ocultar todo menos CT_sin_camilla + Dosis ──
+
+                # ── PASO 3: Configurar slices — SOLO via slice composite nodes ──
+                # NO usar setSliceViewerLayers (hace resetSliceViews interno)
+                # NO usar setup_medical_views (también resetea)
                 try:
-                    # Ocultar segmentaciones (TotalSegmentator: 104 organos)
-                    for seg_n in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
-                        seg_n.GetDisplayNode().SetVisibility(False)
-                        seg_n.GetDisplayNode().SetSliceIntersectionVisibility(False)
-                        logger.info(f"  Segmentacion oculta: {seg_n.GetName()}")
-                    # Ocultar PET
-                    if nodes.get("pet"):
-                        dn = nodes["pet"].GetDisplayNode()
-                        if dn: dn.SetVisibility(False)
-                    # Ocultar labelmap
-                    if labelmap_node:
-                        dn = labelmap_node.GetDisplayNode()
-                        if dn: dn.SetVisibility(False)
-                    logger.info("  Visibilidad: solo CT + Dosis visible")
-                    _log_consola_ok("Vista: solo CT + Dosis rainbow")
+                    slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
+                    for sn in slice_nodes:
+                        sn.SetBackgroundVolumeID(bg_node.GetID())
+                        sn.SetForegroundVolumeID(dose_node.GetID())
+                        sn.SetForegroundOpacity(0.4)
+                        # Quitar labelmap de los slices
+                        sn.SetLabelVolumeID(None)
+                        sn.SetLabelOpacity(0.0)
+                    # Forzar redraw de todos los slice views
+                    lm = slicer.app.layoutManager()
+                    for idx in range(lm.sliceViewCount()):
+                        sv = lm.sliceWidget(idx).sliceView()
+                        if sv:
+                            sv.scheduleRender()
+                    slicer.app.processEvents()
+                    logger.info("  Slices configurados: CT fondo + Dosis overlay (0.4)")
+                    _log_consola_ok("Vista: CT + Dosis rainbow")
                 except Exception as e:
-                    logger.warning(f"  Ocultando nodos: {e}")
+                    logger.warning(f"  Configurando slices: {e}")
                 # ── Saltar al voxel con maxima dosis ──
                 try:
                     if dose_node is not None:
@@ -2522,11 +2507,15 @@ def main():
                                         sn.SetBackgroundVolumeID(bg_node.GetID())
                                         sn.SetForegroundVolumeID(dose_node.GetID())
                                         sn.SetForegroundOpacity(0.4)
-                                    slicer.util.setSliceViewerLayers(
-                                        background=bg_node,
-                                        foreground=dose_node,
-                                        foregroundOpacity=0.4,
-                                    )
+                                        sn.SetLabelVolumeID(None)
+                                    # Forzar redraw
+                                    try:
+                                        lm = slicer.app.layoutManager()
+                                        for idx in range(lm.sliceViewCount()):
+                                            sv = lm.sliceWidget(idx).sliceView()
+                                            if sv: sv.scheduleRender()
+                                    except Exception:
+                                        pass
                                     logger.info("  Slices restaurados post-isodosis (CT + Dosis)")
                                 except Exception as e:
                                     logger.warning(f"  No se pudieron restaurar slices post-isodosis: {e}")
