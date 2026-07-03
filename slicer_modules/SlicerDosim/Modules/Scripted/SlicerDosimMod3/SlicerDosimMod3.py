@@ -377,8 +377,9 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
         """Crea isodosis contours en Slicer."""
         if self.dose_gy is None:
             raise RuntimeError("Sin dosis para isodosis")
-        ref = self.labelmap_node or self.ct_node
-        create_isodose_contours(self.dose_gy, ref_node=ref)
+        if self.dose_node is None:
+            raise RuntimeError("Sin nodo de dosis para isodosis")
+        create_isodose_contours(self.dose_node)
 
     def save_scene(self, path: str = "") -> bool:
         """Guarda escena actual como .mrb."""
