@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\launcher\\app.py": {
-    "mtime": 1783102399.7030046,
-    "ast_hash": "c05e7e8d6a3dee52703bda608936be79",
+    "mtime": 1783175959.6382163,
+    "ast_hash": "7379ac2f4041ee22a378c8cc655d35a1",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\launcher\\main.py": {
@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\isodose_contours.py": {
-    "mtime": 1783173149.019795,
-    "ast_hash": "ddb8193464fa1cb4a2953b264d147b1f",
+    "mtime": 1783175938.2242062,
+    "ast_hash": "e7bbba5e1ae6b4e8ba022b638a22f13b",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\labelmap_exporter.py": {
@@ -115,23 +115,23 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\pipeline_mod1.py": {
-    "mtime": 1783175810.4105282,
-    "ast_hash": "fe5effb098e4409ddd120f97824c9e39",
+    "mtime": 1783176427.7390802,
+    "ast_hash": "e72ccb980fc23e5601c8a16bd927b73e",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\pipeline_mod2.py": {
-    "mtime": 1783098924.1456969,
-    "ast_hash": "e49c28197710391a3401af00c58c9fe5",
+    "mtime": 1783176357.3400216,
+    "ast_hash": "aa9c7b15a2b7d00549e3803016e76a94",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\pipeline_mod3.py": {
-    "mtime": 1783098954.7175052,
-    "ast_hash": "c407b504775a935b7e269c19ff43040b",
+    "mtime": 1783176401.3002107,
+    "ast_hash": "313161845e79a936ec2b64e7440b7f30",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\run_dosimetry_from_scene.py": {
-    "mtime": 1783105291.6861062,
-    "ast_hash": "e718b14dfd0f53d38d11d25847e12641",
+    "mtime": 1783175996.8767195,
+    "ast_hash": "16a075b6a069c129f46b93eefa8faa3b",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\segmentation.py": {
@@ -160,8 +160,8 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\utils.py": {
-    "mtime": 1782994818.739881,
-    "ast_hash": "1f302d9674a828547fa70dbc8e5a3e70",
+    "mtime": 1783176173.12832,
+    "ast_hash": "f6c32c35b6a320ea4860a6aa862a901b",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\validate_mcnp_input.py": {

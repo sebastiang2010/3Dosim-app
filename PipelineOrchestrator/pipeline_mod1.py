@@ -381,26 +381,13 @@ class PipelineMod1:
                                       data_func=lambda: {"output_dir": self.labelmap_dir}):
             logger.warning("Exportacion de labelmap fallo, continuando...")
 
-        # Guardar escena SIN el nodo labelmap (evita colgar Slicer con MRB pesado)
-        self._log_consola("Guardando escena final (sin nodo labelmap)...")
-        try:
-            import slicer
-            # Remover temporalmente el nodo labelmap para que no se incluya en el MRB
-            labelmap_node = slicer.util.getNode("3Dosim_Labelmap")
-            if labelmap_node:
-                scene = slicer.mrmlScene
-                scene.RemoveNode(labelmap_node)
-                self._save_scene("13_post_labelmap", force=True)
-                # Re-agregar el nodo para que siga visible en Slicer
-                scene.AddNode(labelmap_node)
-            else:
-                self._save_scene("13_post_labelmap", force=True)
-        except Exception as e:
-            logger.warning(f"  No se pudo guardar escena post-labelmap: {e}")
-            try:
-                self._save_scene("13_post_labelmap", force=True)
-            except Exception:
-                pass
+        # Guardar escena final (sin intentar remover labelmap)
+        self._log_consola("Guardando escena final...")
+        resultado = self._save_scene("13_post_labelmap", force=True)
+        if resultado:
+            logger.info(f"  Escena guardada OK: {resultado}")
+        else:
+            logger.warning("  Escena NO guardada (saveScene devolvio False o error)")
 
         # Pipeline Mod1 completado
         logger.info("")
@@ -433,24 +420,13 @@ class PipelineMod1:
         else:
             self._log_consola("Modulo 1 finalizado con ERRORES. Revise el reporte.")
 
-        # Guardar escena final completa (sin labelmap para no colgar)
+        # Guardar escena final del pipeline
         self._log_consola("Guardando escena final del pipeline...")
-        try:
-            import slicer
-            labelmap_node = slicer.util.getNode("3Dosim_Labelmap")
-            if labelmap_node:
-                scene = slicer.mrmlScene
-                scene.RemoveNode(labelmap_node)
-                self._save_scene("99_final", force=True)
-                scene.AddNode(labelmap_node)
-            else:
-                self._save_scene("99_final", force=True)
-        except Exception as e:
-            logger.warning(f"  No se pudo guardar escena final: {e}")
-            try:
-                self._save_scene("99_final", force=True)
-            except Exception:
-                pass
+        resultado = self._save_scene("99_final", force=True)
+        if resultado:
+            logger.info(f"  Escena guardada OK: {resultado}")
+        else:
+            logger.warning("  Escena NO guardada (saveScene devolvio False o error)")
 
     # ==================================================================
     # METODOS INTERNOS (extraidos de pipeline.py)

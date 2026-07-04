@@ -132,10 +132,30 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
     try:
         isodose_logic = slicer.modules.isodose.logic()
 
-        # Nodo de parametros Isodose — usar dose_node directamente (SlicerRT suaviza solo)
+        # Nodo de parametros Isodose — API compatible
         param_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLIsodoseNode")
-        param_node.SetDoseVolumeNode(dose_node)
-        param_node.SetDoseUnits(0)  # 0 = Gy (el volumen esta en Gy)
+
+        # SetDoseVolumeNode puede no existir en algunas versiones de SlicerRT
+        # Probar multiples APIs
+        dose_set = False
+        for method_name in ["SetDoseVolumeNode", "SetAndObserveDoseVolumeNode"]:
+            if hasattr(param_node, method_name):
+                try:
+                    getattr(param_node, method_name)(dose_node)
+                    dose_set = True
+                    logger.info(f"  Dose node asignado via {method_name}")
+                    break
+                except Exception as e:
+                    logger.debug(f"  {method_name} fallo: {e}")
+        if not dose_set:
+            logger.warning("  No se pudo asignar dose node a SlicerRT Isodose")
+            return None, None
+
+        # DoseUnits
+        try:
+            param_node.SetDoseUnits(0)  # 0 = Gy
+        except Exception:
+            pass
 
         # ── Isolevels relativos (% de la dosis maxima) ──
         try:
@@ -165,7 +185,10 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
             color_table_node.SetColor(i, label,
                                       color[0], color[1], color[2], 1.0)
         # Color legend visible
-        param_node.SetColorLegendVisibility(True)
+        try:
+            param_node.SetColorLegendVisibility(True)
+        except Exception:
+            pass
         # Configurar formato del color legend: mostrar valor (no nombre de color)
         try:
             param_node.SetColorLegendTitle("Isodosis")
@@ -187,7 +210,7 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
         # Display
         disp = model_node.GetModelDisplayNode()
         if disp:
-            disp.SetSliceIntersectionVisibility(show_lines_2d)
+            disp.SetVisibility2D(show_lines_2d)
             disp.SetVisibility(show_surfaces_3d)
             if show_lines_2d:
                 disp.SetSliceIntersectionThickness(2)
@@ -204,6 +227,56 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
         import traceback
         logger.debug(traceback.format_exc())
         return None, None
+
+
+def _create_fallback_legend(ctbl, levels):
+    """Fallback: crear leyenda usando vtkMRMLColorTableNode directamente."""
+    import slicer
+    try:
+        # Buscar si ya hay un modelo con esta color table
+        models = slicer.util.getNodesByClass("vtkMRMLModelNode")
+        target_model = None
+        for m in models:
+            d = m.GetModelDisplayNode()
+            if d and d.GetColorNodeID() == ctbl.GetID():
+                target_model = m
+                break
+
+        if target_model:
+            # Asociar la tabla de colores al display del modelo
+            disp = target_model.GetModelDisplayNode()
+            if disp:
+                disp.SetActiveScalarName("isolevels")
+                disp.SetAndObserveColorNodeID(ctbl.GetID())
+                disp.SetScalarVisibility(True)
+                disp.SetAutoScalarRange(True)
+                logger.info(f"  Leyenda via modelo: {target_model.GetName()}")
+
+        # Intentar crear leyenda con nombre alternativo
+        legend = slicer.mrmlScene.AddNewNodeByClass(
+            "vtkMRMLColorLegendDisplayNode"
+        )
+        legend.SetAndObserveColorNodeID(ctbl.GetID())
+        legend.SetVisibility(True)
+        legend.SetVisibility2D(True)
+        legend.SetTitleText("Isodose (Gy)")
+        legend.SetLabelFormat("%.0f Gy")
+        legend.SetMaxNumberOfColors(len(levels))
+        legend.SetNumberOfLabels(len(levels))
+        legend.SetPosition(0.85, 0.15)
+        legend.SetSize(0.12, 0.7)
+        legend.SetUseColorNamesForLabels(False)
+
+        # Asociar a todas las vistas
+        try:
+            for vn in slicer.mrmlScene.GetNodesByClass("vtkMRMLAbstractViewNode"):
+                legend.AddViewNodeID(vn.GetID())
+        except Exception:
+            pass
+
+        logger.info(f"  Fallback legend creada: {len(levels)} niveles")
+    except Exception as e:
+        logger.warning(f"  Fallback legend fallo: {e}")
 
 
 # ── VTK fallback (sin dependencia SlicerRT) ─────────────────────────────
@@ -302,16 +375,30 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
             disp.SetScalarVisibility(True)
             disp.SetAutoScalarRange(True)
             disp.SetBackfaceCulling(0)
-            disp.SetSliceIntersectionVisibility(show_lines_2d)
-            disp.SetVisibility(show_surfaces_3d)
+            disp.SetVisibility2D(show_lines_2d)
+            disp.SetVisibility(show_lines_2d or show_surfaces_3d)
             if show_lines_2d:
                 disp.SetSliceIntersectionThickness(2)
 
         # ── Color Legend ──
+        # Asociar la tabla de colores al display del modelo para que Slicer
+        # muestre automaticamente la barra de colores en las vistas
         try:
-            legend = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLColorLegendDisplayNode")
+            # Forzar que el modelo use la tabla de colores y muestre escalares
+            disp = model_node.GetModelDisplayNode()
+            if disp:
+                disp.SetActiveScalarName("isolevels")
+                disp.SetAndObserveColorNodeID(ctbl.GetID())
+                disp.SetScalarVisibility(True)
+                disp.SetAutoScalarRange(True)
+
+            # Intentar crear vtkMRMLColorLegendDisplayNode (Slicer >= 5.0)
+            legend = slicer.mrmlScene.AddNewNodeByClass(
+                "vtkMRMLColorLegendDisplayNode"
+            )
             legend.SetAndObserveColorNodeID(ctbl.GetID())
             legend.SetVisibility(True)
+            legend.SetVisibility2D(True)
             legend.SetTitleText("Isodose (Gy)")
             legend.SetLabelFormat("%.0f Gy")
             legend.SetMaxNumberOfColors(len(levels))
@@ -323,18 +410,33 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
             legend.SetPosition(0.85, 0.15)
             legend.SetSize(0.12, 0.7)
             legend.SetUseColorNamesForLabels(False)
-            # Asociar legend a las vistas slice para que se renderice
+
+            # Asociar legend a TODAS las vistas (slices + 3D)
             try:
-                lm = slicer.app.layoutManager()
-                for view_name in ("Red", "Yellow", "Green"):
-                    sw = lm.sliceWidget(view_name)
-                    if sw:
-                        legend.AddViewNodeID(sw.sliceView().mrmlViewNode().GetID())
+                view_nodes = slicer.mrmlScene.GetNodesByClass(
+                    "vtkMRMLAbstractViewNode"
+                )
+                for i in range(view_nodes.GetNumberOfItems()):
+                    legend.AddViewNodeID(
+                        view_nodes.GetItemAsObject(i).GetID()
+                    )
             except Exception:
                 pass
+
+            # Vincular legend al modelo via display node
+            try:
+                legend.SetAndObserveDisplayNodeID(disp.GetID())
+            except Exception:
+                pass
+
             logger.info(f"  Color legend creada: {len(levels)} niveles")
         except Exception as _le:
-            logger.warning(f"  Color legend fallo (no critico): {_le}")
+            # Fallback: intentar con vtkMRMLSliceDisplayNode
+            logger.warning(f"  Color legend fallo: {_le}")
+            try:
+                _create_fallback_legend(ctbl, levels)
+            except Exception as _le2:
+                logger.warning(f"  Fallback legend tambien fallo: {_le2}")
 
         logger.info(f"  {len(levels)} niveles generados via VTK fallback")
         return model_node, None

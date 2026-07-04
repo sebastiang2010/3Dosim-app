@@ -174,6 +174,14 @@ class MCNPInputGenerator:
         self.config = TissueConfig()
         self._build_material_maps()
 
+    def _process_events(self):
+        """Procesa eventos Qt para mantener la UI responsiva durante operaciones largas."""
+        try:
+            import slicer
+            slicer.app.processEvents()
+        except Exception:
+            pass  # Fuera de Slicer, silencioso
+
     # ======================================================================
     # BUILD MATERIAL MAPS FROM TISSUE CONFIG
     # ======================================================================
@@ -361,15 +369,24 @@ class MCNPInputGenerator:
 
         with open(input_path, "w") as f:
             self._write_header(f, isotope, iso_data, flip_rows, flip_z)
+            self._process_events()
             self._write_universes(f, phantom_arr, dims, spacing)
+            self._process_events()
             self._write_lattice(f, phantom_arr, dims, spacing)
+            self._process_events()
             self._write_surfaces(f, dims, spacing)
+            self._process_events()
             self._write_mode(f, iso_data)
+            self._process_events()
             self._write_source(f, pet_arr, dims, spacing, phantom_arr, iso_data)
+            self._process_events()
             self._write_tallies(f, dims, spacing, iso_data)
+            self._process_events()
             self._write_random_tallies(f, phantom_arr, dims, spacing, patient_id,
                                        n_liver_tallies, n_tumor_tallies, flip_rows, flip_z)
+            self._process_events()
             self._write_materials(f)
+            self._process_events()
             self._write_footer(f, n_particles)
 
         file_size_mb = os.path.getsize(input_path) / 1024 / 1024
@@ -467,6 +484,10 @@ class MCNPInputGenerator:
 
             exported_count = 0
             for i in range(n_segments):
+                # Procesar eventos Qt cada 5 segmentos para mantener UI responsiva
+                if i % 5 == 0:
+                    self._process_events()
+                
                 seg_id = seg_ids.GetValue(i)
                 segment = segmentation_node.GetSegmentation().GetSegment(seg_id)
                 seg_name = segment.GetName() if segment else seg_id
