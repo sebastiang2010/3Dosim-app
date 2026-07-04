@@ -21,7 +21,7 @@ from typing import Optional
 import numpy as np
 
 from PipelineOrchestrator.checkpoint import CheckpointManager
-from PipelineOrchestrator.utils import logger as base_logger, add_module_path, show_progress
+from PipelineOrchestrator.utils import logger as base_logger, add_module_path, show_progress, track_time
 from PipelineOrchestrator.views import setup_medical_views, load_pipeline_config
 from PipelineOrchestrator.comandos import ConsolaComandos
 from PipelineOrchestrator import ai_supervisor
@@ -743,9 +743,10 @@ class PipelineMod3:
         size_mb = os.path.getsize(self.scene_path) / (1024 * 1024)
         logger.info(f"  Escena: {self.scene_path} ({size_mb:.0f} MB)")
 
-        success = load_scene(self.scene_path)
-        if not success:
-            raise RuntimeError(f"No se pudo cargar escena: {self.scene_path}")
+        with track_time("Cargando escena"):
+            success = load_scene(self.scene_path)
+            if not success:
+                raise RuntimeError(f"No se pudo cargar escena: {self.scene_path}")
 
         logger.info("  Escena cargada exitosamente")
 
@@ -965,6 +966,9 @@ class PipelineMod3:
                 "bed_gy": bio["bed_gy"],
                 "eud_gy": bio["eud_gy"],
                 "eqd2_gy": bio["eqd2_gy"],
+                "dose_bins_gy": dvh.get("dose_bins_gy", []),
+                "cumulative_vol_pct": dvh.get("cumulative_vol_pct", []),
+                "volume_hist_pct": dvh.get("volume_hist_pct", []),
             }
 
             # Curva DVH para PDF

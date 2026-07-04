@@ -68,8 +68,8 @@ def _check_slicerrt():
 
 
 def create_isodose_contours(dose_node, levels=None,
-                            show_lines_2d=True, show_surfaces_3d=True,
-                            relative=True):
+                             show_lines_2d=True, show_surfaces_3d=True,
+                             relative=False):
     """
     Genera curvas/superficies de isodosis.
 
@@ -156,18 +156,27 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
 
         # Asignar colores jet a cada nivel (MATLAB: colormap(jet), ncolor=10)
         jet_colors = _get_jet_colors(len(levels))
+        # Asegurar que la color table tenga exactamente el numero de niveles
+        color_table_node.SetNumberOfColors(len(levels))
         for i, level in enumerate(levels):
             color = jet_colors[i]
-            label = f"{level:.0f}%" if relative else f"{level:.1f} Gy"
+            # Label: valor absoluto en Gy sin decimales (%.0f Gy)
+            label = f"{level:.0f} Gy"
             color_table_node.SetColor(i, label,
                                       color[0], color[1], color[2], 1.0)
+        # Color legend visible
+        param_node.SetColorLegendVisibility(True)
+        # Configurar formato del color legend: mostrar valor (no nombre de color)
+        try:
+            param_node.SetColorLegendTitle("Isodosis")
+        except Exception:
+            pass
 
         # Generar
         ok = isodose_logic.CreateIsodoseSurfaces(param_node)
         if not ok:
             logger.error("  CreateIsodoseSurfaces devolvio False")
             return None, None
-
         model_node = param_node.GetIsosurfacesModelNode()
         if not model_node:
             logger.warning("  No se genero modelo de isodosis")
@@ -282,7 +291,7 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
         ctbl.GetLookupTable().SetTableRange(0, len(levels) - 1)
         for i, level in enumerate(levels):
             c = jet_colors[i]
-            ctbl.AddColor(str(level), c[0], c[1], c[2], 1.0)
+            ctbl.AddColor(f"{level:.0f} Gy", c[0], c[1], c[2], 1.0)
         ctbl.SaveWithSceneOff()
 
         # Display

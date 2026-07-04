@@ -180,6 +180,7 @@ class DoseCalculator:
                 w = p98 - p2
                 l = (p98 + p2) / 2.0
                 dose_dn.SetWindowLevel(w, l)
+                dose_dn.SetUnits("Gy")
                 self.logger.info(f"Nodo de dosis creado: Dosis_3D_Gy (WL={w:.1f}/{l:.1f})")
             else:
                 dose_dn.AutoWindowLevelOn()

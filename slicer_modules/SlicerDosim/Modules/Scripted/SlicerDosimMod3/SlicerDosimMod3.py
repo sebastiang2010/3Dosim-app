@@ -69,6 +69,7 @@ try:
     from isodose_contours import create_isodose_contours
     from dose_kernel import load_kernel_mat
     from fft_dose import convolve_imfilter_symmetric
+    from views import ensure_inverted_rainbow, load_pipeline_config
 except ImportError as e:
     logger.warning(f"No se pudieron importar modulos V4: {e}")
     logger.warning("El modulo funcionara en modo limitado (solo UI manual)")
@@ -81,6 +82,8 @@ except ImportError as e:
     compute_mird = None
     generate_pdf_report = None
     _create_dvh_plots_slicer = None
+    ensure_inverted_rainbow = None
+    load_pipeline_config = None
     LIVER_INDEX = 90
     TUMOR_INDEX = 100
     PRETUMOR_INDEX = 200
@@ -373,6 +376,61 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
         except Exception:
             pass
 
+    def _setup_dose_visualization(self) -> bool:
+        """Configura overlay de dosis en slices: colormap, opacidad 0.4, foreground."""
+        try:
+            import slicer
+
+            if self.dose_node is None:
+                self.logger.warning("  _setup_dose_visualization: dose_node es None")
+                return False
+
+            # 1. Colormap 3Dosim_InvertedRainbow
+            dose_dn = self.dose_node.GetDisplayNode()
+            if dose_dn and load_pipeline_config is not None and ensure_inverted_rainbow is not None:
+                _cfg = load_pipeline_config()
+                dose_cmap = _cfg.get("dose", {}).get("colormap", "3Dosim_InvertedRainbow")
+                cmap_node = slicer.util.getNode(dose_cmap)
+                if not cmap_node:
+                    cmap_id = ensure_inverted_rainbow()
+                    cmap_node = slicer.mrmlScene.GetNodeByID(cmap_id)
+                if cmap_node:
+                    dose_dn.SetAndObserveColorNodeID(cmap_node.GetID())
+                    self.logger.info(f"  Colormap '{dose_cmap}' asignado a Dosis")
+            else:
+                self.logger.info("  Colormap: saltado (display node o imports no disponibles)")
+
+            # 2. Foreground overlay en slices (CT fondo + dosis overlay)
+            bg_node = self.ct_node
+            if bg_node is None:
+                vols = slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
+                for v in vols:
+                    name = v.GetName().lower()
+                    if "ct" in name:
+                        bg_node = v
+                        break
+            snodes = slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode")
+            for sn in snodes:
+                if bg_node:
+                    sn.SetBackgroundVolumeID(bg_node.GetID())
+                sn.SetForegroundVolumeID(self.dose_node.GetID())
+                sn.SetForegroundOpacity(0.4)
+                sn.SetLabelVolumeID(None)
+                sn.SetLabelOpacity(0.0)
+
+            # 3. Forzar redraw
+            lm = slicer.app.layoutManager()
+            for idx in range(lm.sliceViewCount()):
+                sv = lm.sliceWidget(idx).sliceView()
+                if sv:
+                    sv.scheduleRender()
+            slicer.app.processEvents()
+            self.logger.info("  Slices configurados: CT fondo + Dosis overlay (0.4)")
+            return True
+        except Exception as e:
+            self.logger.warning(f"Error configurando visualizacion de dosis: {e}")
+            return False
+
     def create_isodosis(self):
         """Crea isodosis contours en Slicer."""
         if self.dose_gy is None:
@@ -380,6 +438,8 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
         if self.dose_node is None:
             raise RuntimeError("Sin nodo de dosis para isodosis")
         create_isodose_contours(self.dose_node)
+        # Restaurar slices post-isodosis (isodosis pudo desconfigurar foreground/background)
+        self._setup_dose_visualization()
 
     def save_scene(self, path: str = "") -> bool:
         """Guarda escena actual como .mrb."""
@@ -464,10 +524,13 @@ class SlicerDosimMod3Logic(ScriptedLoadableModuleLogic):
         # 7. Nodo dosis 3D
         step("crear_nodo_dosis", self.create_dose_node)
 
+        # 7b. Visualizacion: overlay de dosis en slices + colormap
+        step("visualizar_dosis", self._setup_dose_visualization)
+
         # 8. DVH en Slicer
         step("dvh_slicer", self.show_dvh_in_slicer)
 
-        # 9. Isodosis
+        # 9. Isodosis (también restaura slices automaticamente)
         step("isodosis", self.create_isodosis)
 
         # 10. Guardar escena

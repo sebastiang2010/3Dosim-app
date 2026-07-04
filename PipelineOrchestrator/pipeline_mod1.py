@@ -936,6 +936,34 @@ class PipelineMod1:
     # STEP METHODS
     # ==================================================================
 
+    def _verify_dicom_modality(self, directory: str, expected_modality: str) -> None:
+        """Verifica que al menos un DICOM en el directorio tenga la modalidad esperada."""
+        if not directory or not os.path.isdir(directory):
+            return
+        import pydicom
+        found_modalities = set()
+        for fname in sorted(os.listdir(directory)):
+            fpath = os.path.join(directory, fname)
+            if not os.path.isfile(fpath):
+                continue
+            try:
+                ds = pydicom.dcmread(fpath, stop_before_pixels=True, force=True)
+                modality = getattr(ds, "Modality", None)
+                if modality is not None:
+                    found_modalities.add(modality)
+                    if modality == expected_modality:
+                        logger.info(f"    Verificada modalidad '{modality}' en {fname}")
+                        return
+            except Exception:
+                continue
+        if found_modalities:
+            raise RuntimeError(
+                f"Ningun DICOM en {directory} tiene modalidad '{expected_modality}'. "
+                f"Modalidades encontradas: {sorted(found_modalities)}. "
+                f"Verifique que los archivos corresponden al estudio correcto."
+            )
+        logger.warning(f"  No se pudo verificar modalidad DICOM en {directory}")
+
     def _load_dicom(self):
         from PipelineOrchestrator.utils import track_time
         with track_time("Cargando DICOM (CT + PET)"):
@@ -944,6 +972,8 @@ class PipelineMod1:
             for d in [self.ct_dir, self.pet_dir]:
                 if not os.path.isdir(d):
                     raise FileNotFoundError(f"Directorio no encontrado: {d}")
+            self._verify_dicom_modality(self.ct_dir, "CT")
+            self._verify_dicom_modality(self.pet_dir, "PT")
             original_db_dir = DICOMUtils.openTemporaryDatabase()
             try:
                 for dir_path, label in [(self.ct_dir, "CT"), (self.pet_dir, "PET")]:

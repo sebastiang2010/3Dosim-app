@@ -936,15 +936,19 @@ def _export_dvh_png(dvh_curves, filepath):
         colors = {"Hígado": (0.2, 0.4, 1.0), "Tumor": (1.0, 0.2, 0.2), "Peritumoral": (0.8, 0.6, 0.0)}
 
         fig, ax = plt.subplots(figsize=(10, 6))
+        x_max = 0
         for name, d_vals, a_vals in dvh_curves:
             c = colors.get(name, (0.5, 0.5, 0.5))
             ax.plot(d_vals, a_vals, color=c, label=name, linewidth=2)
+            if len(d_vals) > 0:
+                x_max = max(x_max, float(d_vals[-1]))
 
         ax.set_xlabel("Dose (Gy)", fontweight="bold")
         ax.set_ylabel("Volume (%)", fontweight="bold")
         ax.set_title("Cumulative Dose Volume Histogram", fontweight="bold")
         ax.set_yscale("log")
-        ax.set_ylim(0.1, 200)
+        ax.set_xlim(0, x_max * 1.05 if x_max > 0 else 100)
+        ax.set_ylim(0.1, 110)
         ax.grid(True, which="both", alpha=0.3)
         ax.legend()
         fig.tight_layout()
@@ -1485,7 +1489,8 @@ def generate_pdf_report(
             ax.set_ylabel("Volume (%)", fontsize=12, fontweight="bold")
             ax.set_title("Cumulative DVH", fontsize=14, fontweight="bold", pad=10)
             ax.set_yscale("log")
-            ax.set_ylim(0.1, 200)
+            ax.set_ylim(0.1, 110)
+            ax.set_xlim(0, max((float(d[-1]) for _, d, _ in dvh_curves), default=100) * 1.05)
             ax.grid(True, which="both", alpha=0.3, linestyle="--")
             ax.legend(fontsize=11, loc="upper right", framealpha=0.9)
             ax.spines["top"].set_visible(False)
@@ -1977,6 +1982,15 @@ def main():
 
         labelmap_nifti = args.labelmap or LABELMAP_DEFAULT
         print(f"[3Dosim] Buscando labelmap: en escena={'SI' if nodes['labelmap'] else 'NO'}, NIfTI={labelmap_nifti}", flush=True)
+        # Verificar que el labelmap en escena tenga datos de imagen reales
+        if nodes["labelmap"] is not None:
+            try:
+                _has_data = nodes["labelmap"].GetImageData() is not None
+            except Exception:
+                _has_data = False
+            if not _has_data:
+                logger.warning(f"  Labelmap '{nodes['labelmap'].GetName()}' existe pero sin datos de imagen — tratando como ausente")
+                nodes["labelmap"] = None
         if nodes["labelmap"] is None and os.path.exists(labelmap_nifti):
             logger.info(f"  Cargando labelmap desde NIfTI: {labelmap_nifti}")
             labelmap_node = slicer.util.loadVolume(labelmap_nifti)
@@ -2423,18 +2437,26 @@ def main():
                 # ── PASO 2: Asignar colormap a la dosis ──
                 try:
                     from views import load_pipeline_config, ensure_inverted_rainbow
-                    _cfg = load_pipeline_config()
-                    dose_cmap = _cfg.get("dose", {}).get("colormap", "3Dosim_InvertedRainbow")
+                    # Crear/Asegurar siempre el colormap invertido (NO depende de config)
+                    cmap_id = ensure_inverted_rainbow()
                     dose_dn = dose_node.GetDisplayNode()
+                    if dose_dn is None:
+                        # Forzar creacion de display node
+                        dose_node.CreateDefaultDisplayNodes()
+                        dose_dn = dose_node.GetDisplayNode()
                     if dose_dn:
-                        cmap_node = slicer.util.getNode(dose_cmap)
-                        if not cmap_node:
-                            cmap_id = ensure_inverted_rainbow()
-                            cmap_node = slicer.mrmlScene.GetNodeByID(cmap_id)
+                        cmap_node = slicer.mrmlScene.GetNodeByID(cmap_id)
                         if cmap_node:
                             dose_dn.SetAndObserveColorNodeID(cmap_node.GetID())
-                            logger.info(f"  Colormap '{dose_cmap}' asignado a Dosis")
-                            logger.info(f"  Window/Level: {dose_dn.GetWindow():.1f}/{dose_dn.GetLevel():.1f}")
+                            # Auto window/level para que se vea
+                            dose_dn.AutoWindowLevelOn()
+                            dose_dn.SetAutoWindowLevel(True)
+                            logger.info(f"  Colormap '3Dosim_InvertedRainbow' asignado a Dosis_3D")
+                            logger.info(f"  Window/Level (auto): {dose_dn.GetWindow():.1f}/{dose_dn.GetLevel():.1f}")
+                        else:
+                            logger.warning(f"  cmap_node None para ID={cmap_id}")
+                    else:
+                        logger.warning(f"  dose_node display node es None, no se pudo asignar colormap")
                 except Exception as e:
                     logger.warning(f"  No se pudo asignar colormap: {e}")
 
@@ -2615,6 +2637,9 @@ def main():
             "bed_gy": bio["bed_gy"],
             "eud_gy": bio["eud_gy"],
             "eqd2_gy": bio["eqd2_gy"],
+            "dose_bins_gy": dvh.get("dose_bins_gy", []),
+            "cumulative_vol_pct": dvh.get("cumulative_vol_pct", []),
+            "volume_hist_pct": dvh.get("volume_hist_pct", []),
         }
 
     # ----------------------------------------------------------------

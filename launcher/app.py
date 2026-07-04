@@ -56,7 +56,6 @@ def _trace(msg: str):
 
 # ── Paths ──
 _PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-_VERSION = "v4.0"
 _SLICER_EXE = r"C:\Users\Sebastian\AppData\Local\slicer.org\Slicer 5.8.1\Slicer.exe"
 _MAIN_PIPELINE = os.path.join(_PROJECT_ROOT, "PipelineOrchestrator", "main.py")
 _RUN_DOSIMETRY = os.path.join(_PROJECT_ROOT, "PipelineOrchestrator", "run_dosimetry_from_scene.py")
@@ -113,6 +112,14 @@ def _save_config(config: dict) -> bool:
     except Exception as e:
         logger.error(f"Error guardando config: {e}")
         return False
+
+
+def _get_version() -> str:
+    """Lee appVersion del config."""
+    cfg = _load_config()
+    return cfg.get("appVersion", "4.0")
+
+_APP_VERSION = _get_version()
 
 
 # ======================================================================
@@ -870,9 +877,8 @@ class SettingsDialog(QDialog):
         subtitle.setWordWrap(True)
         outer.addWidget(subtitle)
 
-        # Form
+        # Form — pre-fill from top-level config keys (not nested under "paths")
         config = _load_config()
-        paths = config.get("paths", {})
 
         for label, key in self.PATH_FIELDS:
             row = QHBoxLayout()
@@ -882,7 +888,7 @@ class SettingsDialog(QDialog):
             lbl.setFixedWidth(200)
             row.addWidget(lbl)
 
-            w = QLineEdit(str(paths.get(key, "")))
+            w = QLineEdit(str(config.get(key, "")))
             self._widgets[key] = w
             row.addWidget(w, 1)
 
@@ -977,7 +983,7 @@ class LauncherWindow(QMainWindow):
         self.slicer_done.finished.connect(self._on_slicer_done)
 
     def _build_ui(self):
-        self.setWindowTitle("3Dosim Launcher v4.0")
+        self.setWindowTitle(f"3Dosim Launcher v{_APP_VERSION}")
         self.setMinimumSize(820, 680)
         self.setStyleSheet(APP_STYLESHEET)
 
@@ -1007,7 +1013,7 @@ class LauncherWindow(QMainWindow):
         header.addLayout(title_box, 1)
 
         # Version badge
-        ver = QLabel("v4.0")
+        ver = QLabel(f"v{_APP_VERSION}")
         ver.setStyleSheet(f"""
             background: #00897b; color: white;
             padding: 4px 12px; border-radius: 10px;
@@ -1093,7 +1099,7 @@ class LauncherWindow(QMainWindow):
         """)
         self.setStatusBar(self._sbar)
         self._sbar.showMessage("Listo")
-        self._sbar.insertPermanentWidget(0, QLabel("v4.0 · PyQt5 · 3D Slicer"))
+        self._sbar.insertPermanentWidget(0, QLabel(f"v{_APP_VERSION} · PyQt5 · 3D Slicer"))
 
         # ── Log startup ──
         self._log.log("3Dosim Launcher iniciado")
@@ -1419,22 +1425,38 @@ class LauncherWindow(QMainWindow):
         _trace(f"_launch_slicer({mod_id}) — thread iniciado, retornando")
 
     def _on_slicer_done(self, mod_id: int, return_code: int):
-        """Callback cuando Slicer termina."""
+        """Callback cuando Slicer termina. NUNCA cierra el launcher."""
         _trace(f"_on_slicer_done(mod={mod_id}, rc={return_code})")
         self._progress.setVisible(False)
         if return_code == 0:
             self._log.log(f"✅ Mod{mod_id} completado exitosamente", "ok")
             self._status.setText("Pipeline completado.")
-            QTimer.singleShot(200, lambda:
-                QMessageBox.information(self, "Completado",
-                    f"Modulo {mod_id} finalizado correctamente."))
         else:
+            # Extraer ultimas lineas de ERROR del pipeline log
+            error_tail = ""
+            try:
+                _resultados_dir = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    "resultados_test"
+                )
+                _log_path = os.path.join(_resultados_dir, "logs", "pipeline.log")
+                if os.path.exists(_log_path):
+                    with open(_log_path, "r", encoding="utf-8", errors="replace") as f:
+                        lines = f.readlines()
+                        # Buscar ultimos ERROR/FATAL/CRITICAL
+                        errs = [l.strip()[:200] for l in lines[-200:]
+                                if "ERROR" in l or "FATAL" in l or "CRITICAL" in l
+                                or "Traceback" in l or "AttributeError" in l or "NameError" in l]
+                        if errs:
+                            error_tail = "\n".join(errs[-8:])
+            except Exception:
+                pass
+
             self._log.log(f"❌ Mod{mod_id} termino con codigo {return_code}", "error")
-            self._status.setText("Pipeline finalizo con errores.")
-            QTimer.singleShot(200, lambda:
-                QMessageBox.warning(self, "Finalizado",
-                    f"Modulo {mod_id} termino con codigo {return_code}.\n"
-                    f"Revise el log para mas detalles."))
+            self._status.setText("❗ Pipeline finalizo con errores — revise el log arriba")
+            if error_tail:
+                for line in error_tail.split("\n"):
+                    self._log.log(f"  {line}", "error")
 
     # ────────────────────────────────────────────────────────────
     # CONFIG OVERRIDE
@@ -1500,13 +1522,25 @@ class LauncherWindow(QMainWindow):
 # ======================================================================
 
 if __name__ == "__main__":
+    from datetime import datetime
+
+    # ── error.log: sobrescribir al inicio con timestamp ──
+    _ERROR_LOG = os.path.join(os.path.dirname(__file__), "error.log")
+    try:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(_ERROR_LOG, "w", encoding="utf-8") as _ef:
+            _ef.write(f"[{ts}] Launcher iniciado\n")
+    except Exception:
+        pass
+
     # Hook para atrapar excepciones silenciosas (evita cierre inesperado)
     def _excepthook(exc_type, exc_value, exc_tb):
         import traceback
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
         try:
-            with open(os.path.join(os.path.dirname(__file__), "error.log"), "a") as f:
-                f.write(f"UNHANDLED EXCEPTION:\n{msg}\n")
+            with open(_ERROR_LOG, "a", encoding="utf-8") as f:
+                f.write(f"[{ts}] UNHANDLED EXCEPTION:\n{msg}\n")
         except Exception:
             pass
         # Mostrar tambien en consola

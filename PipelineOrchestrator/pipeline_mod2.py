@@ -13,75 +13,12 @@ import os
 import time
 
 from PipelineOrchestrator.checkpoint import CheckpointManager
-from PipelineOrchestrator.utils import logger as base_logger, add_module_path, show_progress
+from PipelineOrchestrator.utils import logger as base_logger, add_module_path, show_progress, track_time
 from PipelineOrchestrator.views import load_pipeline_config
 from PipelineOrchestrator.comandos import ConsolaComandos
 from PipelineOrchestrator import ai_supervisor
 
 logger = logging.getLogger("3DosimMod2")
-
-# ──────────────────────────────────────────────────────────
-# Progress helper (barra simple para consola)
-# ──────────────────────────────────────────────────────────
-
-class QProgressHelper:
-    """Barra de progreso Qt visible dentro de 3D Slicer.
-
-    Muestra un QProgressDialog real que el usuario puede ver.
-    Fallback a consola si no estamos en Slicer.
-    """
-    def __init__(self, label="Procesando", max_seconds=120, can_cancel=False):
-        self.label = label
-        self.start = time.time()
-        self._dialog = None
-        self._use_qt = False
-        try:
-            import slicer
-            from qt import QProgressDialog, QApplication
-            self._dialog = QProgressDialog(label, "", 0, 100)
-            self._dialog.setWindowTitle("3Dosim - Modulo 2")
-            self._dialog.setMinimumDuration(0)  # mostrar inmediatamente
-            self._dialog.setCancelButton(None)  # sin boton de cancelar
-            if not can_cancel:
-                self._dialog.setCancelButton(None)
-            self._dialog.show()
-            QApplication.processEvents()
-            self._use_qt = True
-        except ImportError:
-            pass  # fallback a consola
-
-    def update(self, pct, msg=""):
-        """Actualiza progreso (pct: 0-100)."""
-        elapsed = time.time() - self.start
-        if self._use_qt and self._dialog:
-            self._dialog.setValue(pct)
-            self._dialog.setLabelText(f"{msg}\n{elapsed:.0f}s transcurridos")
-            try:
-                from qt import QApplication
-                QApplication.processEvents()
-            except ImportError:
-                pass
-        else:
-            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
-            print(f"\r  {self.label}: |{bar}| {pct}%  {msg}  [{elapsed:.0f}s]", end="")
-            if pct >= 100:
-                print()
-
-    def done(self, msg="Completado"):
-        """Cierra el dialogo de progreso."""
-        elapsed = time.time() - self.start
-        if self._use_qt and self._dialog:
-            self._dialog.setValue(100)
-            self._dialog.setLabelText(f"{msg} ({elapsed:.0f}s)")
-            try:
-                from qt import QApplication
-                QApplication.processEvents()
-            except ImportError:
-                pass
-            self._dialog.close()
-            self._dialog = None
-        else:
-            print(f"  {self.label}: {msg} [{elapsed:.0f}s]")
 
 
 # ──────────────────────────────────────────────────────────
@@ -704,25 +641,10 @@ class PipelineMod2:
         logger.info(f"  Escena: {self.scene_path}")
         logger.info(f"  Tamano: {size_mb:.0f} MB")
 
-        pb = QProgressHelper("Cargando escena", max_seconds=60)
-        pb.update(10, "Iniciando...")
-
-        try:
-            slicer.app.processEvents()
-            pb.update(30, "Leyendo archivo MRB...")
-            slicer.app.processEvents()
-
+        with track_time("Cargando escena"):
             success = slicer.util.loadScene(self.scene_path)
-
-            pb.update(80, "Procesando nodos...")
-            slicer.app.processEvents()
-
             if not success:
                 raise RuntimeError("slicer.util.loadScene() devolvio False")
-            pb.done("Escena cargada OK")
-        except Exception as e:
-            pb.done(f"ERROR: {e}")
-            raise
 
         logger.info("  Escena cargada exitosamente")
 
@@ -808,24 +730,20 @@ class PipelineMod2:
 
         os.makedirs(self.mcnp_dir, exist_ok=True)
 
-        pb = QProgressHelper("Generando MCNP", max_seconds=180)
-        pb.update(5, "Iniciando...")
-
-        input_path = generator.generate(
-            ct_volume_node=self.ct_node,
-            pet_volume_node=self.pet_node,
-            segmentation_node=self.segmentation_node,
-            output_dir=self.mcnp_dir,
-            isotope=self.isotope,
-            n_particles=self.n_particles,
-            refine_hu=self.refine_hu,
-            flip_rows=self.flip_rows,
-            flip_z=self.flip_z,
-            n_liver_tallies=self.n_liver_tallies,
-            n_tumor_tallies=self.n_tumor_tallies,
-        )
-
-        pb.done(f"Archivo MCNP generado ({os.path.getsize(input_path)/1024:.0f} KB)")
+        with track_time("Generando MCNP"):
+            input_path = generator.generate(
+                ct_volume_node=self.ct_node,
+                pet_volume_node=self.pet_node,
+                segmentation_node=self.segmentation_node,
+                output_dir=self.mcnp_dir,
+                isotope=self.isotope,
+                n_particles=self.n_particles,
+                refine_hu=self.refine_hu,
+                flip_rows=self.flip_rows,
+                flip_z=self.flip_z,
+                n_liver_tallies=self.n_liver_tallies,
+                n_tumor_tallies=self.n_tumor_tallies,
+            )
 
         if not os.path.exists(input_path):
             raise RuntimeError(f"El archivo MCNP no fue creado: {input_path}")

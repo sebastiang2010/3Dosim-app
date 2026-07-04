@@ -1,0 +1,579 @@
+\documentclass[12pt,a4paper]{article}
+
+% ============================================================
+% Paquetes
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{booktabs}
+% enumitem no disponible, usamos config nativa de enumerate
+
+\geometry{margin=2.5cm}
+
+% ============================================================
+% Configuración de encabezado/pie
+% ============================================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 3Dosim — Cálculo de Dosis}
+\fancyhead[R]{\small MCTALL y Kernel}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================
+% Portada
+% ============================================================
+\title{\textbf{Cálculo de Dosis en 3Dosim:} \\
+       Método MCTALL (Monte Carlo) y \\
+       Método Kernel (Convolución)}
+\author{Proyecto 3Dosim — Dosimetría Hepática con $^{90}$Y}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% ============================================================
+% Tabla de contenidos
+% ============================================================
+\tableofcontents
+\newpage
+
+% ============================================================
+% INTRODUCCIÓN
+% ============================================================
+\section{Introducción}
+
+El proyecto \textbf{3Dosim} implementa dos metodologías complementarias para el
+cálculo de dosis absorbida en tratamientos de radioembolización hepática con
+$^{90}$Y (Ytrio-90):
+
+\begin{enumerate}
+    \item \textbf{Método MCTALL (Monte Carlo):} Simulación completa del
+        transporte de radiación mediante MCNP (Monte Carlo N-Particle). La
+        dosis se obtiene directamente del \emph{mesh tally} FMESH4, que
+        registra la energía depositada por partícula fuente en cada voxel.
+    \item \textbf{Método Kernel (Convolución):} Aproximación analítica que
+        convoluciona la imagen PET de actividad con un \emph{kernel de dosis}
+        precalculado por MCNP para una fuente puntual en medio infinito
+        uniforme.
+\end{enumerate}
+
+Ambos métodos convergen al mismo resultado físico cuando la estadística de
+Monte Carlo es suficiente, pero difieren en costo computacional y
+aplicabilidad clínica.
+
+% ============================================================
+% FUNDAMENTOS FÍSICOS
+% ============================================================
+\section{Fundamentos Físicos}
+
+\subsection{El isótopo $^{90}$Y}
+
+El $^{90}$Y es un emisor $\beta^-$ puro con las siguientes características:
+
+\begin{itemize}
+    \item Vida media: $T_{1/2} = 64.1$ horas
+    \item Constante de desintegración: $\lambda = \frac{\ln 2}{T_{1/2}}$
+    \item Vida media (mean lifetime): $\tau = \frac{1}{\lambda} = \frac{T_{1/2}}{\ln 2} \approx 332\,916$ s $\approx 92.43$ h
+    \item Energía máxima $\beta^-$: $E_{\max} = 2.28$ MeV
+    \item Energía media $\beta^-$: $\bar{E}_\beta = 0.9336$ MeV
+    \item Alcance máximo en tejido: $\sim 11$ mm
+    \item Alcance medio: $\sim 2.5$ mm
+\end{itemize}
+
+La corta vida media y el alcance limitado hacen del $^{90}$Y un isótopo
+ideal para radioembolización, ya que la energía se deposita localmente en
+el tejido tumoral.
+
+\subsection{Dosis absorbida}
+
+La dosis absorbida $D$ se define como la energía depositada por unidad de
+masa:
+
+\begin{equation}
+    D = \frac{dE}{dm} \quad [\text{J/kg} = \text{Gy}]
+\end{equation}
+
+En dosimetría interna, la dosis en un voxel depende de:
+\begin{itemize}
+    \item La actividad acumulada en el voxel (fuente)
+    \item La energía liberada por desintegración ($\bar{E}_\beta$)
+    \item La fracción de energía absorbida localmente (en $^{90}$Y,
+        esencialmente 1 para $\beta^-$)
+    \item La masa del voxel (densidad $\times$ volumen)
+\end{itemize}
+
+% ============================================================
+% MÉTODO MCTALL
+% ============================================================
+\section{Método MCTALL: Monte Carlo con MCNP}
+
+\subsection{Descripción general}
+
+El método MCTALL utiliza el código de Monte Carlo \textbf{MCNP} (Monte Carlo
+N-Particle) para simular el transporte de las partículas $\beta^-$ emitidas
+por el $^{90}$Y a través de una geometría voxelizada del paciente
+(\emph{phantom}).
+
+El flujo de trabajo es:
+
+\begin{enumerate}
+    \item Se construye un \emph{phantom} 3D voxelizado a partir de la
+        segmentación del CT del paciente, donde cada voxel tiene asignado
+        un material MCNP (tejido blando, pulmón, hueso, hígado, tumor, etc.)
+        con su densidad y composición elemental.
+    \item Se define la fuente (SDEF) a partir de la imagen PET, que
+        proporciona la distribución de actividad.
+    \item Se define un \emph{mesh tally} FMESH4 que cubre todo el volumen
+        de interés. El tally registra la energía depositada por partícula
+        fuente en cada voxel.
+    \item Se ejecuta MCNP con NPS (number of particle histories) suficiente
+        para obtener estadística aceptable.
+    \item Se lee el archivo de salida \textbf{MCTAL} y se extrae la dosis
+        3D.
+    \item Se convierte de MeV/cm$^3$/partícula a Gy.
+\end{enumerate}
+
+\subsection{Estructura del archivo MCTAL}
+
+El archivo MCTAL es la salida ASCII de MCNP que contiene los resultados de
+los tallies. Para el FMESH4, la estructura relevante es:
+
+\begin{verbatim}
+tally    1   -1   -1
+ 0 0 1 0 0 0 0 0 0 ...
+ f <total> <type> <nx> <ny> <nz>
+ <x boundaries nx+1>
+ <y boundaries ny+1>
+ <z boundaries nz+1>
+ t        1
+ vals
+ v1 e1 v2 e2 v3 e3 v4 e4
+ v5 e5 v6 e6 v7 e7 v8 e8
+ ...
+\end{verbatim}
+
+Donde:
+\begin{itemize}
+    \item \texttt{nx, ny, nz}: dimensiones del mesh tally
+    \item \texttt{v$_i$}: valor de dosis en MeV/cm$^3$ por partícula fuente
+    \item \texttt{e$_i$}: incertidumbre relativa asociada
+\end{itemize}
+
+\subsection{Parsing del MCTAL}
+
+El parsing sigue el algoritmo de \texttt{f\_cargo\_mctall.m} (MATLAB) y
+\texttt{MCTALParser} (Python):
+
+\begin{enumerate}
+    \item Buscar la línea \texttt{tally    1} en el archivo.
+    \item Leer la línea \texttt{f} para obtener dimensiones $(nx, ny, nz)$.
+    \item Saltar las líneas de boundaries y el marcador \texttt{vals}.
+    \item Leer los pares (valor, error) como floats: el archivo los
+        almacena en grupos de 8 columnas.
+    \item Reconstruir el array 3D:
+        \begin{itemize}
+            \item Los valores pares ($0,2,4,\dots$) son dosis.
+            \item Los valores impares ($1,3,5,\dots$) son errores.
+            \item Reshape column-major a $[ny, nx, nz]$ (convención
+                Fortran/MATLAB).
+            \item Transponer cada slice: $[:,:,i] \to [:,:,i]^T$, obteniendo
+                $[nx, ny, nz]$.
+        \end{itemize}
+\end{enumerate}
+
+\subsection{Conversión de MeV/cm$^3$ a Gy}
+
+La conversión de la dosis cruda del MCTAL ($D_{\text{raw}}$ en
+MeV/cm$^3$/partícula) a dosis absorbida en Gy sigue la secuencia del
+archivo \texttt{cargo\_mctal.m} (líneas 389--395) y se implementa en
+\texttt{MCTALParser.compute\_dose\_gy()}.
+
+\subsubsection{Paso 1: División por densidad}
+
+La dosis en MeV/cm$^3$ se convierte a MeV/g dividiendo por la densidad del
+tejido en cada voxel:
+
+\begin{equation}
+    D_{\text{MeV/g}} = \frac{D_{\text{raw}}}{\rho}
+\end{equation}
+
+Donde $\rho$ se obtiene del phantom segmentado: cada índice de tejido
+(30 = tejido blando, 50 = pulmón, 80 = hueso, 90 = hígado, 100 = tumor)
+tiene asociada una densidad en g/cm$^3$.
+
+\subsubsection{Paso 2: MeV a Joules}
+
+\begin{equation}
+    D_{\text{J/g}} = D_{\text{MeV/g}} \times 1.6 \times 10^{-13}
+\end{equation}
+
+La constante de conversión es:
+\begin{equation}
+    1\ \text{MeV} = 1.602176634 \times 10^{-13}\ \text{J} \approx 1.6 \times 10^{-13}\ \text{J}
+\end{equation}
+
+\subsubsection{Paso 3: Integración temporal}
+
+La dosis por partícula se escala al número total de desintegraciones
+durante el tiempo de tratamiento. El factor de integración es la vida
+media del $^{90}$Y:
+
+\begin{equation}
+    \tau = \frac{T_{1/2}}{\ln 2} = \frac{64.1 \times 3600}{\ln 2} \approx 332\,916\ \text{s}
+\end{equation}
+
+Este factor representa la integral desde $t=0$ hasta $t=\infty$ de la
+actividad que decae exponencialmente:
+\begin{equation}
+    \int_0^\infty A(t)\,dt = \int_0^\infty A_0 e^{-\lambda t} dt = \frac{A_0}{\lambda} = A_0 \tau
+\end{equation}
+
+\subsubsection{Paso 4: actividad total}
+
+Multiplicando por la actividad total administrada $A$ (en Bq):
+
+\begin{equation}
+    D_{\text{J/g}} = D_{\text{J/g/partícula}} \times \tau \times A
+\end{equation}
+
+\subsubsection{Paso 5: J/g a Gy}
+
+\begin{equation}
+    D_{\text{Gy}} = D_{\text{J/g}} \times 1000\ \frac{\text{g}}{\text{kg}}
+\end{equation}
+
+\subsubsection{Ecuación completa}
+
+Combinando todos los pasos:
+
+\begin{equation}
+    \boxed{D_{\text{Gy}} = \frac{D_{\text{raw}}}{\rho} \times 1.6\times10^{-13} \times \tau \times A \times 1000}
+\end{equation}
+
+O equivalentemente, en la implementación Python:
+
+\begin{equation}
+    D_{\text{Gy}} = D_{\text{raw}} \cdot \frac{1}{\rho} \cdot (1.6 \times 10^{-13}) \cdot \tau \cdot A \cdot 1000
+\end{equation}
+
+\subsection{Post-procesamiento}
+
+Antes de la conversión, se aplican filtros de calidad:
+
+\begin{itemize}
+    \item \textbf{Eliminación de errores altos:} voxeles con incertidumbre
+        relativa $> 1.5$ se anulan ($D=0$). Esto ocurre en regiones con
+        poca estadística (lejos de la fuente).
+    \item \textbf{Eliminación de negativos:} voxeles con dosis negativa
+        (ruido estadístico) se ponen a cero.
+    \item \textbf{Eliminación de aire:} voxeles fuera del cuerpo (índice de
+        aire) se anulan.
+\end{itemize}
+
+\subsection{Incertidumbre}
+
+La incertidumbre estadística del tally de MCNP disminuye con
+$1/\sqrt{\text{NPS}}$. Para NPS típicos de $10^7$--$10^8$, la
+incertidumbre en regiones de alta dosis (tumor) suele ser $<5\%$, mientras
+que en regiones de baja dosis puede superar el $100\%$.
+
+El archivo MCTAL reporta la incertidumbre relativa $e_i$ para cada voxel
+como la desviación estándar relativa ($\sigma/\bar{x}$).
+
+% ============================================================
+% MÉTODO KERNEL
+% ============================================================
+\section{Método Kernel: Convolución con kernel precalculado}
+
+\subsection{Fundamento teórico}
+
+En un medio homogéneo e infinito, la dosis en un punto $\mathbf{r}$ debida
+a una distribución de fuentes $S(\mathbf{r}')$ puede expresarse como:
+
+\begin{equation}
+    D(\mathbf{r}) = \iiint S(\mathbf{r}') \, K(\mathbf{r} - \mathbf{r}') \, d^3\mathbf{r}'
+\end{equation}
+
+donde $K(\mathbf{r})$ es el \textbf{kernel de dosis}: la dosis por unidad
+de actividad en un punto $\mathbf{r}$ debida a una fuente puntual en el
+origen. En un medio homogéneo, $K$ depende solo de la distancia radial
+$r = |\mathbf{r}|$ (simetría esférica).
+
+La convolución se evalúa numéricamente como:
+
+\begin{equation}
+    D(\mathbf{r}) = \sum_{\mathbf{r}'} S(\mathbf{r}') \, K(\mathbf{r} - \mathbf{r}')
+\end{equation}
+
+que en forma discreta es una convolución 3D:
+
+\begin{equation}
+    D = S \ast K
+\end{equation}
+
+\subsection{Generación del kernel}
+
+El kernel se precalcula con MCNP usando una fuente puntual de $^{90}$Y en
+un medio homogéneo (agua o tejido blando, $\rho \approx 1.09$ g/cm$^3$).
+El resultado es una matriz 3D (típicamente $51 \times 51 \times 51$
+voxeles, aunque también se usan $65 \times 65 \times 65$) que representa
+la dosis en Gy para 1 Bq de actividad en el voxel central.
+
+En \texttt{cargo\_mctal\_kernel.m}:
+
+\begin{align}
+    \text{Kernel} &= D_3 \quad \text{(MeV/cm}^3 \text{ del tally 1)} \\
+    \text{Kernel} &= \text{Kernel} \times V \quad \text{(MeV)} \\
+    \text{Kernel} &= \text{Kernel} \times 1.6 \times 10^{-13} \quad \text{(J)} \\
+    \text{Kernel} &= \text{Kernel} \times \tau \quad \text{(J$\cdot$s, integración temporal)} \\
+    \text{Kernel} &= \text{Kernel} \times A \quad \text{(J, actividad absoluta)} \\
+    \text{Kernel} &= \frac{\text{Kernel}}{m} \quad \text{(J/kg = Gy)}
+\end{align}
+
+El kernel se guarda en \texttt{kernel.mat} y se carga en Python mediante
+\texttt{load\_kernel\_mat()} (módulo \texttt{dose\_kernel.py}).
+
+\subsection{Normalización del kernel}
+
+La propiedad fundamental del kernel es que su integral sobre todo el
+espacio es igual a la dosis total depositada por 1 Bq:
+
+\begin{equation}
+    \iiint K(\mathbf{r})\,d^3\mathbf{r} = \frac{\bar{E}_\beta \cdot 1}{m}
+\end{equation}
+
+Sin embargo, para la convolución clínica, el kernel se normaliza a suma
+unitaria:
+
+\begin{equation}
+    K_{\text{norm}} = \frac{K}{\sum K}
+\end{equation}
+
+Esto garantiza que la convolución conserve la actividad total:
+
+\begin{equation}
+    \sum D = \sum (S \ast K_{\text{norm}}) = \sum S
+\end{equation}
+
+\subsection{Centrado del kernel}
+
+El kernel generado por MCNP puede tener el máximo desplazado del centro
+debido a la discretización del mesh tally. Es necesario centrarlo para
+que la convolución FFT funcione correctamente:
+
+\begin{equation}
+    K_{\text{centrado}} = \texttt{np.roll}(K, \text{shift})
+\end{equation}
+
+donde \texttt{shift} = centro\_deseado $-$ posición\_del\_máximo.
+
+\subsection{Convolución 3D vía FFT}
+
+La convolución directa en el espacio real tiene costo
+$\mathcal{O}(N^3 M^3)$ para una imagen de $N^3$ voxeles y kernel de
+$M^3$ voxeles. Con FFT, el costo se reduce a
+$\mathcal{O}(N^3 \log N)$.
+
+\subsubsection{Algoritmo}
+
+\begin{enumerate}
+    \item \textbf{Padding simétrico:} se extiende la imagen de actividad
+        reflejando los bordes (\texttt{mode='symmetric'}) para evitar
+        artefactos de borde:
+
+        \begin{equation}
+            S_{\text{pad}} = \texttt{np.pad}(S, (k_r, k_r), \text{mode='symmetric'})
+        \end{equation}
+
+        donde $k_r = \lfloor M/2 \rfloor$ es el radio del kernel.
+
+    \item \textbf{Tamaño FFT óptimo:} se calcula el tamaño óptimo para
+        FFT real:
+
+        \begin{equation}
+            \text{shape}_{\text{full}} = \text{shape}(S_{\text{pad}}) + \text{shape}(K) - 1
+        \end{equation}
+        \begin{equation}
+            \text{shape}_{\text{FFT}} = \texttt{next\_fast\_len}(\text{shape}_{\text{full}})
+        \end{equation}
+
+    \item \textbf{FFT del kernel} (se cachea para reuso):
+
+        \begin{equation}
+            K_{\text{shifted}} = \texttt{ifftshift}(K_{\text{centrado}})
+        \end{equation}
+        \begin{equation}
+            \hat{K} = \texttt{rfftn}(K_{\text{shifted}}, s=\text{shape}_{\text{FFT}})
+        \end{equation}
+
+    \item \textbf{FFT de la actividad:}
+
+        \begin{equation}
+            \hat{S} = \texttt{rfftn}(S_{\text{pad}}, s=\text{shape}_{\text{FFT}})
+        \end{equation}
+
+    \item \textbf{Multiplicación en frecuencia:}
+
+        \begin{equation}
+            \hat{D} = \hat{S} \times \hat{K}
+        \end{equation}
+
+    \item \textbf{Transformada inversa:}
+
+        \begin{equation}
+            D_{\text{full}} = \texttt{irfftn}(\hat{D}, s=\text{shape}_{\text{FFT}})
+        \end{equation}
+
+    \item \textbf{Recorte:} se recorta el resultado para obtener el mismo
+        tamaño que la imagen original (\texttt{'same'} en terminología
+        MATLAB).
+
+        \begin{align}
+            D_{\text{valid}} &= D_{\text{full}}[0:\text{shape}_{\text{full}}] \\
+            D_{\text{same}} &= D_{\text{valid}}[k_r : k_r + N]
+        \end{align}
+\end{enumerate}
+
+\subsection{Enmascarado: hígado + tumor + peritumoral}
+
+La dosis solo es clínicamente relevante en el hígado, tumor y una corona
+peritumoral de 1 cm. Se aplica una máscara:
+
+\begin{equation}
+    D_{\text{masked}} = D \cdot \mathbb{1}_{\text{mask}}
+\end{equation}
+
+donde:
+
+\begin{equation}
+    \text{mask} = \text{hígado} \cup \text{tumor} \cup \text{peritumoral}
+\end{equation}
+
+La región peritumoral se genera mediante dilación morfológica del tumor
+con un elemento estructurante elipsoidal de radio 1 cm en cada eje:
+
+\begin{equation}
+    \mathbb{1}_{\text{peritumoral}} = \text{dilate}(\text{tumor}, r) \land \lnot \text{tumor}
+\end{equation}
+
+El radio en voxeles se calcula a partir del espaciado:
+
+\begin{equation}
+    r_{\text{vox}} = \max\left(1, \left\lfloor \frac{10\ \text{mm}}{s_i} \right\rfloor\right)
+\end{equation}
+
+\subsection{Caché del kernel FFT}
+
+Para evitar recalcular la FFT del kernel en cada ejecución, se implementa
+un caché con clave basada en el shape FFT y el hash MD5 del contenido del
+kernel:
+
+\begin{equation}
+    \text{clave} = (\text{shape}_{\text{FFT}}, \text{MD5}(K_{\text{bytes}}))
+\end{equation}
+
+Esto asegura que si el kernel cambia (diferente sesión de MCNP), se
+recalcule automáticamente.
+
+% ============================================================
+% COMPARACIÓN
+% ============================================================
+\section{Comparación de Métodos}
+
+\begin{table}[H]
+\centering
+\caption{Comparación entre método MCTALL y Kernel}
+\label{tab:comparacion}
+\begin{tabular}{p{4cm} p{5cm} p{5cm}}
+\toprule
+\textbf{Aspecto} & \textbf{MCTALL (Monte Carlo)} & \textbf{Kernel (Convolución)} \\
+\midrule
+\textbf{Base física} & Transporte de partículas & Aproximación de fuente puntual \\
+\textbf{Medio} & Heterogéneo (tejidos reales) & Homogéneo (agua/tejido blando) \\
+\textbf{Tiempo de simulación} & Horas--días (MCNP) & Segundos (FFT) \\
+\textbf{Precisión} & Alta (estadística $\propto 1/\sqrt{N}$) & Media (aprox. medio uniforme) \\
+\textbf{Incertidumbre} & Cuantificada por MCNP & No cuantificada \\
+\textbf{Aplicación clínica} & Gold standard & Rápida, planificación \\
+\textbf{Recursos} & Cluster/GPU & PC estándar \\
+\textbf{Dependencia} & Archivo MCTAL de MCNP & Kernel precalculado + PET \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{¿Cuándo usar cada método?}
+
+\begin{itemize}
+    \item \textbf{MCTALL:} Cuando se necesita máxima precisión y el medio
+        es heterogéneo (ej. cerca de interfaces pulmón-hígado, o cuando
+        hay inhomogeneidades significativas). También cuando se quiere
+        validar el método kernel.
+    \item \textbf{Kernel:} En la práctica clínica diaria, donde la rapidez
+        es esencial. Apropiado para $^{90}$Y porque las partículas $\beta^-$
+        tienen alcance corto y el medio (hígado) es relativamente homogéneo.
+\end{itemize}
+
+% ============================================================
+% MODELO MIRD
+% ============================================================
+\section{Anexo: Modelo MIRD (Partition Model)}
+
+Además de los dos métodos principales, 3Dosim implementa el modelo MIRD
+de partición (\emph{partition model}) para estimaciones analíticas rápidas.
+
+\subsection{Ecuaciones MIRD}
+
+\begin{align}
+    T/N &= \frac{\text{conteo\_PET\_tumor}}{\text{conteo\_PET\_higado}} \\
+    \text{FU}_{\text{normal}} &= (1 - \text{SF}) \frac{V_{\text{hígado}}}{T/N \cdot V_{\text{tumor}} + V_{\text{hígado}}} \\
+    \text{FU}_{\text{tumor}} &= (1 - \text{SF}) \frac{T/N \cdot V_{\text{tumor}}}{T/N \cdot V_{\text{tumor}} + V_{\text{hígado}}} \\
+    D_{\text{hígado}} &= \frac{A \cdot k \cdot \text{FU}_{\text{normal}}}{m_{\text{hígado}}} \\
+    D_{\text{tumor}} &= \frac{A \cdot k \cdot \text{FU}_{\text{tumor}}}{m_{\text{tumor}}}
+\end{align}
+
+donde:
+\begin{itemize}
+    \item $k = 48.98$ J/s es la constante MIRD para $^{90}$Y
+    \item SF = shunt pulmonar (fracción)
+    \item $V$ = volumen, $m$ = masa
+    \item $A$ = actividad administrada en GBq
+\end{itemize}
+
+Este modelo asume que la captación se distribuye uniformemente entre
+hígado sano y tumor según la relación $T/N$ derivada del PET. Es útil
+para planificación rápida pero no proporciona un mapa de dosis 3D.
+
+% ============================================================
+% REFERENCIAS
+% ============================================================
+\section{Referencias}
+
+\begin{enumerate}
+    \item Gulec, S.A., et al. ``Hepatic radiation dosimetry in
+        $^{90}$Y-microsphere treatment.'' \textit{Med. Phys.}, 2003.
+    \item Chiesa, C., et al. ``The dosimetric journey of $^{90}$Y
+        radioembolization: from MIRD to voxel dosimetry.''
+        \textit{EJNMMI Physics}, 2017.
+    \item X.W. et al. ``$^{90}$Y microsphere dosimetry with Monte Carlo
+        and convolution methods.'' \textit{Phys. Med. Biol.}, 2012.
+    \item MCNP6 User's Manual, Los Alamos National Laboratory, LA-CP-13-00634.
+    \item Documentación del proyecto 3Dosim:
+        \texttt{cargo\_mctal.m}, \texttt{cargo\_mctal\_kernel.m},
+        \texttt{mctal\_parser.py}, \texttt{dose\_kernel.py},
+        \texttt{fft\_dose.py}.
+\end{enumerate}
+
+\end{document}

@@ -1,0 +1,2073 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{verbatim}
+\geometry{margin=2.5cm}
+\setlength{\headheight}{13.6pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 3Dosim --- Modulo 2}
+\fancyhead[R]{\small Generacion de Input MCNP}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\newcommand{\vardef}[2]{\noindent\textbf{#1}: #2\\}
+\setlength{\parskip}{0.5em}
+\title{\textbf{Modulo 2: Generacion de Input MCNP}\\[0.5cm]
+       \large Pipeline de Simulacion Monte Carlo para Dosimetria Hepatica\\[0.3cm]
+       \normalsize Documentacion Tecnica --- Revision v4.0}
+\author{Proyecto 3Dosim --- Dosimetria Hepatica con $^{90}$Y}
+\date{Julio 2026}
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% ============================================================
+% GLOSARIO DE ACRONIMOS
+% ============================================================
+\section*{Glosario de Acronimos}
+\addcontentsline{toc}{section}{Glosario de Acronimos}
+
+\begin{description}
+    \item[ACE] A Compact ENDF --- formato de datos nucleares.
+    \item[Bq] Becquerel --- unidad de actividad radiactiva (1 desintegracion/s).
+    \item[CDF] Cumulative Distribution Function.
+    \item[CORA/CORB/CORC] Coordinate Axis bins --- ejes de la grilla TMESH.
+    \item[CT] Computed Tomography.
+    \item[CTME] Cutoff Time --- tiempo maximo de simulacion.
+    \item[DE4/DF4] Dose Energy / Dose Function --- conversion fluencia a dosis.
+    \item[DICOM] Digital Imaging and Communications in Medicine.
+    \item[*F8] Pulse Height Tally --- detector tipo pulso.
+    \item[F6] Energy Deposition Tally.
+    \item[FILL] Tarjeta MCNP para rellenar celda con lattice.
+    \item[GBq] Gigabecquerel ($10^9$ Bq).
+    \item[HU] Hounsfield Units --- unidades de atenuacion en TC.
+    \item[ICRP] International Commission on Radiological Protection.
+    \item[ICRU] International Commission on Radiation Units.
+    \item[IJK] Indices de voxel (columna, fila, slice).
+    \item[IMP] Importance (importancia de celda en MCNP).
+    \item[LAT] Lattice (grilla regular de celdas en MCNP).
+    \item[LIKE n BUT] Sintaxis MCNP para reutilizar celda con modificaciones.
+    \item[LPS] Left-Posterior-Superior (sistema de coordenadas MCNP).
+    \item[MCNP] Monte Carlo N-Particle (codigo de transporte, LANL).
+    \item[MCTAL] Archivo de salida de MCNP con resultados de tallies.
+    \item[MIRD] Medical Internal Radiation Dose.
+    \item[MODE] Modalidad de transporte (P: foton, E: electron).
+    \item[MRML] Medical Reality Markup Language (formato interno de Slicer).
+    \item[NRRD] Nearly Raw Raster Data (formato de volumen).
+    \item[NPS] Number of Particle Histories.
+    \item[PDF] Probability Density Function.
+    \item[PEDEP] Particle Energy DEPosition.
+    \item[PET] Positron Emission Tomography.
+    \item[RAS] Right-Anterior-Superior (sistema de coordenadas Slicer).
+    \item[RLE] Run-Length Encoding (compresion de geometria).
+    \item[RPP] Rectangular Parallelepiped (caja ortogonal en MCNP).
+    \item[SDEF] Source Definition (tarjeta de fuente en MCNP).
+    \item[SIRT] Selective Internal Radiation Therapy.
+    \item[SUV] Standardized Uptake Value.
+    \item[TACE] Transarterial Chemoembolization.
+    \item[TMESH] Tally MESH (grilla de dosis en MCNP).
+    \item[TS] TotalSegmentator (segmentacion anatomica).
+    \item[U] Universe (numero de universo en lattice).
+    \item[VOI] Volume of Interest.
+    \item[WGT] Weight (peso de la particula en MCNP).
+    \item[XS] Cross Section (seccion eficaz).
+\end{description}
+
+\newpage
+
+% ============================================================
+% TABLA DE CONTENIDOS
+% ============================================================
+\tableofcontents
+\newpage
+
+% ============================================================
+% 1. VISION GENERAL
+% ============================================================
+\section{Vision General --- Arquitectura del Modulo 2}
+\label{sec:vision}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+MCNP & Monte Carlo N-Particle (codigo de transporte, LANL) \\
+TMESH & Tally MESH (grilla de dosis en MCNP) \\
+SDEF & Source Definition (tarjeta de fuente en MCNP) \\
+RLE & Run-Length Encoding (compresion de geometria) \\
+.mrb & Medical Reality Bundle (escena 3D Slicer) \\
+VOI & Volume of Interest \\
+HU & Hounsfield Units \\
+ICRP & International Commission on Radiological Protection \\
+ICRU & International Commission on Radiation Units \\
+RPP & Rectangular Parallelepiped \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto Clinico}
+
+La dosimetria personalizada en terapias con radionuclidos ($^{90}$Y, $^{177}$Lu, $^{131}$I) requiere transportar particulas a traves de una geometria voxelizada derivada de la TC del paciente. El Modulo 2 toma la escena segmentada generada por el Modulo 1 (labelmap + transforms + volumenes) y produce un archivo de entrada listo para MCNP (.i) que describe:
+
+\begin{itemize}
+    \item La geometria voxelizada del paciente (lattice + RLE).
+    \item La composicion y densidad de cada material (6 tejidos base + 53 tejidos ICRP-110).
+    \item La fuente radiactiva (isotopo, actividad, distribucion espacial).
+    \item Los detectores (tallies) para estimar dosis absorbida.
+\end{itemize}
+
+El archivo generado se entrega al Modulo 3 para ejecutar MCNP y procesar resultados.
+
+\subsection{Pipeline de 6 Pasos}
+
+El pipeline se orquesta desde \texttt{pipeline\_mod2.py} y ejecuta 6 pasos en secuencia estricta:
+
+\begin{verbatim}
+   +---------------------------------------------------------------+
+   |                   pipeline_mod2.py                             |
+   |                                                                |
+   |   check_slicer()  ->  load_scene()  ->  scan_nodes()           |
+   |                                                                |
+   |   validate_prereqs()  ->  generate_mcnp()  ->  validate()      |
+   +---------------------------------------------------------------+
+\end{verbatim}
+
+\begin{enumerate}
+    \item \textbf{check\_slicer()}: Verifica que 3D Slicer este disponible con el modulo SlicerDosim cargado.
+    \item \textbf{load\_scene(mrb\_path)}: Carga el archivo .mrb que contiene la TC, el labelmap, las transformaciones espaciales (RAS a voxel) y los volumenes ROI.
+    \item \textbf{scan\_nodes()}: Recorre el scene tree de 3D Slicer e identifica \texttt{volume\_node}, \texttt{labelmap\_node} y \texttt{voi\_nodes}.
+    \item \textbf{validate\_prereqs()}: Verifica que no haya valores nulos o inconsistentes antes de pasar a generacion.
+    \item \textbf{generate\_mcnp(params)}: Paso central que invoca \texttt{mcnp\_generator.py} con los parametros del tratamiento y construye las 12 secciones del archivo .i.
+    \item \textbf{validate\_mcnp\_input(ruta\_i)}: Post-procesamiento que verifica tamano, keywords, coordenadas, tarjetas de corte y archivos auxiliares.
+\end{enumerate}
+
+\subsection{Parametros de Configuracion}
+
+El pipeline se configura mediante \texttt{pipeline\_config.jsonc}:
+
+\begin{verbatim}
+{
+  "scene_output_dir": "C:/MAT/3Dosim/ai-pipe/imagenes",
+  "mcnp": {
+    "isotope": "Y90",
+    "n_particles": 1000000,
+    "refine_hu": false,
+    "flip_rows": false,
+    "flip_z": false
+  },
+  "tumor": {
+    "mode": "ts_liver_lesions",
+    "synthetic_radius_mm": 10.0,
+    "create_healthy_liver": true
+  }
+}
+\end{verbatim}
+
+\subsection{Relacion con Modulo 1 y Modulo 3}
+
+\begin{verbatim}
+  Modulo 1                Modulo 2                Modulo 3
+  ---------               ---------               ---------
+  Escena .mrb      --->   pipeline_mod2.py  --->  MCNP6
+  (TC + labelmap           |                        |
+   + VOIs)                 |-- check_slicer()       |
+                           |-- load_scene()         |
+                           |-- scan_nodes()         |
+                           |-- validate_prereqs()   |
+                           |-- generate_mcnp()      |
+                           |     +---> paciente.i   |
+                           +-- validate()     --->  mcnp6
+                                                      |
+                                                 Resultados
+                                                 (mcnp_output)
+\end{verbatim}
+
+\subsection{Equivalencia MATLAB a Python}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{MATLAB (v3.14)} & \textbf{Python (v4)} \\
+\midrule
+\texttt{modulo\_2/Generar\_Input\_MCNP} & \texttt{mcnp\_generator.py} (orquestador) \\
+\quad crear geometria & \texttt{mcnp\_geometry.py} (RPP, lattice, RLE) \\
+\quad asignar materiales & \texttt{mcnp\_materials.py} (TS\_SEGMENT\_MAP, ICRP-110) \\
+\quad definir fuente & \texttt{mcnp\_source.py} (SDEF, espectro, .src) \\
+\quad configurar tallies & \texttt{mcnp\_tallies.py} (TMESH, *F8, F6) \\
+\quad escribir archivo .i & \texttt{generate()} $\to$ \texttt{paciente.i} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado & Archivo no existe o $<$ 10 KB & Critico \\
+Keywords MCNP presentes & Falta C, cells, surfaces, data & Critico \\
+Coordenadas RPP vs TMESH & Rango TMESH fuera del RPP & Critico \\
+Tarjetas CUT presentes & Modo P o E sin CUT:P/E & Critico \\
+Materiales asignados & Voxel con indice 0 (sin material) & Critico \\
+Archivo .src generado & No existe o esta vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 2. CARGA DE ESCENA
+% ============================================================
+\section{Carga de Escena 3D Slicer}
+\label{sec:carga}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+.mrb & Medical Reality Bundle (escena comprimida de 3D Slicer) \\
+RAS & Right-Anterior-Superior (sistema de coordenadas Slicer) \\
+IJK & Indices de voxel (columna, fila, slice) \\
+LPS & Left-Posterior-Superior (sistema MCNP) \\
+VOI & Volume of Interest \\
+MRML & Medical Reality Markup Language \\
+NRRD & Nearly Raw Raster Data \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto}
+
+El Modulo 1 produce una escena de 3D Slicer guardada como archivo .mrb. Este archivo contiene: el volumen de TC original en HU, el labelmap con segmentacion anatomica (TotalSegmentator + refinamiento medico), los volumenes ROI (contornos de higado, tumor, rinones) y las transformaciones espaciales que vinculan coordenadas RAS del mundo real con coordenadas IJK de voxel.
+
+Cargar correctamente esta escena es el paso inicial del Modulo 2 y condiciona toda la generacion posterior.
+
+\subsection{Archivo .mrb}
+
+El formato .mrb es un ZIP que contiene:
+
+\begin{verbatim}
+escena.mrb/
++-- scene.mrml          (Arbol de nodos: volumenes, modelos, transforms)
++-- volumen_tc.nrrd     (TC en formato NRRD: espaciado, origen, datos)
++-- labelmap.nrrd       (Segmentacion: indices de material por voxel)
++-- higado.vtk          (Malla del contorno hepatico)
++-- tumor.vtk           (Malla del contorno tumoral)
++-- ...                 (Otros VOIs)
+\end{verbatim}
+
+\subsection{Carga desde pipeline\_mod2.py}
+
+La funcion \texttt{load\_scene(mrb\_path)} usa la API de 3D Slicer:
+
+\begin{verbatim}
+def load_scene(mrb_path):
+    slicer.util.loadScene(mrb_path)
+    return {"status": "loaded", "path": mrb_path}
+\end{verbatim}
+
+\subsection{scan\_nodes() --- Identificar Nodos}
+
+Una vez cargada la escena, \texttt{scan\_nodes()} recorre el arbol MRML:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Nodo} & \textbf{Tipo MRML} & \textbf{Proposito} \\
+\midrule
+\texttt{volume\_node} & \texttt{vtkMRMLScalarVolumeNode} & TC original (referencia espacial) \\
+\texttt{labelmap\_node} & \texttt{vtkMRMLLabelMapVolumeNode} & Segmentacion con materiales \\
+\texttt{voi\_nodes[]} & \texttt{vtkMRMLModelNode[]} & Mallas de VOIs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Desde el \texttt{volume\_node} se extraen:
+
+\begin{verbatim}
+origen_ras = volume_node.GetOrigin()        # (x, y, z) en mm
+espaciado  = volume_node.GetSpacing()       # (dx, dy, dz) en mm
+dims       = volume_node.GetImageData().GetDimensions()  # (nx, ny, nz)
+\end{verbatim}
+
+\subsection{Coordenadas IJK a RAS}
+
+La matriz de transformacion IJK$\to$RAS se obtiene con:
+
+\begin{verbatim}
+ijk_to_ras = vtk.vtkMatrix4x4()
+volume_node.GetIJKToRASMatrix(ijk_to_ras)
+\end{verbatim}
+
+Esta matriz de $4 \times 4$ permite convertir cualquier indice de voxel $(i,j,k)$ a coordenadas RAS en mm:
+
+$$
+\begin{bmatrix} x_{RAS} \\ y_{RAS} \\ z_{RAS} \\ 1 \end{bmatrix}
+= \mathbf{M}_{IJK \to RAS} \cdot \begin{bmatrix} i \\ j \\ k \\ 1 \end{bmatrix}
+$$
+
+\vardef{$\mathbf{M}_{IJK \to RAS}$}{Matriz de transformacion $4\times4$ de coordenadas voxel (IJK) a coordenadas mundo (RAS)}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Sistema} & \textbf{Eje 1} & \textbf{Eje 2} & \textbf{Eje 3} \\
+\midrule
+Slicer (RAS) & R (Right) $+$izq & A (Anterior) $+$atras & S (Superior) $+$arriba \\
+MCNP (LPS) & L--R (Left$\to$Right) & P--A (Post$\to$Ant) & S--I (Sup$\to$Inf) \\
+Voxel (IJK) & i (columna) & j (fila) & k (slice) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La conversion de RAS a LPS requiere:
+
+$$
+x_{LPS} = -x_{RAS},\qquad y_{LPS} = -y_{RAS},\qquad z_{LPS} = z_{RAS}
+$$
+
+\vardef{$x_{LPS}$}{Coordenada X en sistema LPS (MCNP), igual a $-x_{RAS}$}
+\vardef{$y_{LPS}$}{Coordenada Y en sistema LPS (MCNP), igual a $-y_{RAS}$}
+\vardef{$z_{LPS}$}{Coordenada Z en sistema LPS (MCNP), igual a $z_{RAS}$}
+
+Los flags \texttt{flip\_rows} y \texttt{flip\_z} del generador MCNP manejan la reorientacion de ejes entre ambos sistemas.
+
+\subsection{Matriz IJK$\to$RAS en Detalle}
+
+$$
+\mathbf{M}_{IJK \to RAS} = \begin{bmatrix}
+S_x R_{00} & S_y R_{01} & S_z R_{02} & O_x \\
+S_x R_{10} & S_y R_{11} & S_z R_{12} & O_y \\
+S_x R_{20} & S_y R_{21} & S_z R_{22} & O_z \\
+0 & 0 & 0 & 1
+\end{bmatrix}
+$$
+
+\vardef{$S_x, S_y, S_z$}{Espaciado del voxel en mm en cada direccion}
+\vardef{$R$}{Matriz de rotacion $3\times3$ del volumen}
+\vardef{$O_x, O_y, O_z$}{Origen en RAS del voxel $(0,0,0)$ en IJK}
+
+\subsection{Ejemplo de Extraccion de Parametros}
+
+Para un volumen tipico de TC abdominal:
+
+\begin{verbatim}
+origin_ras = (-120.5, -150.3, -245.0)   # mm
+spacing    = (0.98, 0.98, 2.50)          # mm/voxel
+dims       = (512, 512, 180)             # voxels
+
+# Calcular RPP en LPS (para MCNP)
+x_min = -(-120.5) - 0.98 * 512 / 2 = 120.5 - 250.88 = -130.38
+x_max = -(-120.5) + 0.98 * 512 / 2 = 120.5 + 250.88 = 371.38
+y_min = -(-150.3) - 0.98 * 512 / 2 = 150.3 - 250.88 = -100.58
+y_max = -(-150.3) + 0.98 * 512 / 2 = 150.3 + 250.88 = 401.18
+z_min = -245.0 - 2.50 * 180 / 2 = -245.0 - 225.0 = -470.0
+z_max = -245.0 + 2.50 * 180 / 2 = -245.0 + 225.0 = -20.0
+\end{verbatim}
+
+\subsection{Validacion de Prerequisitos}
+
+\texttt{validate\_prereqs()} ejecuta 4 verificaciones:
+
+\begin{enumerate}
+    \item \textbf{Volumen de TC presente}: \texttt{assert volume\_node is not None}
+    \item \textbf{Labelmap cargado}: \texttt{assert labelmap\_node is not None}
+    \item \textbf{Dimensiones compatibles}: \texttt{assert tc\_dims == lm\_dims}
+    \item \textbf{VOIs requeridos}: \texttt{assert "Liver" in voi\_names}, etc.
+\end{enumerate}
+
+\subsection{Manejo de Errores}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Error} & \textbf{Causa} & \textbf{Accion} \\
+\midrule
+\texttt{FileNotFoundError} & Ruta .mrb invalida & Verificar selector de archivos \\
+\texttt{ValueError} & Nodos incompatibles & Revisar version de Slicer \\
+\texttt{AssertionError} & Labelmap sin materiales & Ejecutar Modulo 1 primero \\
+\texttt{RuntimeError} & Slicer no disponible & Iniciar SlicerDosim \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Escena cargada exitosamente & Error en \texttt{loadScene()} & Critico \\
+TC y labelmap mismas dims & \texttt{tc\_dims $\neq$ lm\_dims} & Critico \\
+VOIs requeridos presentes & Falta Liver/Tumor/Kidney & Critico \\
+Matriz IJK$\to$RAS invertible & Determinante cero & Critico \\
+Espaciado valido & $dx \leq 0$ o $dy \leq 0$ o $dz \leq 0$ & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 3. ASIGNACION DE MATERIALES
+% ============================================================
+\section{Asignacion de Materiales}
+\label{sec:materiales}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+HU & Hounsfield Units (unidades de atenuacion radiologica) \\
+ICRP & International Commission on Radiological Protection \\
+ICRU & International Commission on Radiation Units \\
+TS & TotalSegmentator \\
+TOI & Tissue of Interest \\
+Z & Numero atomico \\
+RLE & Run-Length Encoding \\
+UD & Universe/Detail (tarjeta UD en MCNP lattice) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto}
+
+Cada voxel en el labelmap contiene un indice numerico que representa el tejido biologico en esa posicion. Para que MCNP pueda transportar particulas correctamente, cada indice debe mapear a:
+
+\begin{enumerate}
+    \item Una composicion elemental (fraccion en peso de cada isotopo).
+    \item Una densidad (en g/cm$^3$).
+    \item Un rango de HU de referencia (opcional, para validacion).
+\end{enumerate}
+
+El sistema asigna materiales usando dos fuentes de datos en paralelo: 6 tejidos base definidos localmente en \texttt{mcnp\_materials.py} y 53 materiales del ICRP-110 cargados desde \texttt{tissue\_config.json}.
+
+\subsection{Indices de Tejidos Base (Phantom, indices 1--100)}
+
+\begin{center}
+\begin{tabular}{llccc}
+\toprule
+\textbf{Indice} & \textbf{Tejido} & $\rho$ (g/cm$^3$) & \textbf{Rango HU} & \textbf{ID MCNP} \\
+\midrule
+1 & Aire (Dry near sea level) & 0.001205 & $-$1024 a $-$900 & 1 \\
+30 & Tejido blando (ICRU 44) & 1.06 & $-$200 a 150 & 2 \\
+50 & Pulmon (ICRP 110) & 0.50 & $-$900 a $-$200 & 4 \\
+80 & Hueso (ICRP 110) & 1.60 & 150 a 2000 & 5 \\
+90 & Higado (ICRP 110) & 1.05 & 50 a 150 & 3 \\
+100 & Tumor & 1.05 & 50 a 150 & 6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Indices ICRP-110 (Completos, indices 101--153)}
+
+El archivo \texttt{tissue\_config.json} contiene 53 materiales adicionales del ICRP-110. Cada entrada tiene:
+
+\begin{verbatim}
+{
+  "index": 110,
+  "name": "Hueso_vertebral",
+  "name_en": "Trabecular_bone",
+  "hu_range": [150, 300],
+  "density_gcm3": 1.35,
+  "mcnp_material": {
+    "id": 10,
+    "composition": {
+      "1000": 0.074,
+      "6000": 0.254,
+      ...
+    }
+  }
+}
+\end{verbatim}
+
+La composicion se expresa como fraccion en peso de cada isotopo (Zzzzz AAAA, por ejemplo $1000 = {}^1$H, $6000 = {}^{12}$C).
+
+\subsection{Carga desde tissue\_config.json}
+
+\texttt{TissueConfig.load\_config()} en \texttt{config.py} implementa el patron singleton:
+
+\begin{verbatim}
+class TissueConfig:
+    _instance = None
+    tissues: list[TissueEntry]
+    index_map: dict[int, TissueEntry]
+    material_map: dict[int, TissueEntry]
+
+    @classmethod
+    def load_config(cls, path=None):
+        if cls._instance is None:
+            cls._instance = cls()
+            with open(path or "Resources/Config/tissue_config.json") as f:
+                data = json.load(f)
+            for t in data["tissues"]:
+                cls._instance.index_map[t["index"]] = t
+                cls._instance.material_map[t["mcnp_material"]["id"]] = t
+        return cls._instance
+\end{verbatim}
+
+\subsection{Segment Map (TotalSegmentator $\to$ Indices Locales)}
+
+La constante \texttt{TS\_SEGMENT\_MAP} en \texttt{mcnp\_materials.py} mapea los nombres de segmentos de TotalSegmentator a los indices del phantom:
+
+\begin{verbatim}
+TS_SEGMENT_MAP = {
+    "skin": 30,                    # Tejido_blando
+    "subcutaneous_fat": 30,
+    "bone": 80,                    # Hueso
+    "rib": 80,
+    "lung_upper_lobe_left": 50,    # Pulmon
+    "lung_lower_lobe_left": 50,
+    "lung_upper_lobe_right": 50,
+    "lung_middle_lobe_right": 50,
+    "lung_lower_lobe_right": 50,
+    "liver": 90,                   # Higado
+    # ...
+}
+\end{verbatim}
+
+Los nombres que no aparecen en el mapa se asignan por defecto a Tejido\_blando (30). El tumor (100) se asigna manualmente.
+
+\subsection{Refinamiento por HU}
+
+Cuando \texttt{refine\_hu=True}, el generador analiza la TC original en cada voxel para ajustar el material segun el valor de HU:
+
+\begin{verbatim}
+                  +------------------+
+                  |  Voxel (i,j)     |
+                  |  HU = valor      |
+                  +--------+---------+
+                           |
+                  +--------+---------+
+                  |                   v
+            HU en rango          HU fuera de rango
+            del segmento         del segmento
+                  |                   |
+                  v                   v
+            conserva indice     recalcular por HU
+                                       |
+                           +-----------+-----------+
+                           |                       v
+                     HU ~ Aire               HU ~ Tejido
+                     indice=1                indice=30
+\end{verbatim}
+
+Categorias de umbral:
+
+\begin{center}
+\begin{tabular}{llc}
+\toprule
+\textbf{Condicion} & \textbf{Nuevo material} & \textbf{Rango HU} \\
+\midrule
+$HU < -900$ & Aire (1) & $-$1024 a $-$900 \\
+$HU > 150$ & Hueso (80) & 150 a 2000 \\
+$-900 \leq HU \leq 150$ & Tejido blando (30) & $-$900 a 150 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Materiales en el Input MCNP}
+
+Cada material unico genera una tarjeta Mn en el bloque de datos:
+
+\begin{verbatim}
+M1    6000 0.000124  7000 0.755268  8000 0.231481  18000 0.012827  $ Aire
+M2    1000 0.105     6000 0.143     7000 0.034     8000 0.708     $ Tejido_blando
+      11000 0.002    15000 0.003    16000 0.003    17000 0.002
+      19000 0.003
+M3    1000 0.102     6000 0.131     7000 0.031     8000 0.724     $ Higado
+...
+\end{verbatim}
+
+Las densidades se aplican en la celda correspondiente:
+
+\begin{verbatim}
+100 1 -0.001205 -1 2 3 ...  $ Celda de aire (material 1, rho=0.001205)
+200 2 -1.06      -4 5 6 ...  $ Celda de tejido blando (material 2, rho=1.06)
+\end{verbatim}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Mapa TS\_SEGMENT\_MAP completo & Segmento sin mapeo & Critico \\
+Indices labelmap validos (1 a 153) & Indice 0 o $>$ 153 & Critico \\
+Densidad fisica & $\rho \leq 0$ o $\rho \geq 20$ g/cm$^3$ & Critico \\
+Composicion suma $\sim 1.0$ & $|\Sigma \text{fracciones} - 1| > 10^{-4}$ & Critico \\
+Refinamiento HU plausible & $> 50\%$ voxeles recategorizados & Advertencia \\
+Archivo tissue\_config.json cargable & Parse error & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 4. GEOMETRIA VOXELIZADA MCNP
+% ============================================================
+\section{Geometria Voxelizada MCNP}
+\label{sec:geometria}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+RPP & Rectangular Parallelepiped (caja ortogonal en MCNP) \\
+LIKE n BUT & Sintaxis MCNP para reutilizar celda con modificaciones \\
+U & Universe (numero de universo en lattice) \\
+FILL & Tarjeta MCNP para rellenar celda con lattice \\
+LAT & Lattice (grilla regular de celdas en MCNP) \\
+RLE & Run-Length Encoding (codificacion por longitud de carrera) \\
+TRCL & Transformacion de coordenadas en celda MCNP \\
+\bottomrule
+\end{tabular}
+
+\subsection{Estrategia de Geometria Voxelizada}
+
+MCNP no soporta voxeles nativamente, pero si lattices. La geometria se estructura en 3 niveles:
+
+\begin{verbatim}
+                     +---------------------------+
+                     |   Celda mundo (999)        |
+                     |   RPP contenedor           |
+                     |   FILL = universo 1        |
+                     +-------------+--------------+
+                                   |
+                     +-------------+--------------+
+                     |   Celda lattice (1)        |
+                     |   LAT=1                    |
+                     |   RPP = volumen             |
+                     |   FILL = i:nx j:ny k:nz    |
+                     +-------------+--------------+
+                                   |
+                  +----------------+----------------+
+                  v                v                v
+            Celda voxel       Celda voxel       Celda voxel
+            (100 n)           (100 n)           (100 n)
+            LIKE 100 BUT      LIKE 100 BUT      LIKE 100 BUT
+            MAT = material    MAT = material    MAT = material
+\end{verbatim}
+
+\subsection{Celda Mundo (Envolvente)}
+
+Se calculan las coordenadas extremas del volumen en LPS:
+
+$$
+\begin{aligned}
+x_{min} &= -origin_{RAS,x} - \frac{espaciado_x \cdot n_x}{2} \\
+x_{max} &= -origin_{RAS,x} + \frac{espaciado_x \cdot n_x}{2} \\
+y_{min} &= -origin_{RAS,y} - \frac{espaciado_y \cdot n_y}{2} \\
+y_{max} &= -origin_{RAS,y} + \frac{espaciado_y \cdot n_y}{2} \\
+z_{min} &= origin_{RAS,z} - \frac{espaciado_z \cdot n_z}{2} \\
+z_{max} &= origin_{RAS,z} + \frac{espaciado_z \cdot n_z}{2}
+\end{aligned}
+$$
+
+\vardef{$x_{min}, x_{max}$}{Limites del RPP en X (LPS) en cm}
+\vardef{$origin_{RAS,x}$}{Origen del volumen en X segun Slicer (RAS) en mm}
+\vardef{$espaciado_x$}{Espaciado del voxel en X (mm/voxel)}
+\vardef{$n_x$}{Numero de voxeles en direccion X}
+
+\begin{verbatim}
+999 0 -1000 $ Celda mundo (vacio exterior)
+1000 RPP x_min x_max y_min y_max z_min z_max
+\end{verbatim}
+
+\subsection{Celda Lattice}
+
+Se usa el operador \texttt{LAT=1} (grilla ortogonal):
+
+\begin{verbatim}
+1 0 -1000 U=1 LAT=1
+    FILL=-nx:2*nx -ny:2*ny -nz:2*nz
+    1:n_rev(ny*nz), 1:n_rev((ny-1)*nz), ..., 1:3, 1:2, 1:1
+\end{verbatim}
+
+El rango del FILL se define con:
+
+$$
+i \in [0, n_x),\qquad j \in [0, n_y),\qquad k \in [0, n_z)
+$$
+
+\vardef{$i, j, k$}{Indices de voxel en el lattice MCNP}
+\vardef{$n_x, n_y, n_z$}{Dimensiones del volumen en voxeles}
+
+\subsection{Celdas Voxel con LIKE n BUT}
+
+\texttt{mcnp\_geometry.py} genera celdas voxel usando \texttt{LIKE n BUT}:
+
+\begin{verbatim}
+100 1 -0.001205 U=1 $ Celda base: aire
+     $ sin RPP -- la celda se define por el lattice
+101 LIKE 100 BUT MAT=2 $ Tejido blando
+    RHO=1.06
+102 LIKE 100 BUT MAT=3 $ Higado
+    RHO=1.05
+...
+\end{verbatim}
+
+Cada celda voxel unica se define una sola vez. La matriz FILL del lattice asigna que celda (material) esta en cada posicion $(i,j,k)$.
+
+\subsection{Compresion RLE}
+
+Para reducir el tamano del archivo de entrada, el generador implementa Run-Length Encoding (RLE) sobre el plano k:
+
+\begin{verbatim}
+Sin RLE:
+    FILL=-1:1 -1:1 0:0
+        100 101 102
+        101 100 101
+        102 101 100
+
+Con RLE:
+    En lugar de repetir 100, 100, 100, 100, 100 se escribe:
+    5R 100
+\end{verbatim}
+
+El algoritmo recorre cada fila del plano k y reemplaza secuencias del mismo material por el factor de repeticion:
+
+\begin{verbatim}
+def comprimir_rle(filas, n_cols):
+    resultado = []
+    for fila in filas:
+        count = 0
+        prev = None
+        linea = []
+        for val in fila:
+            if val == prev:
+                count += 1
+            else:
+                if prev is not None:
+                    if count == 1:
+                        linea.append(str(prev))
+                    else:
+                        linea.append(f"{count}R {prev}")
+                prev = val
+                count = 1
+        if count == 1:
+            linea.append(str(prev))
+        else:
+            linea.append(f"{count}R {prev}")
+        resultado.append(" ".join(linea))
+    return "\n".join(resultado)
+\end{verbatim}
+
+\subsection{Reorientacion de Ejes (flip\_rows y flip\_z)}
+
+Los flags \texttt{flip\_rows} y \texttt{flip\_z} controlan la orientacion del volumen.
+
+\textbf{flip\_rows}: Invierte el orden de las filas (eje j) en el lattice:
+
+$$
+j_{MCNP} = (n_y - 1) - j_{RAS}
+$$
+
+\vardef{$j_{MCNP}$}{Indice de fila en coordenadas MCNP}
+\vardef{$j_{RAS}$}{Indice de fila en coordenadas RAS (Slicer)}
+
+\textbf{flip\_z}: Invierte el orden de los slices (eje k):
+
+\begin{verbatim}
+if flip_z:
+    slices = slices[::-1]  # slice 0 pasa a ser el ultimo
+\end{verbatim}
+
+La transformacion completa es:
+
+$$
+\begin{aligned}
+i_{MCNP} &= i_{RAS} \\
+j_{MCNP} &= \begin{cases}
+j_{RAS} & \text{si } \neg flip\_rows \\
+(n_y - 1) - j_{RAS} & \text{si } flip\_rows
+\end{cases} \\
+k_{MCNP} &= \begin{cases}
+k_{RAS} & \text{si } \neg flip\_z \\
+(n_z - 1) - k_{RAS} & \text{si } flip\_z
+\end{cases}
+\end{aligned}
+$$
+
+\vardef{$i_{MCNP}, j_{MCNP}, k_{MCNP}$}{Indices de voxel en el sistema MCNP}
+\vardef{$flip\_rows$}{Flag booleano que indica si se invierte el eje de filas}
+\vardef{$flip\_z$}{Flag booleano que indica si se invierte el eje de slices}
+
+\subsection{Precision de Cuantizacion}
+
+Las coordenadas de las superficies RPP se cuantizan a 1 micra de precision:
+
+$$
+sx_q = \frac{\text{round}(sx_{mm} \cdot 1000)}{1000}
+$$
+
+\vardef{$sx_q$}{Espaciado cuantizado a 1 micra (mm)}
+\vardef{$sx_{mm}$}{Espaciado original en mm}
+
+Las dimensiones totales del volumen resultan:
+
+$$
+x_m = \frac{n_x \cdot sx_q}{10}\text{ cm},\qquad
+y_m = \frac{n_y \cdot sy_q}{10}\text{ cm},\qquad
+z_m = \frac{n_z \cdot sz_q}{10}\text{ cm}
+$$
+
+\vardef{$x_m$}{Dimension total en X del RPP en cm}
+\vardef{$sx_q$}{Espaciado cuantizado en X (mm)}
+\vardef{$n_x$}{Numero de voxeles en X}
+
+\subsection{Superficies Especiales}
+
+Ademas del RPP contenedor, se define una esfera para debugging:
+
+\begin{verbatim}
+1 RPP x_min x_max y_min y_max z_min z_max   $ Caja contenedora
+2 RPP -sx_q/2 sx_q/2 -sy_q/2 sy_q/2 -sz_q/2 sz_q/2  $ Voxel unitario
+650 SO 15     $ Esfera de 15 cm de radio (debug)
+\end{verbatim}
+
+\subsection{Estructura Completa en el .i}
+
+\begin{verbatim}
+999 0 -1000        imp:p=1 imp:e=1
+1000 RPP -150 150 -200 200 -300 0
+
+1 0 -1000 u=1 lat=1
+    fill=-5:2*5 -4:2*4 -3:2*3
+    ...
+
+100 1 -0.001205 u=1  $ Aire
+101 2 -1.06     u=1  $ Tejido_blando
+102 3 -1.05     u=1  $ Higado
+103 4 -0.50     u=1  $ Pulmon
+104 5 -1.60     u=1  $ Hueso
+105 6 -1.05     u=1  $ Tumor
+...
+153 54 -DENSIDAD u=1  $ ICRP-110 ultimo material
+\end{verbatim}
+
+\subsection{Consideraciones de Rendimiento}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Factor} & \textbf{Impacto} \\
+\midrule
+Tamano del .i & Lineal con $n_{voxels}$ unicos (RLE reduce $\sim 10\times$) \\
+Tiempo de carga MCNP & Proporcional al tamano del FILL \\
+Memoria MCNP & 1--2 GB para volumenes tipicos ($512^3$) \\
+Velocidad de transporte & Independiente de la geometria (depende de materiales) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+RPP del lattice contiene todo el body & Voxeles fuera del RPP & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Todos los materiales tienen celda U=1 & Falta celda voxel & Critico \\
+RLE mantiene integridad de materiales & Suma repeticiones $\neq nx \times ny$ & Critico \\
+flip\_rows/flip\_z consistentes con image\_origin & Error de registro espacial & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 5. DEFINICION DE LA FUENTE
+% ============================================================
+\section{Definicion de la Fuente (Source)}
+\label{sec:fuente}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+SDEF & Source Definition (tarjeta MCNP para definir la fuente) \\
+WGT & Weight (peso de la particula) \\
+ERG & Energy (energia de emision) \\
+POS & Position (posicion de la fuente) \\
+.src & Archivo externo con posiciones de fuente \\
+XS & Cross Section (seccion eficaz) \\
+PDF & Probability Density Function \\
+CDF & Cumulative Distribution Function \\
+ACE & A Compact ENDF (formato de datos nucleares) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto}
+
+En dosimetria de radionuclidos, la fuente de radiacion esta distribuida en el volumen del paciente (no es un haz externo). El $^{90}$Y, $^{177}$Lu o $^{131}$I se administra al paciente y se acumula selectivamente en tejidos. La fuente MCNP debe representar esta distribucion volumetrica con la energia espectral correcta.
+
+\subsection{Espectro de Energias --- Y-90 ($^{90}$Y)}
+
+El $^{90}$Y decae por emision beta pura a $^{90}$Zr (estable). La energia maxima es:
+
+$$
+E_{\beta,\text{max}}^{^{90}\text{Y}} = 2.28\ \text{MeV}
+$$
+
+\vardef{$E_{\beta,\text{max}}$}{Energia maxima de la emision beta del $^{90}$Y (2.28 MeV)}
+
+La energia media es:
+
+$$
+\bar{E}_\beta = \frac{1}{3} E_{\beta,\text{max}} \approx 0.935\ \text{MeV}
+$$
+
+\vardef{$\bar{E}_\beta$}{Energia media del espectro beta del $^{90}$Y}
+
+El espectro se modela con 2 grupos de energia:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Grupo} & \textbf{Rango (MeV)} & \textbf{Probabilidad} \\
+\midrule
+1 & 0.0 -- 0.5 & 0.30 \\
+2 & 0.5 -- 2.28 & 0.70 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La funcion de densidad de probabilidad (PDF) del espectro beta teorico de Fermi:
+
+$$
+\frac{dN}{dE} = C \cdot F(Z, E) \cdot p \cdot E \cdot (E_{\max} - E)^2
+$$
+
+\vardef{$C$}{Constante de normalizacion del espectro beta}
+\vardef{$F(Z, E)$}{Funcion de Fermi (correccion coulombiana)}
+\vardef{$p$}{Momento del electron ($p = \sqrt{E^2 - m_e^2 c^4}$)}
+\vardef{$E$}{Energia cinetica del electron}
+\vardef{$E_{\max}$}{Energia maxima del decaimiento beta (2.28 MeV para $^{90}$Y)}
+\vardef{$Z$}{Numero atomico del nucleo hijo ($^{90}$Zr, $Z=40$)}
+
+\subsection{Espectro Lu-177 y I-131}
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Isotopo} & \textbf{Grupo} & \textbf{Rango (MeV)} & \textbf{Probabilidad} \\
+\midrule
+$^{177}$Lu & 1 & 0.0 -- 0.2 & 0.15 \\
+$^{177}$Lu & 2 & 0.2 -- 0.5 & 0.60 \\
+$^{177}$Lu & 3 & 0.5 -- 0.8 & 0.25 \\
+\midrule
+$^{131}$I ($e^-$) & 1 & 0.0 -- 0.6 & 0.90 \\
+$^{131}$I ($\gamma$) & 2 & 0.364 & 0.10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Tarjeta SDEF}
+
+La tarjeta SDEF generada para fuente volumetrica con archivo .src externo:
+
+\begin{verbatim}
+SDEF PAR=D1 ERG=FPAR=D6 X=D2 Y=D3 Z=D4 CELL=D5 WGT=1.00033788800193
+SI2 H 0. sx_cm
+SP2 D 0 1
+SI5 L (u lc[ix iy iz] lw)
+SP5 peso=1/n_active
+read file Y90cel3D.src
+\end{verbatim}
+
+\vardef{$WGT$}{Peso de la particula en MCNP (1.00033788800193 para normalizacion)}
+
+Los parametros clave son:
+
+\begin{description}
+    \item[PAR=D1] Tipo de particula (1 = foton, 2 = electron).
+    \item[ERG=FPAR=D6] Energia desde distribucion D6 (espectro).
+    \item[X=D2 Y=D3 Z=D4] Posicion muestreada desde distribuciones uniformes.
+    \item[CELL=D5] Celda de la fuente.
+    \item[WGT=1.00033788800193] Peso constante para normalizacion.
+\end{description}
+
+Distribuciones uniformes en voxel:
+
+\begin{verbatim}
+SI2 H 0. sx_cm
+SP2 D 0 1
+\end{verbatim}
+
+El espectro se define con:
+
+\begin{verbatim}
+SI1 L 0.9357 2.2807  $ energias discretas
+SP1 1.0 0.0          $ probabilidades
+\end{verbatim}
+
+\subsection{Archivo de Fuente Externo (.src)}
+
+Para fuentes distribuidas, el generador produce un archivo donde cada linea contiene las coordenadas de emision de una particula:
+
+\begin{verbatim}
+# Archivo de fuente 3Dosim
+# Isotopo: Y90
+# N particulas: 1000000
+# Formato: x(mm) y(mm) z(mm) energia(MeV) peso
+-45.2 30.1 -12.5 0.93 1.0
+-44.8 29.7 -12.1 1.45 1.0
+...
+\end{verbatim}
+
+\subsection{Muestreo desde Labelmap}
+
+Cuando no se dispone de una malla VOI, el generador distribuye las particulas uniformemente sobre los voxeles tumorales:
+
+\begin{verbatim}
+def sample_positions_in_labelmap(labelmap, tumor_index=100, n_particles=1e6):
+    mask = labelmap == tumor_index
+    voxel_indices = argwhere(mask)
+    n_voxels = len(voxel_indices)
+    selected = voxel_indices[randint(0, n_voxels, n_particles)]
+    positions = selected + uniform(-0.5, 0.5, selected.shape)
+    return positions * espaciado + origen_lps
+\end{verbatim}
+
+\subsection{Actividad y Peso}
+
+El peso de cada particula (WGT) representa su fraccion de la actividad total:
+
+$$
+WGT_i = \frac{A_{total}}{N_{particulas}}
+$$
+
+\vardef{$A_{total}$}{Actividad total administrada en Bq}
+\vardef{$WGT_i$}{Peso de la particula $i$ en Bq/historia}
+
+Para MCNP, el peso se normaliza para que la suma de todos los pesos sea 1.0:
+
+$$
+\dot{D} = \frac{A_{total}}{N_{particulas}} \cdot \sum_{i=1}^{N} D_i
+$$
+
+\vardef{$\dot{D}$}{Tasa de dosis absorbida}
+
+\subsection{Tarjetas Relacionadas}
+
+\begin{verbatim}
+CUT:P J 1e-3    $ Corte de energia para fotones (1 keV)
+CUT:E J 1e-3    $ Corte de energia para electrones (1 keV)
+MODE P E        $ Transportar fotones y electrones
+PHYS:E 1 0 0 0 1 0 0.99  $ Habilitar e- secundarios
+\end{verbatim}
+
+\subsection{Parametros de Fuente}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parametro} & \textbf{Valor tipico} & \textbf{Dependencia} \\
+\midrule
+Isotopo & Y90 / Lu177 / I131 & Input del usuario \\
+N particulas & $1\times10^6$ a $1\times10^7$ & Exactitud deseada \\
+Actividad & 0.5--5 GBq (Y90 SIRT) & Informe medico \\
+Energia media & 0.935 MeV (Y90) & Isotopo \\
+Alcance medio $\beta$ & 2.5 mm (Y90 en tejido) & Isotopo + densidad \\
+Volumen fuente & Tumor / Higado & Segmentacion \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Espectro definido para isotopo & Falta entrada en SPECTRA dict & Critico \\
+Archivo .src generado (si aplica) & No existe o 0 particulas & Critico \\
+SDEF tiene ERG y WGT consistentes & Mismatch entre parametros & Critico \\
+Peso suma $\approx 1.0$ & $|\Sigma WGT - 1| > 0.01$ & Critico \\
+Particulas dentro del VOI & Coordenadas fuera de la malla & Critico \\
+MODE coincide con la particula & Modo P sin electrones para beta & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 6. TALLIES Y DETECTORES
+% ============================================================
+\section{Tallies y Detectores MCNP}
+\label{sec:tallies}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+TMESH & Tally MESH (grilla 3D de dosis en MCNP) \\
+CORA/CORB/CORC & Coordinate Axis bins (ejes de la grilla TMESH) \\
+DE4/DF4 & Dose Energy / Dose Function (conversion fluencia $\to$ dosis) \\
+*F8 & Pulse Height Tally (detector tipo pulso) \\
+F6 & Energy Deposition Tally \\
+PEDEP & Particle Energy DEPosition \\
+Gy & Gray (J/kg, unidad SI de dosis absorbida) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto}
+
+Las tallies (detectores) en MCNP son el mecanismo para estimar la dosis absorbida en el paciente. 3Dosim utiliza tres tipos complementarios:
+
+\begin{itemize}
+    \item \textbf{TMESH rmesh1:e pedep}: grilla 3D de dosis para mapas volumetricos.
+    \item \textbf{*F8}: detectores puntuales en organos de interes (higado, tumor, rinones).
+    \item \textbf{F6:e}: energia depositada total para verificacion de conservacion.
+\end{itemize}
+
+\subsection{TMESH --- Tally de Grilla 3D}
+
+TMESH es un tally tipo 1 (fluencia) sobre una malla cartesiana. La definicion en el input MCNP:
+
+\begin{verbatim}
+TMESH
+  RMESH1:PEDEP PEDEP
+  CORA1  x_min  x_max  nx
+  CORB1  y_min  y_max  ny
+  CORC1  z_min  z_max  nz
+  ENDSD
+\end{verbatim}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parametro} & \textbf{Significado} & \textbf{Valor tipico} \\
+\midrule
+$x_{min}$, $x_{max}$ & Limites grilla en X (mm) & $-150$ a $150$ \\
+$y_{min}$, $y_{max}$ & Limites grilla en Y (mm) & $-200$ a $200$ \\
+$z_{min}$, $z_{max}$ & Limites grilla en Z (mm) & $-300$ a $0$ \\
+$nx$, $ny$, $nz$ & Numero de intervalos por eje & 128 a 256 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{BUG CORREGIDO --- TMESH nx vs nx-1}
+
+Versiones anteriores del generador usaban:
+
+\begin{verbatim}
+CORA1 x_min x_max nx i  $ INCORRECTO
+\end{verbatim}
+
+La correccion cambio a:
+
+\begin{verbatim}
+CORA1 x_min x_max nx  $ CORRECTO -- MCNP espera nx intervalos
+\end{verbatim}
+
+\subsection{Conversion de Fluencia a Dosis (DE4/DF4)}
+
+El tally RMESH1:PEDEP usa un par DE4/DF4 para convertir fluencia de electrones (MeV/cm$^2$) a dosis (MeV/g). Los 11 puntos de la conversion:
+
+\begin{verbatim}
+DE4  0.01 0.03 0.05 0.07 0.10 0.20 0.40 0.60 1.00 2.00 2.28
+DF4  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0  1.0
+\end{verbatim}
+
+\vardef{$DE4$}{Vector de energias para conversion fluencia $\to$ dosis (MeV)}
+\vardef{$DF4$}{Vector de factores de conversion (MeV/g)/(MeV/cm$^2$)}
+
+La conversion responde a la formula general:
+
+$$
+H(E) = \frac{\mu_{en}(E)}{\rho} \cdot \Phi(E) \cdot E
+$$
+
+\vardef{$H(E)$}{Dosis en energia $E$ (MeV/g)}
+\vardef{$\mu_{en}(E)/\rho$}{Coeficiente masico de absorcion de energia (cm$^2$/g)}
+\vardef{$\Phi(E)$}{Fluencia de particulas en energia $E$ (particulas/cm$^2$)}
+
+Post-procesamiento: la dosis en MeV/g se convierte a Gy:
+
+$$
+D_{Gy} = D_{MeV/g} \cdot \frac{1.602176634 \times 10^{-13}\ \text{J/MeV}}{10^{-3}\ \text{kg/g}}
+$$
+
+$$
+D_{Gy} = D_{MeV/g} \times 1.602176634 \times 10^{-10}
+$$
+
+\vardef{$D_{Gy}$}{Dosis absorbida en Gray (J/kg)}
+\vardef{$D_{MeV/g}$}{Dosis en unidades MCNP (MeV/g)}
+
+\subsection{*F8 --- Detectores Puntuales por Organo}
+
+Los tallies *F8 (pulse height) proporcionan el espectro de energia depositada en una celda. 3Dosim define *F8 por cada VOI con muestreo aleatorio de voxeles:
+
+\begin{verbatim}
+*F8:P  (90 lc [x1 y1 z1])  $ Tally F8 en celda higado
+*F18:P (100 lc [x2 y2 z2])  $ Tally F8 en celda tumor
+\end{verbatim}
+
+La notacion \texttt{lc} permite especificar una lista de celdas que conforman el detector.
+
+La desviacion estandar relativa (RSD) para *F8:
+
+$$
+RSD = \frac{1}{\sqrt{N_{eventos}}}
+$$
+
+\vardef{$RSD$}{Desviacion estandar relativa del tally *F8}
+\vardef{$N_{eventos}$}{Numero de eventos detectados en el tally}
+
+Para alcanzar $RSD < 5\%$:
+
+$$
+N_{eventos} > \left(\frac{1}{0.05}\right)^2 = 400
+$$
+
+\subsection{F6:e --- Energia Depositada Total}
+
+El tally F6 mide la energia depositada por unidad de masa (MeV/g):
+
+\begin{verbatim}
+F6:P  body_cell  $ Energia depositada en todo el paciente
+\end{verbatim}
+
+Se usa como verificacion de conservacion:
+
+$$
+E_{depositada}^{F6} \approx E_{emitida}^{SDEF}
+$$
+
+\subsection{Tarjetas de Corte (CUT)}
+
+Controlan la energia minima de simulacion:
+
+\begin{verbatim}
+CUT:P J 1e-3    $ Corte para fotones (1 keV)
+CUT:E J 1e-3    $ Corte para electrones (1 keV)
+\end{verbatim}
+
+El parametro \texttt{J} indica que es un corte en energia (no en tiempo).
+
+\subsection{Conversion de Unidades}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Unidad MCNP} & \textbf{Unidad SI} & \textbf{Factor} \\
+\midrule
+MeV/g & Gy & $1.602176634 \times 10^{-10}$ \\
+MeV/cm$^2$ & -- & (fluencia, se multiplica por $\mu_{en}/\rho$) \\
+shakes & s & $10^{-8}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Resumen de Tallies}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Tally} & \textbf{ID} & \textbf{Tipo} & \textbf{Proposito} \\
+\midrule
+RMESH1:PEDEP & 1 & Grilla 3D & Mapa de dosis volumetrico \\
+DE4/DF4 & 4 & Conversion & Fluencia $\to$ dosis (11 puntos) \\
+*F8:P & 8 & Puntual & Dosis en organo especifico \\
+*F18:P & 18 & Puntual & Dosis en tumor \\
+F6:P & 6 & Volumetrica & Energia depositada total \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Parametros Globales de Simulacion}
+
+\begin{verbatim}
+NPS  10000000     $ 10 millones de historias
+RAND STRIDE=1111152917 GEN=2 SEED=random  $ Semilla reproducible
+\end{verbatim}
+
+\vardef{$NPS$}{Numero de historias de particulas en la simulacion MCNP}
+\vardef{$RAND$}{Tarjeta de control de numeros aleatorios}
+
+\subsection{Verificacion de Conservacion de Energia}
+
+$$
+E_{emitida} = N_{particulas} \times \bar{E}_{\beta}
+$$
+
+\vardef{$E_{emitida}$}{Energia total emitida por la fuente (MeV)}
+
+$$
+E_{depositada} = \sum_{voxeles} D_{voxel} \times \rho_{voxel} \times V_{voxel}
+$$
+
+\vardef{$E_{depositada}$}{Energia total depositada en el volumen (MeV)}
+\vardef{$\rho_{voxel}$}{Densidad del voxel (g/cm$^3$)}
+\vardef{$V_{voxel}$}{Volumen de un voxel ($dx \cdot dy \cdot dz$)}
+
+$$
+\text{Ratio} = \frac{E_{depositada}}{E_{emitida}} \approx 1.0
+$$
+
+El ratio debe estar entre 0.95 y 1.05.
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+TMESH cubre todo el volumen RPP & Rango TMESH $<$ RPP & Critico \\
+CORA/CORB/CORC definidos & Falta alguno de los 3 ejes & Critico \\
+nx, ny, nz enteros $>$ 0 & $nx \leq 0$ o no entero & Critico \\
+DE4/DF4 tienen 11 puntos cada uno & Distinta cantidad de puntos & Critico \\
+*F8 asocia celda existente & Celda del detector no definida & Critico \\
+CUT:P y CUT:E presentes & Modo P o E sin CUT & Critico \\
+ENDSD cierra TMESH & Falta ENDSD & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 7. GENERACION DEL ARCHIVO .i
+% ============================================================
+\section{Generacion del Archivo .i}
+\label{sec:generacion}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+NPS & Number of Particles (numero de historias) \\
+MODE & Modalidad de transporte (P: foton, E: electron) \\
+IMP & Importance (importancia de celda) \\
+PRDMP & Print Dump (control de impresion) \\
+VOID & Tarjeta VOID (espacio vacio sin transporte) \\
+RFL & Right, Left, Free (formato MCNP) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto}
+
+La generacion del input MCNP es el paso central del Modulo 2. Recibe los datos de la escena procesada (labelmap, TC, VOIs, parametros del tratamiento) y produce un archivo de texto con formato MCNP6 (.i) listo para ejecutar.
+
+\subsection{Flujo de Generacion}
+
+\begin{verbatim}
+  Parametros del tratamiento
+  (isotopo, n_particles, refine_hu, flip_rows, flip_z)
+         |
+         v
+  mcnp_generator.generate()
+         |
+         +-- 1. Cabecera (comentarios + metadata)
+         +-- 2. Bloque de celdas (cell builder)
+         +-- 3. Bloque de superficies (surface builder)
+         +-- 4. Tarjetas de datos (data builder)
+         +-- 5. Materiales (material builder)
+         +-- 6. Fuente SDEF (source builder)
+         +-- 7. Tallies TMESH (tally builder)
+         +-- 8. Tallies *F8 (detector builder)
+         +-- 9. Tally F6
+         +-- 10. Print
+         +-- 11. Archivo .src externo
+         +-- 12. Corte de geometria (geocut)
+\end{verbatim}
+
+\subsection{Parametros de Entrada}
+
+\begin{verbatim}
+params = {
+    "isotope": "Y90",        # Y90, Lu177, I131
+    "n_particles": 1000000,  # 1x10^6 historias
+    "refine_hu": False,      # Refinar materiales por HU
+    "flip_rows": False,      # Invertir filas RAS->MCNP
+    "flip_z": False,         # Invertir slices
+    "image_origin": None,    # Origen LPS opcional
+}
+\end{verbatim}
+
+\subsection{Las 12 Secciones en Detalle}
+
+\subsubsection{Seccion 1: Cabecera}
+
+\begin{verbatim}
+Mensaje de bloqueo (1 linea)
+
+C ================================================================
+C Archivo de entrada MCNP generado por 3Dosim v4.0
+C ================================================================
+C Paciente   : {patient_id}
+C Isotopo    : {isotope}
+C Particulas : {n_particles}
+C Fecha      : {timestamp}
+C Refine HU  : {refine_hu}
+C Flip rows  : {flip_rows}
+C Flip Z     : {flip_z}
+C ================================================================
+\end{verbatim}
+
+\subsubsection{Seccion 2: Bloque de Celdas}
+
+Define las celdas voxel usando \texttt{LIKE n BUT} y \texttt{LAT=1}:
+
+\begin{verbatim}
+C ===== CELDAS =====
+C Celda mundo
+999 0 -1000  IMP:P=1 IMP:E=1  $ Exterior (vacio)
+C
+C Celda lattice (voxels)
+1 0 -1000 U=1 LAT=1
+   FILL=-{nx}:{2*nx} -{ny}:{2*ny} -{nz}:{2*nz}
+   1 1 1 1 2 2 2 3 3 3 3 4 ...
+C
+C Celdas voxel (materiales)
+{v} LIKE 1 BUT MAT={mid} RHO=-{rho} U={v}
+\end{verbatim}
+
+\subsubsection{Seccion 3: Bloque de Superficies}
+
+Define el RPP contenedor:
+
+\begin{verbatim}
+C ===== SUPERFICIES =====
+1000 RPP {x_min} {x_max} {y_min} {y_max} {z_min} {z_max}
+\end{verbatim}
+
+\subsubsection{Seccion 4: Tarjetas de Datos}
+
+\begin{verbatim}
+C ===== DATOS =====
+MODE P E
+IMP:P 1  $ Importancia foton = 1 en todas las celdas
+IMP:E 1  $ Importancia electron = 1 en todas las celdas
+CUT:P J 1e-3  $ Corte de energia para fotones
+CUT:E J 1e-3  $ Corte de energia para electrones
+\end{verbatim}
+
+\subsubsection{Seccion 5: Materiales}
+
+\begin{verbatim}
+C ===== MATERIALES =====
+M1   6000 0.000124  7000 0.755268  8000 0.231481  18000 0.012827  $ Aire
+M2   1000 0.105  6000 0.143  7000 0.034  8000 0.708  $ Tejido_blando
+     11000 0.002  15000 0.003  16000 0.003  17000 0.002
+     19000 0.003
+M3   1000 0.102  6000 0.131  7000 0.031  8000 0.724  $ Higado
+...
+M6   1000 0.102  6000 0.131  7000 0.031  8000 0.724  $ Tumor
+\end{verbatim}
+
+\subsubsection{Seccion 6: Fuente SDEF}
+
+\begin{verbatim}
+C ===== FUENTE =====
+SDEF PAR=D1 ERG=FPAR=D6 X=D2 Y=D3 Z=D4 CELL=D5
+      WGT=1.00033788800193
+SI2 H 0. sx_cm
+SP2 D 0 1
+SI5 L (u lc[ix iy iz] lw)
+SP5 peso=1/n_active
+read file Y90cel3D.src
+\end{verbatim}
+
+\subsubsection{Seccion 7: Tallies TMESH}
+
+\begin{verbatim}
+C ===== TMESH =====
+TMESH
+  RMESH1:PEDEP PEDEP
+  CORA1 {x_min} {x_max} {nx}
+  CORB1 {y_min} {y_max} {ny}
+  CORC1 {z_min} {z_max} {nz}
+  DE4 0.01 0.03 0.05 0.07 0.10 0.20 0.40 0.60 1.00 2.00 2.28
+  DF4 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+  ENDSD
+\end{verbatim}
+
+\subsubsection{Seccion 8: Tallies *F8}
+
+\begin{verbatim}
+C ===== *F8 =====
+*F8:P  (90 lc [x1 y1 z1])  $ Higado
+*F18:P (100 lc [x2 y2 z2])  $ Tumor
+\end{verbatim}
+
+\subsubsection{Seccion 9: Tally F6}
+
+\begin{verbatim}
+C ===== F6 =====
+F6:P {body_cell}  $ Energia depositada en todo el paciente
+\end{verbatim}
+
+\subsubsection{Seccion 10: Print}
+
+\begin{verbatim}
+C ===== PRINT =====
+PRINT
+PRDMP 2J 1
+\end{verbatim}
+
+\subsubsection{Seccion 11: Archivo de Fuente Externo}
+
+Se genera un archivo \texttt{.src} con las posiciones muestreadas:
+
+\begin{verbatim}
+{output_dir}/{patient_id}.src
+\end{verbatim}
+
+\subsubsection{Seccion 12: Corte de Geometria (Opcional)}
+
+Solo se incluye si la variable de entorno \texttt{DOSIM\_DEBUG\_GEOM} esta activa:
+
+\begin{verbatim}
+C ===== GEOCUT =====
+VOID
+\end{verbatim}
+
+\subsection{Formato del Archivo}
+
+El formato MCNP limita cada linea a 72 caracteres. El generador respeta esta restriccion:
+
+\begin{verbatim}
+{linea:72s}  $ Formato con padding a 72 caracteres
+\end{verbatim}
+
+\subsection{Validacion Post-Generacion}
+
+Despues de escribir el archivo, \texttt{validate\_mcnp\_input()} ejecuta 5 verificaciones:
+
+\textbf{Verificacion 1: Tamano minimo}
+
+\begin{verbatim}
+assert os.path.getsize(path) > 10_000, "Archivo demasiado pequeno"
+\end{verbatim}
+
+\textbf{Verificacion 2: Keywords obligatorias}
+
+\begin{verbatim}
+keywords = ["C ", "M", "SDEF", "TMESH", "CORA", "CORB", "CORC",
+            "MODE", "CUT", "PRINT", "FILL", "LAT", "RPP"]
+\end{verbatim}
+
+\textbf{Verificacion 3: Coincidencia RPP vs TMESH}
+
+Extraer limites y verificar que TMESH este dentro de RPP.
+
+\textbf{Verificacion 4: Tarjetas CUT}
+
+Si el modo incluye P, debe existir CUT:P; si incluye E, debe existir CUT:E.
+
+\textbf{Verificacion 5: Archivo .src generado}
+
+Si $n_{particulas} > 0$, el archivo .src debe existir y no estar vacio.
+
+\subsection{Archivos de Salida}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Archivo} & \textbf{Contenido} & \textbf{Tamano tipico} \\
+\midrule
+\texttt{paciente.i} & Input MCNP completo & 5--100 MB \\
+\texttt{paciente.src} & Posiciones de fuente & 10--100 MB \\
+\texttt{paciente.dat} & Espectro de energias & 1--10 KB \\
+\texttt{paciente.debug\_geom.txt} & Debug geometrico (si DEBUG) & 1--5 KB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado $>$ 10 KB & Tamano $\leq$ 10 KB & Critico \\
+Todas las keywords MCNP presentes & Keyword faltante & Critico \\
+Coordenadas TMESH dentro del RPP & TMESH fuera de limites & Critico \\
+Tarjetas CUT para modos activos & Modo sin CUT & Critico \\
+Todas las celdas tienen material $>$ 0 & Celda con material 0 & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Material M definido para cada celda & Material referenciado sin M & Critico \\
+Archivo .src existe y tiene contenido & Archivo faltante o vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 8. PIPELINE COMPLETO
+% ============================================================
+\section{Pipeline Completo --- Integracion del Modulo 2}
+\label{sec:pipeline}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+FS & Final State (estado final del pipeline) \\
+QC & Quality Control \\
+MIRD & Medical Internal Radiation Dose \\
+SIRT & Selective Internal Radiation Therapy \\
+TACE & Transarterial Chemoembolization \\
+PRRT & Peptide Receptor Radionuclide Therapy \\
+.mrb & Medical Reality Bundle \\
+.i & Input file (MCNP input) \\
+.o & Output file (MCNP output) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto}
+
+3Dosim es un sistema de dosimetria personalizada para terapias con radionuclidos. El pipeline completo consta de 3 modulos secuenciales:
+
+\begin{verbatim}
+  Modulo 1          Modulo 2           Modulo 3
+  Segmentacion      Generacion MC      Ejecucion MC
+  ----------        ------------       -----------
+  TC + PET          Escena .mrb        Input .i
+       |                 |                  |
+       v                 v                  v
+  TotalSegmentator   pipeline_mod2.py    mcnp6
+  Labelmap 3D        Input MCNP (.i)    MCTAL
+  VOIs .vtk          Espectro (.dat)    Dosis (Gy)
+  Escena .mrb        Fuente (.src)      Isodosis
+       |                 |                  |
+       +-----------------+------------------+
+                          |
+                     Dosis por VOI
+                     Mapas de dosis 3D
+                     DVH (histograma dosis-volumen)
+\end{verbatim}
+
+\subsection{Interfaces}
+
+\subsubsection{Entrada (desde Modulo 1)}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Elemento} & \textbf{Formato} & \textbf{Descripcion} \\
+\midrule
+Escena 3D Slicer & .mrb & TC + labelmap + VOIs \\
+Labelmap segmentado & NRRD & Indices de 1 a 153 \\
+VOIs & VTK & Mallas de higado, tumor, rinones \\
+Parametros clinicos & JSON/dict & Isotopo, actividad, $n_{particulas}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Salida (hacia Modulo 3)}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Elemento} & \textbf{Formato} & \textbf{Descripcion} \\
+\midrule
+Input MCNP & .i & Archivo de entrada listo para MCNP6 \\
+Fuente externa & .src & Posiciones de particulas muestreadas \\
+Espectro & .dat & Distribucion de energias \\
+Metadata & .json & Parametros usados en la generacion \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Diagrama de Flujo Detallado}
+
+\begin{verbatim}
+                            +-------------------+
+                            |     Inicio        |
+                            | (SlicerDosim)     |
+                            +--------+----------+
+                                     |
+                                     v
+                            +-------------------+
+                            | Cargar escena     |
+                            | loadScene(.mrb)   |
+                            +--------+----------+
+                                     |
+                                     v
+                            +-------------------+
+                            | scan_nodes()      |
+                            | Identificar:      |
+                            | - volume_node     |
+                            | - labelmap        |
+                            | - VOIs            |
+                            +--------+----------+
+                                     |
+                                     v
+                            +-------------------+
+                            | validate_         |
+                            | prereqs()         |
+                            | 4 checks          |
+                            +--------+----------+
+                                     |
+                   +-----------------+------------------+
+                   v                 v                  v
+             iTC OK?          iLabelmap OK?       iVOIs OK?
+                   |                 |                  |
+                   +--------+--------+---------+--------+
+                            |                  |
+                            v                  v
+                     Continuar            Detener
+                            |
+                            v
+              +-------------------------------+
+              | Configurar TissueConfig       |
+              | Cargar tissue_config.json     |
+              | (59 materiales totales)        |
+              +-------------+-----------------+
+                            |
+                            v
+              +-------------------------------+
+              | Construir bloques del .i      |
+              |                               |
+              | +-> Cabecera (metadata)       |
+              | +-> Celdas (lattice + RLE)    |
+              | +-> Superficies (RPP)         |
+              | +-> Datos (MODE/CUT/IMP)      |
+              | +-> Materiales (M1..M6+)      |
+              | +-> SDEF (espectro + src)     |
+              | +-> TMESH (grilla 3D)         |
+              | +-> *F8 (detectores VOI)      |
+              | +-> F6 (energia total)        |
+              | +-> PRINT/PRDMP               |
+              | +-> Archivo .src externo      |
+              +-------------+-----------------+
+                            |
+                            v
+              +-------------------------------+
+              | Escribir paciente.i           |
+              | Escribir paciente.src         |
+              | Escribir paciente.dat         |
+              +-------------+-----------------+
+                            |
+                            v
+              +-------------------------------+
+              | validate_mcnp_input()         |
+              | 5 verificaciones              |
+              +-------------+-----------------+
+                            |
+                    +-------+--------+
+                    v                v
+                Valido          Invalido
+                    |                |
+                    v                v
+        +-------------------+  +----------------+
+        | Continuar         |  | Corregir y     |
+        | a Modulo 3        |  | regenerar      |
+        +-------------------+  +----------------+
+\end{verbatim}
+
+\subsection{Dependencias entre Secciones del .i}
+
+\begin{verbatim}
+  Superficies (RPP) ----------> Celdas (usan numeros de superficie)
+        |                              |
+        |                              v
+        |                     Materiales (M1..M6+)
+        |                              |
+        v                              v
+  TMESH (coordenadas           Celdas (MAT + RHO)
+  deben coincidir con RPP)          |
+                                     v
+                               SDEF (archivo .src)
+                                     |
+                                     v
+                               *F8 / F6 (celdas de VOI)
+\end{verbatim}
+
+\subsection{Manejo de Errores y Estados}
+
+\subsubsection{Estados del Pipeline}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Estado} & \textbf{Significado} \\
+\midrule
+\texttt{INIT} & Pipeline creado, sin ejecutar \\
+\texttt{CHECKING\_SLICER} & Verificando Slicer \\
+\texttt{LOADING\_SCENE} & Cargando escena .mrb \\
+\texttt{SCANNING\_NODES} & Identificando nodos \\
+\texttt{VALIDATING} & Validando prerequisitos \\
+\texttt{GENERATING} & Generando input MCNP \\
+\texttt{VALIDATING\_OUTPUT} & Validando archivo generado \\
+\texttt{COMPLETED} & Pipeline terminado exitosamente \\
+\texttt{FAILED} & Pipeline fallo \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Errores Comunes}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Error} & \textbf{Causa} & \textbf{Solucion} \\
+\midrule
+\texttt{SceneLoadError} & .mrb corrupto & Regenerar escena en Mod1 \\
+\texttt{NodeNotFound} & Falta volume/labelmap & Verificar segmentacion \\
+\texttt{DimensionMismatch} & TC $\neq$ labelmap & Reprocesar Mod1 \\
+\texttt{TissueConfigError} & JSON mal formado & Verificar tissue\_config.json \\
+\texttt{MCNPValidationError} & Input invalido & Revisar validate\_mcnp\_input.py \\
+\texttt{SourceSamplingError} & VOI vacio & Verificar segmentacion tumor \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Integracion con el Resto del Sistema}
+
+\begin{verbatim}
+                      +-------------------------+
+                      |    3Dosim v4.0          |
+                      |    Interfaz Slicer      |
+                      +-----------+-------------+
+                                  |
+                 +----------------+----------------+
+                 v                v                v
+         +-------------+  +-------------+  +-------------+
+         | Modulo 1    |  | Modulo 2    |  | Modulo 3    |
+         | Segmentac.  |->| Gen. Input  |->| Ejecucion   |
+         | (Python)    |  | (Python)    |  | (MCNP + Py) |
+         +-------------+  +-------------+  +-------------+
+                                 |                  |
+                                 v                  v
+                        +-------------+  +-------------+
+                        |tissue_config|  |   MCTAL     |
+                        |.json        |  |   Parser    |
+                        |ICRP-110     |  |   Dosis en  |
+                        |59 materiales|  |   Gy        |
+                        +-------------+  +-------------+
+\end{verbatim}
+
+\subsection{Comandos de Ejecucion}
+
+\subsubsection{Desde 3D Slicer (SlicerDosim)}
+
+\begin{verbatim}
+def run_dosimetry_from_scene(mrb_path, params):
+    # ===== Modulo 1: Segmentacion =====
+    scene = slicer.util.loadScene(mrb_path)
+    # ...
+
+    # ===== Modulo 2: Generacion de input MCNP =====
+    from pipeline_mod2 import PipelineMod2
+    mod2 = PipelineMod2()
+    mod2.check_slicer()
+    mod2.load_scene(mrb_path)
+    mod2.scan_nodes()
+    mod2.validate_prereqs()
+    input_path = mod2.generate_mcnp(params)
+    mod2.validate(input_path)
+
+    # ===== Modulo 3: Ejecucion MCNP =====
+    # ...
+\end{verbatim}
+
+\subsubsection{Desde Linea de Comandos (Standalone)}
+
+\begin{verbatim}
+python pipeline_mod2.py --scene paciente.mrb \
+    --isotope Y90 \
+    --n_particles 1000000 \
+    --output_dir ./output
+\end{verbatim}
+
+\subsection{Checkpoints del Pipeline}
+
+El sistema mantiene checkpoints persistentes para reanudar ejecuciones interrumpidas:
+
+\begin{verbatim}
+output_dir/
++-- checkpoints/
+|   +-- pipeline_checkpoint.json
++-- scenes/
+|   +-- 3Dosim_scene.mrb
++-- logs/
+|   +-- pipeline_mod2.log
++-- paciente.i
++-- paciente.src
++-- paciente.dat
++-- pipeline_results.json  (historial de ejecuciones)
+\end{verbatim}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Flujo completo ejecutado & Todos los pasos completados & Critico \\
+Interfaz Mod1 $\to$ Mod2 & Escena .mrb cargable & Critico \\
+Interfaz Mod2 $\to$ Mod3 & Archivo .i valido & Critico \\
+Tiempo de generacion & $t_{gen} < 5$ min & Advertencia \\
+Conservacion de energia & Ratio 0.95--1.05 & Critico \\
+Reproducibilidad & Mismo RAND seed produce mismo resultado & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% APENDICE A: CONSTANTES FISICAS
+% ============================================================
+\section*{Apendice: Constantes Fisicas}
+\addcontentsline{toc}{section}{Apendice: Constantes Fisicas}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+MeV & Megaelectronvoltio \\
+keV & Kiloelectronvoltio \\
+Bq & Becquerel \\
+Gy & Gray \\
+\bottomrule
+\end{tabular}
+
+\subsection{Isotopos}
+
+\begin{center}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Isotopo} & $T_{1/2}$ (dias) & $E_{\beta,max}$ (MeV) & $\bar{E}_\beta$ (MeV) & \textbf{Alcance medio} \\
+\midrule
+$^{90}$Y & 2.67 & 2.28 & 0.935 & 2.5 mm \\
+$^{177}$Lu & 6.65 & 0.50 & 0.133 & 0.5 mm \\
+$^{131}$I & 8.02 & 0.61 & 0.192 & 0.8 mm \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Densidades de Referencia}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Tejido} & $\rho$ (g/cm$^3$) & \textbf{Fuente} \\
+\midrule
+Aire seco & 0.001205 & ICRU-44 \\
+Tejido blando & 1.06 & ICRU-44 \\
+Higado & 1.05 & ICRP-110 \\
+Pulmon & 0.50 & ICRP-110 \\
+Hueso & 1.60 & ICRP-110 \\
+Tumor & 1.05 & ICRP-110 \\
+Agua & 1.00 & ICRU-44 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Espectro Y-90 (Detallado)}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parametro} & \textbf{Valor} \\
+\midrule
+$E_{\beta,max}$ & 2.2807 MeV \\
+$\bar{E}_\beta$ & 0.9357 MeV \\
+Decaimiento & $\beta^-$ puro a $^{90}$Zr (estable) \\
+$Z_{hijo}$ & 40 ($^{90}$Zr) \\
+$T_{1/2}$ & 64.04 horas (2.67 dias) \\
+$\lambda$ & $1.082 \times 10^{-2}$ h$^{-1}$ \\
+$A_{tipica}$ SIRT & 1--5 GBq \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Factores de Conversion}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{De} & \textbf{A} & \textbf{Factor} \\
+\midrule
+MeV/g & Gy & $1.602176634 \times 10^{-10}$ \\
+mCi & MBq & 37 \\
+Ci & GBq & 37 \\
+Bq & Ci & $2.7027 \times 10^{-11}$ \\
+shakes & s & $10^{-8}$ \\
+MeV & J & $1.602176634 \times 10^{-13}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+
+% ============================================================
+% REFERENCIAS
+% ============================================================
+\section*{Referencias}
+\addcontentsline{toc}{section}{Referencias}
+
+\begin{enumerate}
+    \item MCNP6 User's Manual, LA-UR-13-22934, Los Alamos National Laboratory, 2013.
+    \item MCNP6 LATTICE Card, LA-CP-13-00634, Los Alamos National Laboratory, 2013.
+    \item MCNP6 TMESH Card, LA-CP-14-00745, Los Alamos National Laboratory, 2014.
+    \item ICRP Publication 110: Adult Reference Computational Phantoms, Annals of the ICRP 39(2), 2009.
+    \item ICRU Report 44: Tissue Substitutes in Radiation Dosimetry and Measurement, 1989.
+    \item ICRU Report 56: Dosimetry of External Beta Rays for Radiation Protection, 1997.
+    \item Wasserthal, J. et al., ``TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images'', Radiology Insights, 2023.
+    \item Fedorov, A. et al., ``3D Slicer as an Image Computing Platform for the Quantitative Imaging Network'', Magnetic Resonance Imaging 30(9), 2012.
+    \item X-5 Monte Carlo Team, ``MCNP -- A General N-Particle Transport Code, Version 5'', LA-UR-03-1987, 2003.
+    \item Eckerman, K. et al., ``Nuclear Decay Data for Dosimetric Calculations'', ICRP Publication 107, Annals of the ICRP 38(3), 2008.
+    \item Loevinger, R. et al., ``MIRD Primer for Absorbed Dose Calculations'', Society of Nuclear Medicine, 1988.
+    \item Schneider, W. et al., ``Correlation between CT numbers and tissue parameters needed for Monte Carlo simulations'', Physics in Medicine and Biology 45(2), 2000.
+    \item Solberg, T. et al., ``Lattice and voxel geometry in MCNP for medical physics applications'', Nuclear Science and Engineering, 2001.
+    \item Shultis, J.K. \& Faw, R.E., ``An MCNP Primer'', Kansas State University, 2011.
+    \item 3Dosim v4 Architecture, \texttt{docs/modulo\_1/vision\_general.md}, 2026.
+    \item 3Dosim v4 PipelineOrchestrator, \texttt{pipeline\_mod2.py}, 2026.
+    \item 3Dosim v4 SlicerDosim, \texttt{SlicerDosimMod3.py}, 2026.
+    \item 3D Slicer MRML Documentation, \texttt{mrml.vtk.org}.
+    \item .mrb File Format Specification, 3D Slicer Documentation.
+\end{enumerate}
+
+\end{document}

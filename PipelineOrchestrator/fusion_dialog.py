@@ -11,7 +11,7 @@ Muestra en un QDialog NO MODAL:
 NO bloquea el pipeline. El usuario puede cerrarlo cuando quiera.
 """
 
-import logging
+    import logging
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def show_fusion_info_dialog(
     try:
         from qt import (
             QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-            QPushButton, QFont, QFrame, QApplication,
+            QPushButton, QFont, QFrame, QApplication, QEventLoop, Qt,
         )
         import slicer
     except ImportError:
@@ -67,7 +67,8 @@ def show_fusion_info_dialog(
     dialog = QDialog(main_window)
     dialog.setWindowTitle("3Dosim — Fusion CT+PET completada")
     dialog.setMinimumWidth(520)
-    dialog.setModal(True)  # Bloquea hasta que el usuario cierre
+    dialog.setModal(False)
+    dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowStaysOnTopHint)
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(20, 15, 20, 15)
@@ -258,9 +259,15 @@ def show_fusion_info_dialog(
     btn_layout.addWidget(close_btn)
     layout.addLayout(btn_layout)
 
-    # Mostrar MODAL — bloquea hasta que el usuario cierre
-    try:
-        dialog.exec()
-        logger.info("  Dialogo de fusion cerrado por el usuario")
-    except Exception as e:
-        logger.warning(f"  Error en dialogo de fusion: {e}")
+    # Mostrar NO MODAL — Slicer sigue operativo mientras el dialogo esta abierto
+    dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()
+    logger.info("  Dialogo de fusion NO MODAL — Slicer completamente operativo")
+    logger.info("  El usuario puede cerrarlo cuando desee")
+
+    loop = QEventLoop()
+    dialog.finished.connect(lambda: loop.quit())
+    loop.exec()
+
+    logger.info("  Dialogo de fusion cerrado por el usuario")

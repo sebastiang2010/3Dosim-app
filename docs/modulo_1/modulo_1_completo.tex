@@ -1,0 +1,2278 @@
+\documentclass[12pt,a4paper]{article}
+
+% ============================================================
+% Paquetes
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{verbatim}
+
+\geometry{margin=2.5cm}
+\setlength{\headheight}{13.6pt}
+
+% ============================================================
+% Configuracion de encabezado/pie
+% ============================================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 3Dosim --- Modulo 1}
+\fancyhead[R]{\small Segmentacion, Registro y Fusion}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================
+% Macro para notacion: define una variable con descripcion
+% Uso: \vardef{$A_{vox}$}{Concentracion de actividad en Bq/mL}
+% ============================================================
+\newcommand{\vardef}[2]{\noindent\textbf{#1}: #2\\}
+
+\setlength{\parskip}{0.5em}
+
+% ============================================================
+% Portada
+% ============================================================
+\title{\textbf{Modulo 1: Segmentacion, Registro y Fusion de Imagenes}\\[0.5cm]
+       \large Pipeline de Preparacion para Dosimetria Hepatica con $^{90}$Y\\[0.3cm]
+       \normalsize Documentacion Tecnica --- Revision v4.0}
+\author{Proyecto 3Dosim --- Dosimetria Hepatica con $^{90}$Y}
+\date{Julio 2026}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% ============================================================
+% GLOSARIO DE ACRONIMOS
+% ============================================================
+\section*{Glosario de Acronimos}
+\addcontentsline{toc}{section}{Glosario de Acronimos}
+
+\begin{description}
+    \item[3Dosim] Pipeline de dosimetria interna 3D para radioembolizacion hepatica.
+    \item[A$_{\text{total}}$] Actividad total integrada sobre todo el volumen PET [Bq].
+    \item[ASGD] Adaptive Stochastic Gradient Descent --- optimizador de Elastix.
+    \item[Bq] Becquerel --- unidad de actividad radiactiva (1 desintegracion/s).
+    \item[Bq/mL] Concentracion de actividad por mililitro de tejido.
+    \item[CT] Computed Tomography --- imagen anatomica en unidades Hounsfield (HU).
+    \item[DICOM] Digital Imaging and Communications in Medicine --- estandar
+          de almacenamiento y transmision de imagenes medicas.
+    \item[DOF] Degrees of Freedom --- grados de libertad de una transformacion.
+    \item[FMESH4] Mesh tally multiplicador de MCNP --- registra energia
+          depositada por voxel.
+    \item[FOV] Field of View --- campo de vision de la imagen.
+    \item[FU] Fraction of Uptake --- fraccion de actividad captada por un organo.
+    \item[GBq] Gigabecquerel ($10^9$ Bq). Dosis tipica de $^{90}$Y: 1--5 GBq.
+    \item[GDPR] General Data Protection Regulation (Union Europea).
+    \item[HIPAA] Health Insurance Portability and Accountability Act (EEUU).
+    \item[HU] Hounsfield Unit --- escala de densidad radiologica:
+          agua $= 0$ HU, aire $= -1000$ HU, hueso $> 400$ HU.
+    \item[ICRP-110] Publicacion 110 de la Comision Internacional de
+          Proteccion Radiologica --- phantoms computacionales de referencia.
+    \item[ICRU-44] Reporte 44 de la Comision Internacional de Unidades y
+          Medidas Radiologicas --- composiciones de tejidos.
+    \item[MAE] Mean Absolute Error.
+    \item[MCNP] Monte Carlo N-Particle --- codigo de simulacion de transporte
+          de radiacion (Los Alamos National Laboratory).
+    \item[MCTAL] Archivo de salida de MCNP con resultados de tallies.
+    \item[mCi] Milicurie ($1$ mCi $= 37$ MBq $= 3.7 \times 10^7$ Bq). Unidad historica.
+    \item[MI] Mutual Information --- metrica de similitud entre imagenes.
+    \item[MIRD] Medical Internal Radiation Dose --- modelo analitico de dosimetria.
+    \item[MSE] Mean Squared Error --- metrica de diferencia cuadratica media.
+    \item[NCC] Normalized Cross-Correlation --- metrica de similitud entre imagenes.
+    \item[NIfTI] Neuroimaging Informatics Technology Initiative --- formato
+          de archivo volumetrico (.nii), usado por MCNP.
+    \item[NPS] Number of Particle Histories --- numero de historias en MCNP.
+    \item[NRRD] Nearly Raw Raster Data --- formato volumetrico (.nrrd),
+          nativo de 3D Slicer.
+    \item[PET] Positron Emission Tomography --- imagen funcional de actividad.
+    \item[PHI] Protected Health Information --- datos de salud protegidos (HIPAA).
+    \item[RMSE] Root Mean Squared Error.
+    \item[ROI] Region of Interest.
+    \item[SF] Shunt Fraction --- fraccion de microesferas que escapan al pulmon.
+    \item[SUV] Standardized Uptake Value --- medida semicuantitativa PET.
+    \item[T/N] Tumor-to-Normal ratio --- razon de captacion PET tumor/higado sano.
+    \item[TS] TotalSegmentator --- segmentador anatomico por deep learning
+          (104 clases a partir de CT).
+    \item[nnU-Net] Arquitectura de red neuronal convolucional usada por TS.
+\end{description}
+
+\newpage
+
+% ============================================================
+% Tabla de contenidos
+% ============================================================
+\tableofcontents
+\newpage
+
+% ============================================================
+% 1. PIPELINE COMPLETO
+% ============================================================
+\section{Pipeline Completo --- Los 16 Pasos}
+
+\subsection{Vision General}
+
+La dosimetria interna con $^{90}$Y requiere conocer exactamente donde esta cada tejido (higado,
+tumor, pulmon, hueso) y cuanta actividad hay en cada punto (PET). El Modulo 1 toma imagenes
+DICOM crudas --- un CT anatomico y un PET funcional --- y las procesa a traves de 16 pasos
+automatizados para producir una \textbf{labelmap dosimetrica}: un volumen 3D donde cada voxel
+tiene un valor entero que identifica su tipo de tejido segun la tabla de materiales
+ICRP-110/ICRU-44. Esta labelmap es la entrada del Modulo 2 (generacion de entrada MCNP).
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+DICOM & Digital Imaging and Communications in Medicine \\
+HU & Hounsfield Unit \\
+MCNP & Monte Carlo N-Particle \\
+NIfTI & Neuroimaging Informatics Technology Initiative \\
+NRRD & Nearly Raw Raster Data \\
+PET & Positron Emission Tomography \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+\subsection{Diagrama de Flujo General}
+
+\begin{verbatim}
++-----------------------------------------------------------------+
+|                         MODULO 1                                |
+|              Segmentacion + Registro + Fusion                    |
+|                                                                  |
+|  DICOM ---> Calibracion ---> Camilla ---> Registro ---> Fusion  |
+|   CT       PET            removal     PET->CT      CT+PET       |
+|    |          |              |            |           |          |
+|    +----------+--------------+------------+-----------+          |
+|                           |                                      |
+|                           v                                      |
+|  Anonimizacion ---> TotalSegmentator ---> Validacion IA          |
+|       |                  |                        |              |
+|       +------------------+------------------------+              |
+|                           |                                      |
+|                           v                                      |
+|  Validacion Medica ---> Creacion Tumor ---> Validacion Tumor     |
+|                           |                                      |
+|                           v                                      |
+|  Higado Sano ---> Body seg. ---> Labelmap NIfTI+NRRD             |
+|                                                                  |
+|                              v                                   |
+|                    Labelmap Dosimetrica                          |
+|                    (entrada Modulo 2)                            |
++-----------------------------------------------------------------+
+\end{verbatim}
+
+\subsection{Secuencia de Pasos}
+
+Cada paso tiene un archivo fuente, un proposito y una salida especifica.
+A continuacion se listan los 16 pasos con referencias a las secciones detalladas.
+
+\begin{enumerate}
+    \item \textbf{Check Slicer} (Seccion \ref{sec:check}): Verifica entorno, modulos y rutas.
+    \item \textbf{Carga DICOM} (Seccion \ref{sec:carga}): Carga CT y PET desde directorios DICOM.
+    \item \textbf{Calibracion PET} (Seccion \ref{sec:calibracion}): Convierte DICOM raw a Bq/mL.
+    \item \textbf{Eliminar Camilla} (Seccion \ref{sec:camilla}): Remueve mesa y aire del CT.
+    \item \textbf{Registro PET$\to$CT} (Seccion \ref{sec:registro}): Re-muestrea PET a grilla CT.
+    \item \textbf{Fusion CT+PET} (Seccion \ref{sec:fusion}): Layout 4-up + dialogo de actividad.
+    \item \textbf{Anonimizacion} (Seccion \ref{sec:anonimizacion}): Elimina metadatos PHI.
+    \item \textbf{Exportar metadatos} (Seccion \ref{sec:anonimizacion}): Metadatos DICOM a CSV.
+    \item \textbf{TotalSegmentator} (Seccion \ref{sec:ts}): Segmentacion 104 clases (nnU-Net).
+    \item \textbf{Validacion IA} (Seccion \ref{sec:ai}): AI Supervisor verifica automaticamente.
+    \item \textbf{Validacion Medica} (Seccion \ref{sec:validacion}): Aprobacion obligatoria.
+    \item \textbf{Creacion de Tumor} (Seccion \ref{sec:tumor}): 4 modos de lesion hepatica.
+    \item \textbf{Validacion de Tumor} (Seccion \ref{sec:validacion_tumor}): Aprobacion medica.
+    \item \textbf{Higado Sano} (Seccion \ref{sec:tumor}): Higado completo menos tumor.
+    \item \textbf{Body Segmentation} (Seccion \ref{sec:body}): Contorno externo con TS.
+    \item \textbf{Exportar Labelmap} (Seccion \ref{sec:labelmap}): NIfTI + NRRD con indices.
+\end{enumerate}
+
+\subsection{Modos de Ejecucion}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{2.8cm} p{7.5cm} p{2.2cm}}
+\toprule
+\textbf{Modo} & \textbf{Comando} & \textbf{Pasos} \\
+\midrule
+Completo & \texttt{Slicer.exe --python-script main.py --data-dir ''Paciente\_2''} & 16 \\
+Hasta fusion & \texttt{--stop-after-fusion} & 1--6 \\
+Antes de segmentar & \texttt{--stop-before-segment} & 1--7 \\
+Reset & \texttt{--reset} & 16 (desde cero) \\
+Debug & \texttt{--debug} & 16 (pausa tras cada paso) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Estructura de Archivos de Salida}
+
+\begin{verbatim}
+output_dir/
++-- anon/
+|   +-- ANON_CT.nrrd       (CT anonimizado)
+|   +-- ANON_PET.nii       (PET anonimizado)
++-- checkpoints/
+|   +-- pipeline_checkpoint.json
++-- labelmaps/
+|   +-- labelmap.nii       (NIfTI para Modulo 2)
+|   +-- labelmap.nrrd      (NRRD para Slicer)
++-- scenes/
+|   +-- 3Dosim_scene.mrb   (escena Slicer)
++-- screenshots/
++-- logs/
+|   +-- pipeline_mod1.log
++-- summary.txt
++-- pipeline_results.json  (historial de ejecuciones)
+\end{verbatim}
+
+\newpage
+
+% ============================================================
+% 1b. CHECK SLICER
+% ============================================================
+\section{Verificacion de Entorno (Check Slicer)}
+\label{sec:check}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CLI & Command-Line Interface \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+La ejecucion del pipeline comienza verificando que 3D Slicer este funcionando correctamente, que
+los modulos necesarios esten disponibles (BRAINSResample, TotalSegmentator) y que los directorios
+de entrada/salida existan. Si el flag \texttt{--reset} esta activo, se eliminan todos los
+checkpoints previos para forzar una ejecucion completa desde cero.
+
+\subsection{Verificaciones}
+
+\begin{enumerate}
+    \item Comprobar que \texttt{slicer} este importado correctamente.
+    \item Verificar existencia de modulos criticales: BRAINSResample, TotalSegmentator.
+    \item Validar directorios de entrada: $\mathcal{D}_{\text{CT}}$, $\mathcal{D}_{\text{PET}}$.
+    \item Si \texttt{--reset}: eliminar \texttt{pipeline\_checkpoint.json} y escenas \texttt{.mrb}.
+\end{enumerate}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
+Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
+Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
+Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
+\section{Carga DICOM CT+PET}
+\label{sec:carga}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+DB & Database (base de datos) \\
+DICOM & Digital Imaging and Communications in Medicine \\
+FOV & Field of View \\
+HU & Hounsfield Unit \\
+PET & Positron Emission Tomography \\
+UID & Unique Identifier \\
+\bottomrule
+\end{tabular}
+
+La dosimetria con $^{90}$Y requiere dos tipos de imagenes: un CT anatomico (alta resolucion,
+$512\times512$ voxels, $0.976$ mm de espaciado) y un PET funcional (menor resolucion,
+$200\times200$ voxels, $4.07$ mm de espaciado). Ambas provienen de equipos diferentes y se
+almacenan en archivos DICOM separados. Este paso las indexa en una base de datos temporal de
+Slicer, construye los volumenes 3D a partir de los slices individuales y renombra los nodos con
+nombres canonicos para que el resto del pipeline pueda referenciarlos consistentemente incluso
+tras restaurar un checkpoint.
+
+\subsection{Algoritmo Detallado}
+
+Sea $\mathcal{D}_{\text{CT}}$ el directorio con archivos DICOM del CT
+y $\mathcal{D}_{\text{PET}}$ el directorio con archivos DICOM del PET.
+El proceso de carga sigue estos pasos:
+
+\begin{enumerate}
+    \item Verificar existencia de $\mathcal{D}_{\text{CT}}$ y $\mathcal{D}_{\text{PET}}$.
+    \item Abrir base de datos DICOM temporal:
+          \texttt{DICOMUtils.openTemporaryDatabase()}.
+    \item Indexar cada directorio:
+          \texttt{DICOMUtils.importDicom($\mathcal{D}$)}.
+          Esto parsea los archivos .dcm y extrae metadatos (PatientID,
+          StudyDate, Modality, SeriesUID, etc.).
+    \item Obtener UIDs de series disponibles:
+          \texttt{DICOMUtils.allSeriesUIDsInDatabase()}.
+    \item Cargar volumenes:
+          \texttt{DICOMUtils.loadSeriesByUID(uids)}.
+          Slicer construye arrays 3D a partir de los slices individuales.
+    \item Identificar CT vs PET por nombre de nodo.
+          Si el nombre contiene \texttt{``CT''} $\to$ CT;
+          si contiene \texttt{``PET''} o \texttt{``PT''} o \texttt{``NM''} $\to$ PET.
+    \item Renombrar nodos a nombres canonicos \texttt{``CT''} y \texttt{``PET''}
+          para consistencia entre checkpoints.
+\end{enumerate}
+
+\subsection{Parametros Tipicos de las Imagenes}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c c}
+\toprule
+\textbf{Parametro} & \textbf{CT tipico} & \textbf{PET tipico} \\
+\midrule
+Modalidad DICOM & CT & PT \\
+Dimensiones ($N_x \times N_y \times N_z$) & $512 \times 512 \times N_s$ & $200 \times 200 \times N_s$ \\
+Espaciado ($s_x, s_y, s_z$) [mm] & $0.976 \times 0.976 \times 3.0$ & $4.07 \times 4.07 \times 2.0$ \\
+Tipo de dato & int16 (enteros con signo) & float32 \\
+Rango de valores & $-1024$ a $+3000$ HU & $0$ a $10^5$ Bq/mL \\
+Bits por pixel & 16 & 16 o 32 \\
+Campo de vision (FOV) & 500 mm & 814 mm \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Notacion de Variables}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\midrule
+$N_s$ & Numero de slices (tipicamente 100--600) & --- \\
+$s_x, s_y, s_z$ & Espaciado entre voxeles & mm \\
+$I_{\text{CT}}(x,y,z)$ & Volumen CT en HU & HU \\
+$I_{\text{PET}}(x,y,z)$ & Volumen PET en unidades raw DICOM & raw \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Formato DICOM}
+
+Cada archivo DICOM contiene un slice individual con metadatos organizados en tags:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Categoria} & \textbf{Tag DICOM} & \textbf{Campo} \\
+\midrule
+Metadatos & (0010,0010) & PatientName \\
+ & (0010,0020) & PatientID \\
+ & (0008,0020) & StudyDate \\
+ & (0008,0060) & Modality \\
+Geometria & (0028,0030) & PixelSpacing ($s_x, s_y$) \\
+ & (0018,0050) & SliceThickness ($s_z$) \\
+ & (0020,0032) & ImagePositionPatient (origen) \\
+ & (0020,0037) & ImageOrientationPatient (cosenos) \\
+Calibracion & (0028,1052) & RescaleSlope ($m_k$) \\
+ & (0028,1053) & RescaleIntercept ($b_k$) \\
+ & (0028,1054) & RescaleType \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
+PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
+Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
+Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
+Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
+\section{Calibracion PET a Bq/mL}
+\label{sec:calibracion}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+Bq/mL & Becquerel por mililitro --- concentracion de actividad \\
+DICOM & Digital Imaging and Communications in Medicine \\
+GBq & Gigabecquerel ($10^9$ Bq) \\
+mCi & Milicurie ($3.7 \times 10^7$ Bq) \\
+PET & Positron Emission Tomography \\
+SUV & Standardized Uptake Value \\
+\bottomrule
+\end{tabular}
+
+El PET DICOM almacena valores crudos (cuentas detectadas) que no son directamente utilizables
+para dosimetria. Cada fabricante de escaner PET aplica factores de calibracion diferentes, y
+estos factores pueden variar incluso entre slices del mismo estudio. Este paso lee cada slice
+DICOM individualmente, extrae los factores \texttt{RescaleSlope} y \texttt{RescaleIntercept}
+especificos de cada uno y convierte los valores raw a concentracion de actividad radiactiva en
+Bq/mL. Es una replica del algoritmo MATLAB \texttt{f\_Rescale\_Bq.m}.
+
+\subsection{Algoritmo de Calibracion}
+
+Sea $P_{\text{raw}}^{(k)}$ la matriz 2D de valores crudos del slice $k$,
+con dimensiones $N_x \times N_y$. La calibracion se aplica voxel a voxel:
+
+\begin{enumerate}
+    \item Listar archivos DICOM en $\mathcal{D}_{\text{PET}}$, ordenados por nombre.
+    \item Leer cada slice $k$ con \texttt{pydicom.dcmread()}.
+    \item Extraer factores del slice $k$: $m_k$, $b_k$, $\tau_k$.
+    \item Si $\tau_k = \texttt{``BQML''}$, aplicar la ecuacion de calibracion.
+\end{enumerate}
+
+\begin{equation}\label{eq:calibracion}
+    A_{\text{vox}}^{(k)}(i,j) = P_{\text{raw}}^{(k)}(i,j) \cdot m_k + b_k
+\end{equation}
+\vardef{$A_{\text{vox}}^{(k)}(i,j)$}{Concentracion de actividad en Bq/mL en el voxel $(i,j)$ del slice $k$}
+\vardef{$P_{\text{raw}}^{(k)}(i,j)$}{Valor crudo DICOM del voxel $(i,j)$ del slice $k$}
+\vardef{$m_k$}{RescaleSlope del slice $k$}
+\vardef{$b_k$}{RescaleIntercept del slice $k$}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\midrule
+$A_{\text{vox}}^{(k)}(i,j)$ & Concentracion de actividad calibrada & Bq/mL \\
+$P_{\text{raw}}^{(k)}(i,j)$ & Valor crudo DICOM & adimensional \\
+$m_k$ & RescaleSlope del slice $k$ & (Bq/mL)/unidad \\
+$b_k$ & RescaleIntercept del slice $k$ & Bq/mL \\
+$\tau_k$ & RescaleType del slice $k$ & --- \\
+$i, j$ & Indices de columna y fila & --- \\
+$k$ & Indice de slice & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Conversion a Becquerels por Voxel}
+
+De Bq/mL a Bq por voxel:
+
+\begin{equation}\label{eq:bq_por_voxel}
+    A_{\text{Bq}}^{(k)}(i,j) = A_{\text{vox}}^{(k)}(i,j) \cdot V_{\text{voxel}}
+\end{equation}
+\vardef{$A_{\text{Bq}}^{(k)}(i,j)$}{Actividad total en el voxel $(i,j,k)$}
+\vardef{$V_{\text{voxel}}$}{Volumen de un voxel PET en mL}
+
+donde el volumen del voxel se calcula a partir del espaciado DICOM:
+
+\begin{equation}\label{eq:vol_voxel}
+    V_{\text{voxel}} = \frac{s_x^{\text{PET}}}{10} \cdot
+    \frac{s_y^{\text{PET}}}{10} \cdot
+    \frac{s_z^{\text{PET}}}{10} \quad [\text{cm}^3 = \text{mL}]
+\end{equation}
+\vardef{$s_x^{\text{PET}}, s_y^{\text{PET}}$}{PixelSpacing del PET en mm}
+\vardef{$s_z^{\text{PET}}$}{SliceThickness del PET en mm}
+
+\subsection{Actividad Total}
+
+La actividad total en el volumen PET es la suma sobre todos los voxeles:
+
+\begin{equation}\label{eq:act_total}
+    A_{\text{total}} = \sum_{k=1}^{N_z} \sum_{i=1}^{N_y} \sum_{j=1}^{N_x}
+    A_{\text{Bq}}^{(k)}(i,j) \quad [\text{Bq}]
+\end{equation}
+\vardef{$A_{\text{total}}$}{Actividad total integrada}
+
+Las conversiones a otras unidades:
+
+\begin{align}
+    A_{\text{GBq}} &= A_{\text{total}} / 10^9 \quad [\text{GBq}] \\
+    A_{\text{mCi}} &= A_{\text{total}} / (3.7 \times 10^7) \quad [\text{mCi}]
+\end{align}
+
+donde $1$ mCi $= 37$ MBq $= 3.7 \times 10^7$ Bq.
+
+\subsection{Parametros Tipicos}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c l}
+\toprule
+\textbf{Parametro} & \textbf{Valor tipico} & \textbf{Descripcion} \\
+\midrule
+RescaleSlope ($m_k$) & 1.0--2.5 & Factor de pendiente por slice \\
+RescaleIntercept ($b_k$) & 0.0 & Intercepto (tipicamente 0) \\
+RescaleType ($\tau_k$) & \texttt{``BQML''} & Unidad: Bq/mL \\
+Voxel PET ($V_{\text{voxel}}$) & 0.042 mL & Para $4.07 \times 4.07 \times 2.5$ mm \\
+Actividad administrada ($^{90}$Y) & 1--5 GBq & Rango tipico clinico \\
+Actividad en imagen & 0.5--3 GBq & Depende del tiempo post-administracion \\
+Numero de slices & 100--400 & Segun la duracion de la adquisicion \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Conservacion de la Actividad Post-Registro}
+
+Cuando el PET se re-muestrea a la grilla del CT (Paso 5), la interpolacion altera la suma total.
+Para compensar se aplica un factor de correccion:
+
+\begin{equation}\label{eq:conservacion}
+    \text{PET}_{\text{corregido}}(\mathbf{r}) =
+    \text{PET}_{\text{interp}}(\mathbf{r}) \cdot
+    \frac{A_{\text{original}}}{A_{\text{interpolada}}}
+\end{equation}
+\vardef{$\mathbf{r}$}{Coordenada voxel $(x,y,z)$ en la grilla CT}
+\vardef{$\text{PET}_{\text{interp}}(\mathbf{r})$}{PET interpolado en Bq/mL}
+\vardef{$A_{\text{original}}$}{Actividad total antes del resample [Bq]}
+\vardef{$A_{\text{interpolada}}$}{Actividad total del PET interpolado [Bq]}
+
+\subsection{Advertencia Critica: Slicer Pierde la Calibracion por Slice}
+
+El nodo de Slicer \textbf{pierde} los factores RescaleSlope/RescaleIntercept por slice: Slicer
+aplica factores globales a todo el volumen, no por archivo. Por esta razon el pipeline lee la
+actividad desde DICOM raw con \texttt{pydicom}, no desde el nodo Slicer.
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Actividad total & $A_{\text{total}} > 0$ & Critico \\
+RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
+Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
+Slices validos & $N_{\text{slices}} > 0$ & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
+\section{Eliminacion de Camilla y Aire}
+\label{sec:camilla}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+FOV & Field of View \\
+HU & Hounsfield Unit \\
+\bottomrule
+\end{tabular}
+
+El CT incluye la camilla (mesa de exploracion) y el aire alrededor del paciente, que no deben
+formar parte del modelo dosimetrico. Este paso separa el cuerpo del paciente del fondo mediante
+un umbral de Hounsfield Units, seguido de operaciones morfologicas y de conectividad para obtener
+una mascara corporal limpia. El CT original se conserva intacto para TotalSegmentator, que
+necesita el FOV completo; se crea un nuevo nodo \texttt{CT\_sin\_camilla} con la mascara aplicada.
+
+\subsection{Algoritmo Detallado}
+
+Sea $I_{\text{CT}}(x,y,z)$ el volumen CT original en HU. El proceso genera una mascara corporal
+$M(x,y,z)$ binaria ($1$ = cuerpo, $0$ = fondo).
+
+\subsubsection{Paso 1: Umbralizacion}
+
+Se aplica un umbral sobre los valores HU para separar tejido del aire:
+
+\begin{equation}\label{eq:umbral}
+    M_1(x,y,z) = \begin{cases}
+        1 & \text{si } I_{\text{CT}}(x,y,z) > -200 \\
+        0 & \text{en caso contrario}
+    \end{cases}
+\end{equation}
+\vardef{$M_1$}{Mascara binaria inicial (tejido vs.\ aire)}
+\vardef{$I_{\text{CT}}$}{Volumen CT original [HU]}
+
+El valor $-200$ HU corresponde al limite inferior del tejido blando.
+Solo el aire puro ($<-900$ HU) queda excluido.
+
+\subsubsection{Paso 2: Cierre Morfologico}
+
+Operacion morfologica para rellenar huecos internos (vasos, bronquios) dentro del cuerpo:
+
+\begin{equation}\label{eq:cierre}
+    M_2 = (M_1 \oplus B) \ominus B
+\end{equation}
+\vardef{$M_2$}{Mascara tras cierre morfologico}
+\vardef{$\oplus$}{Operador de dilatacion morfologica}
+\vardef{$\ominus$}{Operador de erosion morfologica}
+\vardef{$B$}{Elemento estructurante cubico $3\times3\times3$}
+
+Parametros: elemento estructurante $B$ de $3 \times 3 \times 3$ voxeles, 3 iteraciones.
+Implementacion: \texttt{scipy.ndimage.binary\_closing}.
+
+\subsubsection{Paso 3: Componente Conexa Mayoritaria}
+
+En cada slice axial $z$, se etiquetan las componentes conectadas (conectividad 8-vecina en 2D)
+y se conserva solo la mas grande:
+
+\begin{equation}\label{eq:comp_conexa}
+    M_3(z,:,:) = \arg\max_{c \in \mathcal{C}_z} |c|
+\end{equation}
+\vardef{$\mathcal{C}_z$}{Conjunto de componentes conectadas en el slice $z$ de $M_2$}
+\vardef{$|c|$}{Numero de voxeles de la componente $c$}
+\vardef{$\arg\max$}{Selecciona la componente con mayor $|c|$}
+
+\subsubsection{Paso 4: Eliminacion de Camilla}
+
+En cada slice axial se identifica la fila inferior del cuerpo y se elimina todo lo que esta
+debajo (la camilla). Tambien se recortan 2--3 pixeles de los bordes laterales para eliminar
+artefactos.
+
+\subsubsection{Paso 5: Aplicacion de Mascara}
+
+El CT enmascarado se construye fijando a $-1024$ HU (aire) los voxeles fuera del cuerpo:
+
+\begin{equation}\label{eq:ct_masked}
+    I_{\text{enmasc}}(x,y,z) = \begin{cases}
+        I_{\text{CT}}(x,y,z) & \text{si } M(x,y,z) = 1 \\
+        -1024 & \text{en caso contrario}
+    \end{cases}
+\end{equation}
+\vardef{$I_{\text{enmasc}}$}{Volumen CT enmascarado [HU]}
+\vardef{$M$}{Mascara corporal final (binaria)}
+
+\subsection{Parametros}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c l}
+\toprule
+\textbf{Parametro} & \textbf{Valor} & \textbf{Descripcion} \\
+\midrule
+Umbral HU & $>-200$ & Separa tejido de aire \\
+Elemento estructurante & $3\times3\times3$ vox. & Cubo para cierre morfologico \\
+Iteraciones cierre & 3 & Relleno de huecos internos \\
+Conectividad & 8-vecina & Vecindario 2D por slice \\
+Fondo & $-1024$ HU & Valor de aire asignado \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
+Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
+Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
+\section{Registro y Re-muestreo PET/CT}
+\label{sec:registro}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+ASGD & Adaptive Stochastic Gradient Descent --- optimizador de Elastix \\
+BSpline & Basis Spline --- funcion de interpolacion polinomica \\
+CLI & Command-Line Interface \\
+DOF & Degrees of Freedom --- grados de libertad \\
+MI & Mutual Information --- metrica de similitud \\
+MSE & Mean Squared Error \\
+NCC & Normalized Cross-Correlation \\
+RMSE & Root Mean Squared Error \\
+\bottomrule
+\end{tabular}
+
+El PET y el CT se adquieren en equipos diferentes con geometrias distintas. Sin este paso, no
+existe correspondencia voxel a voxel entre la actividad metabolica (PET) y la anatomia (CT).
+El PET (tipicamente $200\times200\times N$ con espaciado $\sim 4.07$ mm) se re-muestrea a la
+grilla del CT ($512\times512\times N$ con $\sim 0.97$ mm), conservando la actividad total.
+El pipeline implementa tres metodos complementarios, con el primero como default.
+
+\subsection{Problema Geometrico}
+
+El PET DICOM y el CT tienen geometrias fundamentalmente distintas:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c c}
+\toprule
+\textbf{Parametro} & \textbf{PET} & \textbf{CT} \\
+\midrule
+Dimensiones ($N_x \times N_y$) & $200 \times 200$ & $512 \times 512$ \\
+Espaciado ($s_x, s_y$) [mm] & $4.07 \times 4.07$ & $0.976 \times 0.976$ \\
+Espaciado axial ($s_z$) [mm] & $2.0$ & $3.0$ \\
+Voxels por slice & 40,000 & 262,144 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Notacion General}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\midrule
+$V_{\text{PET}}$ & Volumen PET en coordenadas voxel IJK & --- \\
+$V_{\text{CT}}$ & Volumen CT en coordenadas voxel IJK & --- \\
+$T_{\text{PET}}$ & Transformacion IJK$\to$RAS del PET ($4\times4$) & --- \\
+$T_{\text{CT}}$ & Transformacion IJK$\to$RAS del CT ($4\times4$) & --- \\
+$s_x^{\text{CT}}, s_y^{\text{CT}}, s_z^{\text{CT}}$ & Espaciado del CT & mm \\
+$\mathbf{r}_{\text{CT}}$ & Coordenada RAS de un voxel CT & mm \\
+$o_x^{\text{PET}}, o_y^{\text{PET}}, o_z^{\text{PET}}$ & Origen RAS del PET & mm \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Metodo A --- BRAINSResample (Pipeline por Defecto)}
+
+Usa el modulo CLI \texttt{BRAINSResample} de Slicer:
+
+\begin{verbatim}
+inputVolume     = PET_node
+referenceVolume = CT_node
+outputVolume    = PET_registrado
+interpolationType = "Linear"
+pixelType       = "float"
+\end{verbatim}
+
+\subsubsection{Opciones de Interpolacion}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Tipo} & \textbf{Descripcion} & \textbf{Uso tipico} \\
+\midrule
+\texttt{NearestNeighbor} & Asigna el valor del voxel mas cercano & Labelmaps \\
+\texttt{Linear} & Interpolacion trilineal (8 vecinos) & PET, CT (default) \\
+\texttt{BSpline} & Spline cubico de 3er orden (64 vecinos) & PET con suavizado \\
+\texttt{Cubic} & Convolucion cubica (16 vecinos) & Aplicaciones cientificas \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Algoritmo}
+
+\begin{enumerate}
+    \item Para cada voxel $\mathbf{r}_{\text{CT}}$ en la grilla destino (CT), calcular su
+          equivalente en coordenadas PET:
+          \begin{equation}\label{eq:coord_pet}
+              \mathbf{r}_{\text{PET}} = T_{\text{PET}}^{-1} \cdot T_{\text{CT}} \cdot \mathbf{r}_{\text{CT}}
+          \end{equation}
+    \item Si $\mathbf{r}_{\text{PET}}$ cae fuera del volumen PET, asignar 0.
+    \item Si cae dentro, interpolar segun el metodo elegido.
+    \item Clipear negativos a 0 y aplicar conservacion de actividad:
+          \begin{equation}\label{eq:act_post}
+              \text{PET}_{\text{final}} = \text{PET}_{\text{interp}} \cdot \frac{A_{\text{pre-resample}}}{A_{\text{post}}}
+          \end{equation}
+\end{enumerate}
+
+\subsection{Metodo B --- NumPy map\_coordinates}
+
+Alternativa mas exacta que replica el algoritmo MATLAB \texttt{register\_v7.m}:
+
+\begin{enumerate}
+    \item Extraer arrays numpy de PET y CT.
+    \item Calcular grillas mundo para cada imagen:
+          \begin{equation}\label{eq:grilla_mundo}
+              x_{\text{PET}}(i) = i \cdot s_x^{\text{PET}} + o_x^{\text{PET}}
+          \end{equation}
+    \item Interpolar con \texttt{scipy.ndimage.map\_coordinates} con \texttt{order=1}.
+    \item Aplicar conservacion de actividad.
+\end{enumerate}
+
+\subsection{Metodo C --- Elastix (Registro Espacial)}
+
+El modulo \texttt{DosimetryRegistration} en \texttt{registration.py} provee registro espacial
+elastico (no solo remuestreo):
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l l}
+\toprule
+\textbf{Metodo} & \textbf{Transformacion} & \textbf{DOF} & \textbf{Optimizador} \\
+\midrule
+BrainsFit & Rigid + Affine + BSpline & $6 + 6 + \text{vars}$ & 1500 iteraciones \\
+Elastix rigido & Euler (3T + 3R) & 6 & MI + ASGD \\
+Elastix affine & Rigido + escala + shear & 12 & MI + ASGD \\
+Elastix BSpline & Rigido + BSpline no rigido & variables & MI + ASGD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+donde:
+\begin{itemize}
+    \item DOF: Degrees of Freedom (grados de libertad).
+    \item 3T: 3 traslaciones ($T_x, T_y, T_z$).
+    \item 3R: 3 rotaciones ($R_x, R_y, R_z$).
+\end{itemize}
+
+\subsection{Metricas de Similitud}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Metrica} & \textbf{Formula} & \textbf{Rango} \\
+\midrule
+NCC & $\displaystyle\frac{\sum (A-\bar{A})(B-\bar{B})}
+                {\sqrt{\sum (A-\bar{A})^2 \sum (B-\bar{B})^2}}$ & $[-1, 1]$ \\
+MSE & $\displaystyle\frac{1}{N}\sum (A-B)^2$ & $[0, \infty)$ \\
+MI & $\displaystyle\sum_{a,b} p(a,b)\log\frac{p(a,b)}{p(a)p(b)}$ & $[0, \infty)$ \\
+MAE & $\displaystyle\frac{1}{N}\sum |A-B|$ & $[0, \infty)$ \\
+RMSE & $\sqrt{\text{MSE}}$ & $[0, \infty)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
+Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
+Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
+Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
+\section{Fusion CT+PET y Dialogo de Actividad}
+\label{sec:fusion}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+GBq & Gigabecquerel ($10^9$ Bq) \\
+HU & Hounsfield Unit \\
+mCi & Milicurie ($3.7 \times 10^7$ Bq) \\
+NCC & Normalized Cross-Correlation \\
+PET & Positron Emission Tomography \\
+\bottomrule
+\end{tabular}
+
+Despues del registro, el PET esta en la misma geometria que el CT. La fusion visual permite al
+medico verificar la alineacion y examinar la distribucion de actividad, mientras que el dialogo
+informativo proporciona los datos cuantitativos de actividad total que se usaran en el calculo
+dosimetrico. Este paso configura las vistas medicas de Slicer en layout 4-up y muestra un dialogo
+modal con informacion del paciente, metadatos de imagen y actividad calculada desde DICOM raw.
+
+\subsection{Layout de Visualizacion 4-up}
+
+\begin{verbatim}
++-----------------------+-----------------------+
+|        AXIAL          |       SAGITAL         |
+|   (corte transversal) |   (corte sagital)     |
+|   Background: CT      |   Background: CT      |
+|   Foreground: PET     |   Foreground: PET     |
++-----------------------+-----------------------+
+|       CORONAL         |        3D             |
+|   (corte coronal)     |   (volumen rendering) |
+|   Background: CT      |   CT + PET +          |
+|   Foreground: PET     |   segmentos)          |
++-----------------------+-----------------------+
+\end{verbatim}
+
+\subsection{Parametros de Visualizacion}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l}
+\toprule
+\textbf{Parametro} & \textbf{Valor} \\
+\midrule
+Layout & \texttt{SlicerLayoutFourUpView} \\
+Background (fondo) & CT (o CT\_sin\_camilla) \\
+Foreground (primer plano) & PET en Bq/mL \\
+Opacidad foreground & 0.35 (35\%) \\
+Window/Level CT & Level 40 HU, Width 400 HU (abdomen) \\
+Window/Level PET & P2--P98 de valores $>0$ (auto) \\
+Colormap PET & Rainbow invertido (azul=bajo, rojo=alto) \\
+Volume Rendering 3D & RayCast para CT y PET \\
+Slice linking & Activado (navegacion sincronizada) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Window/Level}
+
+La transformacion de valores HU a escala de grises:
+
+\begin{equation}\label{eq:window_level}
+    I_{\text{display}}(x) = \begin{cases}
+        0 & \text{si } x < L - W/2 \\
+        255 \cdot \dfrac{x - L + W/2}{W} & \text{si } L - W/2 \leq x \leq L + W/2 \\
+        255 & \text{si } x > L + W/2
+    \end{cases}
+\end{equation}
+\vardef{$I_{\text{display}}(x)$}{Valor de pixel en pantalla (escala de grises)}
+\vardef{$L$}{Level (centro de la ventana). Para abdomen: $L=40$ HU}
+\vardef{$W$}{Width (ancho de la ventana). Para abdomen: $W=400$ HU}
+
+\subsection{Dialogo de Fusion (Fusion Dialog)}
+
+Dialogo \textbf{modal} con las siguientes secciones informativas:
+
+\begin{enumerate}
+    \item \textbf{Paciente}: PatientID, peso (desde \texttt{pipeline\_config.jsonc}).
+    \item \textbf{CT}: dimensiones, espaciado, nombre del nodo Slicer.
+    \item \textbf{PET (DICOM raw)}: RescaleType, RescaleSlope, RescaleIntercept,
+          numero de slices, volumen del voxel.
+    \item \textbf{Actividad}: Total Bq, GBq, mCi, Bq/mL media y maxima, voxeles activos.
+    \item \textbf{Registro PET$\to$CT}: metodo usado, duracion, verificacion de conservacion.
+\end{enumerate}
+
+\subsection{Verificaciones de Calidad}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Unidades PET & \texttt{RescaleType == ``BQML''} & Critico \\
+Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
+Dimensiones CT/PET & Similares tras registro & Warning \\
+Voxeles activos & $N_{\text{activos}} > 100$ & Warning \\
+Conservacion actividad & $|A_{\text{post}}/A_{\text{pre}} - 1| < 0.01$ & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Dialogo mostrado & Interaccion del usuario & Critico \\
+Datos de actividad & Valores consistentes con DICOM raw & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
+\section{Anonimizacion DICOM}
+\label{sec:anonimizacion}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+DICOM & Digital Imaging and Communications in Medicine \\
+GDPR & General Data Protection Regulation (Union Europea) \\
+HIPAA & Health Insurance Portability and Accountability Act (EEUU) \\
+PHI & Protected Health Information --- datos de salud protegidos \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+Las imagenes DICOM contienen informacion de salud protegida (PHI) que debe eliminarse antes de
+procesarlas con herramientas externas como TotalSegmentator. Este paso copia los archivos DICOM
+originales a un directorio \texttt{anon/}, limpia los metadatos identificables (nombre del
+paciente, ID, fecha del estudio, institucion, etc.) y renombra los archivos con prefijo
+\texttt{ANON\_}. Es un requisito legal segun HIPAA (EEUU) y GDPR (Europa).
+
+\subsection{Campos Eliminados}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Tag DICOM} & \textbf{Campo} & \textbf{Razon} \\
+\midrule
+(0010,0010) & PatientName & Identificacion directa \\
+(0010,0020) & PatientID & Identificacion directa \\
+(0008,0020) & StudyDate & Informacion temporal \\
+(0008,0080) & InstitutionName & Origen del estudio \\
+(0008,0090) & ReferringPhysician & Medico tratante \\
+(0008,0050) & AccessionNumber & ID interno del estudio \\
+(0020,0010) & StudyID & ID del estudio \\
+(0008,103E) & SeriesDescription & Descripcion de la serie \\
+(0008,0081) & InstitutionAddress & Direccion de la institucion \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Algoritmo}
+
+\begin{enumerate}
+    \item Crear directorio \texttt{anon/} dentro de \texttt{output\_dir}.
+    \item Copiar los archivos DICOM de CT y PET al directorio anonimizado.
+    \item Para cada archivo:
+          \begin{itemize}
+              \item Abrir con \texttt{pydicom.dcmread()}.
+              \item Para cada tag en la lista de campos a limpiar, asignar string vacio.
+              \item Guardar archivo modificado.
+          \end{itemize}
+    \item Renombrar archivos con prefijo \texttt{ANON\_}.
+\end{enumerate}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
+Campos PHI limpiados & PatientName vacio & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
+\section{TotalSegmentator --- Segmentacion Anatomica}
+\label{sec:ts}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+GPU & Graphics Processing Unit \\
+IA & Inteligencia Artificial \\
+nnU-Net & Red convolucional para segmentacion 3D \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+Segmentar manualmente 104 estructuras anatomicas en un CT abdominal tomaria horas a un radiologo.
+TotalSegmentator (TS) automatiza completamente esta tarea usando una red neuronal nnU-Net
+entrenada en miles de tomografias. Este paso ejecuta TS sobre el CT anonimizado, produciendo
+segmentaciones individuales para cada organo, hueso, musculo y vaso, que luego seran mapeadas
+a materiales MCNP.
+
+\subsection{Ejecucion}
+
+Se usa la API directa \texttt{TotalSegmentatorLogic.process()}:
+
+\begin{verbatim}
+from TotalSegmentator import TotalSegmentatorLogic
+logic = TotalSegmentatorLogic()
+logic.setupPythonRequirements()
+logic.process(
+    inputVolume=ct_node,
+    outputSegmentation=seg_node,
+    fast=True, cpu=True, task="total",
+)
+\end{verbatim}
+
+\textbf{Importante}: TS es un ScriptedLoadableModule, NO un CLI module.
+NO se usa \texttt{slicer.cli.run()}.
+
+\subsection{Tasks Disponibles}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l c c}
+\toprule
+\textbf{Task} & \textbf{Descripcion} & \textbf{Clases} & \textbf{Soporta --fast} \\
+\midrule
+\texttt{total} & Todos los organos y estructuras & 104 & Si \\
+\texttt{body} & Contorno externo del cuerpo & 1 & Si \\
+\texttt{body\_lowdose} & Body para CT de baja dosis & 1 & Si \\
+\texttt{liver\_lesions} & Lesiones hepaticas (tumores) & 1 & No \\
+\texttt{lung\_vessels} & Vasos pulmonares & 1 & No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Clases Anatomicas Producidas}
+
+\begin{description}
+    \item[Organos]: higado, pulmones (5 lobulos), corazon, rinones, bazo, pancreas,
+          vesicula, estomago, duodeno, intestino delgado, colon, vejiga, prostata,
+          tiroides, adrenales, traquea, esofago.
+    \item[Huesos]: vertebras (C1-C7, T1-T12, L1-L5, S1), costillas, esternon,
+          claviculas, escapulas, humeros, femures, pelvis, craneo.
+    \item[Musculos]: gluteos, iliopsoas, autochthon.
+    \item[Vasos]: aorta, vena cava, arterias/venas iliacas, vena porta.
+    \item[Cerebro]: cerebro, cerebelo, tronco encefalico.
+    \item[Otros]: medula espinal, tejido subcutaneo, glandulas salivales, cristalinos.
+\end{description}
+
+\subsection{Tiempos de Ejecucion}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c c c}
+\toprule
+\textbf{Modo} & \textbf{GPU} & \textbf{CPU} & \textbf{Tiempo} \\
+\midrule
+fast & Si & --- & 2--5 min \\
+fast & --- & Si & 5--15 min \\
+full & Si & --- & 10--20 min \\
+full & --- & Si & 30--60 min \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Compatibilidad Python 3.9}
+
+Slicer 5.8.1 usa Python 3.9.10. TotalSegmentator v2.13.0 requiere tres parches:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{c l l}
+\toprule
+\textbf{\#} & \textbf{Archivo} & \textbf{Parche} \\
+\midrule
+1 & \texttt{totalsegmentator/dicom\_io.py} & Agregar \texttt{from \_\_future\_\_ import annotations} \\
+2 & \texttt{nnunetv2/.../data\_loader.py} & Shim \texttt{nnUNetDataLoader} $\to$ \texttt{nnUNetDataLoaderBase} \\
+3 & \texttt{acvl\_utils} & Forzar version 0.2.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
+Higado presente & Segmento ``liver'' existe & Critico \\
+Pulmones presentes & Segmentos pulmonares existen & Warning \\
+Tiempo de ejecucion & $< 60$ min & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
+\section{Mapeo TS \texorpdfstring{$\to$}{a} Phantom 3Dosim}
+\label{sec:mapeo}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+ICRP-110 & Publicacion 110: phantoms computacionales de referencia \\
+ICRU-44 & Reporte 44: composiciones de tejidos para dosimetria \\
+MCNP & Monte Carlo N-Particle \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+TotalSegmentator produce 104 clases anatomicas con etiquetas numericas (labels 1--126). El
+phantom 3Dosim usa un sistema de indices diferente ($30$=tejido blando, $50$=pulmon, $80$=hueso,
+$90$=higado, $100$=tumor, $101$--$153$=materiales ICRP-110). Este paso convierte la segmentacion
+TS a la representacion interna del pipeline mediante una tabla de lookup
+(\texttt{ts\_label\_to\_phantom} en \texttt{tissue\_config.json}), asignando a cada voxel el
+indice correcto para la generacion de entrada MCNP (Modulo 2).
+
+\subsection{Tabla de Indices del Phantom}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{c l c c}
+\toprule
+\textbf{Indice} & \textbf{Tejido} & \textbf{Densidad [g/cm$^3$]} & \textbf{Material MCNP} \\
+\midrule
+1 & Aire & 0.001205 & M1 \\
+30 & Tejido blando & 1.06 & M2 \\
+50 & Pulmon & 0.382 & M3 \\
+80 & Hueso & 1.92 & M4 \\
+90 & Higado & 1.05 & M5 \\
+100 & Tumor & --- & M6 \\
+101--153 & ICRP-110 (53 materiales) & varios & M7--M59 \\
+200 & Peritumoral & --- & M60 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Estructura de tissue\_config.json}
+
+El archivo \texttt{tissue\_config.json} contiene tres secciones principales:
+
+\subsubsection{ts\_label\_to\_phantom}
+
+Diccionario que mapea labels numericos de TS (1--126) a indices del phantom:
+
+\begin{verbatim}
+"ts_label_to_phantom": {
+    "1":  {"index": 30, "segment": "spleen"},
+    "2":  {"index": 50, "segment": "lung_upper_lobe_left"},
+    "5":  {"index": 90, "segment": "liver"},
+    "8":  {"index": 80, "segment": "heart"},
+    ...
+}
+\end{verbatim}
+
+\subsubsection{ts\_body\_labels}
+
+Lista de labels TS que corresponden a tejido corporal (no organos especificos).
+Se asignan al indice 30 (Tejido blando).
+
+\subsubsection{tissues}
+
+Lista completa de 53+ tejidos con: indice, nombre, densidad, rango HU, color, composicion MCNP.
+
+\subsection{Ejemplo de Composicion MCNP}
+
+Para Higado (indice 90, densidad 1.05 g/cm$^3$):
+
+\begin{verbatim}
+"mcnp_material": {
+    "id": 5,
+    "composition": {
+        "1000": 0.105,    // Hidrogeno (H)
+        "6000": 0.143,    // Carbono (C)
+        "7000": 0.034,    // Nitrogeno (N)
+        "8000": 0.708,    // Oxigeno (O)
+        "11000": 0.003,   // Sodio (Na)
+        "15000": 0.003,   // Fosforo (P)
+        "16000": 0.003,   // Azufre (S)
+        "17000": 0.002,   // Cloro (Cl)
+        "19000": 0.002    // Potasio (K)
+    }
+}
+\end{verbatim}
+
+\subsection{Algoritmo de Mapeo}
+
+\begin{verbatim}
+function _map_ts_to_phantom(ts_labelmap):
+    1. Inicializar phantom = 1 (Aire) para todos los voxeles
+    2. Asignar 30 (Tejido_blando) donde ts_labelmap esta en body_labels
+    3. Para cada entrada en ts_label_to_phantom:
+         mascara = (ts_labelmap == ts_label)
+         phantom[mascara] = indice_phantom
+    4. Retornar phantom
+\end{verbatim}
+
+\subsection{Correcciones de Bugs (Julio 2026)}
+
+Se detectaron y corrigieron errores donde tejidos blandos estaban asignados a Hueso (densidad
+1.92 g/cm$^3$) en vez de sus materiales ICRP-110 correctos:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{c l c c}
+\toprule
+\textbf{Label TS} & \textbf{Estructura} & \textbf{Antes (BUG)} & \textbf{Ahora (CORRECTO)} \\
+\midrule
+63--68 & Vasos sanguineos & Hueso (80) & Sangre (128) \\
+79 & Medula espinal & Hueso (80) & Tejido mixto (145) \\
+80--89 & Musculos & Hueso (80) & Tejido muscular (129) \\
+90 & Cerebro & Hueso (80) & Cerebro (132) \\
+15 & Esofago & Pulmon (50) & Esofago (144) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Impacto: 22 estructuras anatomicas mal asignadas, causando sobre-estimacion de atenuacion y
+distorsion de la dosis MCNP.
+
+\subsection{Clase TissueConfig}
+
+Singleton que carga y cachea \texttt{tissue\_config.json}:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l}
+\toprule
+\textbf{Metodo} & \textbf{Descripcion} \\
+\midrule
+get\_tissue(index) & Datos completos del tejido \\
+get\_tissue\_density(index) & Densidad en g/cm$^3$ \\
+get\_tissue\_hu\_range(index) & Rango de HU caracteristico \\
+get\_mcnp\_material(index) & Composicion elemental MCNP \\
+generate\_mcnp\_material\_card(index) & Genera tarjeta M para MCNP \\
+get\_ts\_mapping() & Dict: label TS $\to$ indice phantom \\
+get\_body\_labels() & Set de labels corporales \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Labels TS mapeados & Sin labels sin correspondencia & Warning \\
+Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
+Integridad phantom & Todos los indices esperados presentes & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
+\section{Creacion de Tumor (4 modos)}
+\label{sec:tumor}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+IA & Inteligencia Artificial \\
+MCNP & Monte Carlo N-Particle \\
+NIfTI & Neuroimaging Informatics Technology Initiative \\
+ROI & Region of Interest \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+Para calcular la dosis en el tumor hepatico es necesario definir su contorno. El pipeline soporta
+4 modos de creacion de tumor, desde una esfera sintetica hasta segmentacion automatica con IA.
+Cada modo esta disenado para un escenario clinico diferente y se configura desde
+\texttt{pipeline\_config.jsonc}. Opcionalmente se crea un segmento de ``higado sano'' como
+diferencia entre el higado completo y el tumor.
+
+\subsection{Configuracion}
+
+\begin{verbatim}
+"tumor": {
+    "mode": "synthetic",                // synthetic | load_file |
+                                        // manual | ts_liver_lesions
+    "synthetic_radius_mm": 10.0,        // radio de la esfera (modo synthetic)
+    "liver_segment_name": "liver",      // nombre del segmento hepatico en TS
+    "create_healthy_liver": true,       // crear higado_sano = higado - tumor
+    "load_file_path": "...",            // ruta NIfTI (modo load_file)
+    "load_segment_name": "Tumor_Cargado",
+    "manual_segment_name": "Tumor_Manual",
+    "ts_liver_lesions_segment_name": "Tumor_TS",
+    "ts_liver_lesions_min_volume_cc": 1.0,  // volumen minimo de lesion
+    "timeout_minutes": 0                // timeout (0 = sin limite)
+}
+\end{verbatim}
+
+\subsection{Modo 1: Synthetic (esfera sintetica)}
+
+Crea una esfera de radio $R$ mm dentro del parenquima hepatico.
+
+\subsubsection{Algoritmo}
+
+\begin{enumerate}
+    \item Extraer mascara del higado $M_{\text{higado}}$ desde TS.
+    \item Calcular centroide del higado en coordenadas voxel:
+          \begin{equation}\label{eq:centroide}
+              c_i = \frac{1}{N} \sum_{n=1}^{N} i_n,\quad i \in \{x, y, z\}
+          \end{equation}
+          \vardef{$c_x, c_y, c_z$}{Coordenadas del centroide del higado}
+          \vardef{$N$}{Numero total de voxeles hepaticos}
+    \item Si el centroide cae fuera del higado, buscar el voxel hepatico mas cercano.
+    \item Crear mascara esferica con distancia euclidiana en mm:
+          \begin{equation}\label{eq:esfera}
+              M_{\text{esfera}}(x,y,z) = \mathbb{1}\left[
+              d_{\text{mm}}\big((x,y,z), (c_x,c_y,c_z)\big) \leq R
+              \right]
+          \end{equation}
+          donde:
+          \begin{equation}\label{eq:dist_mm}
+              d_{\text{mm}}(\mathbf{r}_1, \mathbf{r}_2) = \sqrt{
+              (x_1-x_2)^2 s_x^2 + (y_1-y_2)^2 s_y^2 + (z_1-z_2)^2 s_z^2}
+          \end{equation}
+          \vardef{$d_{\text{mm}}$}{Distancia euclidiana en mm}
+          \vardef{$s_x, s_y, s_z$}{Espaciado del CT en mm}
+          \vardef{$R$}{Radio de la esfera (configurable)}
+    \item Intersectar con el higado:
+          \begin{equation}\label{eq:tumor_mask}
+              M_{\text{tumor}} = M_{\text{esfera}} \cap M_{\text{higado}}
+          \end{equation}
+    \item Agregar como segmento ``Tumor\_Sintetico'' (color rojo).
+\end{enumerate}
+
+\subsection{Modo 2: Load File (cargar NIfTI)}
+
+\begin{enumerate}
+    \item Cargar NIfTI con \texttt{slicer.util.loadNodeFromFile()}.
+    \item Convertir a mascara binaria.
+    \item Si las dimensiones no coinciden con el CT, re-muestrear con BRAINSResample
+          (interpolacion NearestNeighbor).
+    \item Enmascarar dentro del higado: $M_{\text{tumor}} = M_{\text{NIfTI}} \cap M_{\text{higado}}$.
+    \item Agregar como segmento con nombre configurable.
+\end{enumerate}
+
+\subsection{Modo 3: Manual (Segment Editor)}
+
+\begin{enumerate}
+    \item Pipeline crea segmento vacio ``Tumor\_Manual''.
+    \item Activa modulo \texttt{Segment Editor} de Slicer.
+    \item Muestra dialogo NO MODAL con instrucciones.
+    \item Medico dibuja el tumor (Paint, Scissors, Level Tracing, GrowCut).
+    \item Medico hace clic en APROBAR.
+\end{enumerate}
+
+\subsection{Modo 4: TS Liver Lesions (automatico con IA)}
+
+\begin{enumerate}
+    \item Ejecutar TS con \texttt{task=``liver\_lesions''} sobre el CT.
+          \textbf{Nota}: este task NO soporta modo \texttt{--fast}.
+    \item Cargar resultado como mascara binaria.
+    \item Enmascarar dentro del higado (phantom idx 90).
+    \item Post-procesamiento: componentes conectadas, eliminar volumen $< V_{\min}$.
+    \item Agregar como segmento ``Tumor\_TS''.
+\end{enumerate}
+
+\subsection{Higado Sano}
+
+En todos los modos, opcionalmente se crea ``higado\_sano'' como diferencia:
+
+\begin{equation}\label{eq:higado_sano}
+    M_{\text{higado\_sano}} = M_{\text{higado}} \setminus M_{\text{tumor}}
+\end{equation}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
+Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
+Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
+Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
+\section{Validacion Medica}
+\label{sec:validacion}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+PET & Positron Emission Tomography \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+Hay decisiones que ningun algoritmo puede tomar. La validacion medica es un punto de control
+obligatorio donde un medico especialista debe aprobar explicitamente cada etapa critica del
+pipeline antes de continuar. El pipeline tiene dos puntos de validacion: uno tras la
+segmentacion anatomica (TotalSegmentator) y otro tras la creacion del tumor. Ambos usan
+dialogos NO modales que permiten al medico navegar las imagenes libremente mientras decide.
+No existe ``auto-approve'' bajo ninguna circunstancia.
+
+\subsection{Validacion de Segmentacion}
+
+Se ejecuta inmediatamente despues de TotalSegmentator:
+
+\begin{verbatim}
+Tras TotalSegmentator
+    |
+    v
+setup_medical_views(segnode)  <- segmentaciones visibles en 3D
+    |
+    v
+show_validation_dialog("segmentacion")
+    |
+    +-- APROBAR -> continua pipeline
+    +-- RECHAZAR -> pipeline detenido (RuntimeError)
+\end{verbatim}
+
+\subsection{Validacion de Tumor}
+\label{sec:validacion_tumor}
+
+Se ejecuta despues de crear el tumor:
+
+\begin{verbatim}
+Tras crear tumor
+    |
+    v
+setup_medical_views(segnode)
+    |
+    v
+show_tumor_validation_dialog(context=mode)
+    |
+    +-- APROBAR -> continua (higado sano, body, labelmap)
+    +-- RECHAZAR -> pipeline detenido
+\end{verbatim}
+
+\subsection{Caracteristicas del Dialogo}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l}
+\toprule
+\textbf{Caracteristica} & \textbf{Valor} \\
+\midrule
+Modalidad & NO modal (\texttt{setModal(False)}) \\
+Loop de eventos & \texttt{slicer.app.processEvents()} \\
+Overlay PET & Slider de opacidad (0--100\%) \\
+Layout & 4 vistas (axial + sagital + coronal + 3D) \\
+Texto instructivo & Contextual segun el paso \\
+Botones & APROBAR (verde), RECHAZAR (rojo) \\
+Consecuencia rechazo & \texttt{raise RuntimeError} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
+Tiempo en dialogo & $< 30$ min & Warning \\
+Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
+\section{Segmentacion Corporal (Body)}
+\label{sec:body}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+MCNP & Monte Carlo N-Particle \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+La labelmap dosimetrica necesita un contorno externo que defina donde termina el cuerpo del
+paciente y comienza el aire. Este paso ejecuta TotalSegmentator con \texttt{task=``body''} para
+obtener una mascara binaria del contorno externo, que luego se usa como ``contenedor'' en la
+exportacion de labelmap: todos los voxeles dentro del cuerpo que no pertenecen a ningun organo
+especifico se asignan como tejido blando (indice 30), garantizando que no queden voxeles sin
+material asignado para la simulacion MCNP.
+
+\subsection{Algoritmo}
+
+\begin{enumerate}
+    \item Ejecutar TotalSegmentator con \texttt{task=``body''} sobre el CT.
+    \item Cargar resultado como nodo \texttt{Body\_Segmentation}.
+    \item Si falla, continuar sin body (warning).
+\end{enumerate}
+
+\subsection{Integracion con la Labelmap}
+
+En \texttt{labelmap\_exporter.py}, el body se incorpora al final:
+
+\begin{enumerate}
+    \item Primero se asignan todos los organos (higado, pulmon, etc.).
+    \item Luego se asigna body como tejido blando (indice 30) donde no hay organos:
+          \begin{equation}\label{eq:body_labelmap}
+              \text{body\_region} = (M_{\text{body}} > 0) \land
+              \lnot \text{any\_organ}
+          \end{equation}
+\end{enumerate}
+
+Esto garantiza que no haya solapamiento: los organos tienen prioridad.
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
+Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
+Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
+\section{Exportacion de Labelmap Dosimetrica}
+\label{sec:labelmap}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+MCNP & Monte Carlo N-Particle \\
+NIfTI & Neuroimaging Informatics Technology Initiative \\
+NRRD & Nearly Raw Raster Data \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+Convertir la segmentacion completa (organos + tumor + body) en un archivo NIfTI y NRRD donde
+cada voxel tiene un valor entero que corresponde al indice del tejido en
+\texttt{tissue\_config.json}. Esta labelmap es la entrada del Modulo 2 (generacion de entrada
+MCNP).
+
+\subsection{Algoritmo Detallado}
+
+\subsubsection{Paso 1: Cargar tissue\_config.json}
+
+Se busca el archivo en \texttt{SlicerDosim/Resources/Config/tissue\_config.json}
+o path absoluto configurable.
+
+\subsubsection{Paso 2: Construir mapping nombre \texorpdfstring{$\to$}{a} indice}
+
+Para cada segmento $s$ en la segmentacion:
+
+\begin{enumerate}
+    \item Si el ID del segmento es un numero (label TS original), lookup en
+          \texttt{ts\_label\_to\_phantom}.
+    \item Si no, lookup por nombre en \texttt{DEFAULT\_NAME\_TO\_PHANTOM}.
+    \item Si no, detectar hueso por palabras clave (\texttt{``rib''}, \texttt{``vertebra''},
+          \texttt{``scapula''}, \texttt{``sternum''}, \texttt{``bone''}, \texttt{``costal''}).
+    \item Si no, asignar indice libre 2--256.
+\end{enumerate}
+
+\subsubsection{Paso 3: Acumular en labelmap 3D}
+
+\begin{verbatim}
+final_labelmap = zeros((Nz, Ny, Nx), dtype=int16)
+any_organ = zeros((Nz, Ny, Nx), dtype=bool)
+
+for cada segmento s con indice p:
+    mask = extraer_mascara(s)
+    # Resolver solapamientos: gana el indice mas alto
+    new_region = (mask > 0) & ((final_labelmap == 0) | (p > final_labelmap))
+    final_labelmap[new_region] = p
+    any_organ[new_region] = True
+\end{verbatim}
+
+\subsubsection{Paso 4: Incorporar body segmentation}
+
+\begin{verbatim}
+body_mask = extraer_mascara(body_segmentation_node)
+body_region = (body_mask > 0) & not any_organ
+final_labelmap[body_region] = 30  # Tejido_blando
+\end{verbatim}
+
+\subsubsection{Paso 5: Verificar integridad}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l}
+\toprule
+\textbf{Verificacion} & \textbf{Que detecta} \\
+\midrule
+Valores unicos & Todos los indices esperados presentes \\
+Overlap voxels & Solapamiento entre organos (ideal: 0) \\
+Voxels sin asignar & Dentro del body sin tejido asignado \\
+Body vs organos & Body no solapa con ningun organo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Paso 6: Exportar}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Formato} & \textbf{Extension} & \textbf{Uso} \\
+\midrule
+NIfTI & .nii & Modulo 2 (MCNP) \\
+NRRD & .nrrd & 3D Slicer (formato nativo) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
+Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
+Indices esperados & Todos presentes en labelmap & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
+\section{Checkpoint System --- Persistencia y Reanudacion}
+\label{sec:checkpoint}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+JSON & JavaScript Object Notation \\
+MRB & Medical Reality Bundle (escena 3D Slicer) \\
+SIGINT & Signal Interrupt (Ctrl+C) \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+En un pipeline de dosimetria que puede ejecutarse durante 15--60 minutos, las interrupciones son
+inevitables: el usuario cierra Slicer, la computadora se reinicia, una segmentacion falla por
+falta de memoria. El sistema de checkpoints resuelve este problema guardando el estado completo
+del pipeline despues de \textbf{cada paso exitoso} en un archivo JSON estructurado. Al reiniciar,
+el orquestador \texttt{PipelineMod1} detecta automaticamente el ultimo checkpoint y reanuda desde
+el primer paso pendiente, restaurando nodos, parametros y visualizacion sin perdida de progreso.
+
+\subsection{Estructura del Archivo de Checkpoint}
+
+Se guarda en \texttt{output\_dir/checkpoints/pipeline\_checkpoint.json}:
+
+\begin{verbatim}
+{
+    "pipeline_name": "PipelineMod1",
+    "version": 4,
+    "start_time": "2026-07-02T10:30:00",
+    "last_update": "2026-07-02T10:45:00",
+    "steps": [
+        {"name": "Carga_DICOM",       "status": "completed",
+                                        "time": "10:32:00"},
+        {"name": "TotalSegmentator",   "status": "completed",
+                                        "time": "10:50:00"},
+        {"name": "Creacion_Tumor",     "status": "in_progress",
+                                        "time": "10:55:00"},
+        {"name": "Exportar_Labelmap",  "status": "pending",
+                                        "time": ""}
+    ],
+    "metadata": {
+        "patient_id": "ANON_001",
+        "ct_file": "CT_anon.nrrd",
+        "pet_file": "PET_anon.nii",
+        "segnode_file": "segmentation_initial.seg.nrrd"
+    },
+    "data": {
+        "load_dicom": {
+            "ct_node_name": "CT",
+            "pet_node_name": "PET"
+        }
+    }
+}
+\end{verbatim}
+
+\subsection{Propiedades Completas del Checkpoint}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Propiedad} & \textbf{Tipo} & \textbf{Descripcion} \\
+\midrule
+pipeline\_name & string & Identificador del pipeline \\
+version & int & Control de compatibilidad entre versiones \\
+start\_time & datetime & Fecha/hora de inicio original \\
+last\_update & datetime & Actualizado en cada paso \\
+steps & array & Array con estados individuales de cada paso \\
+metadata & dict & Archivos intermedios para restauracion \\
+data & dict & Datos de restauracion por paso (nombres de nodos, paths) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Estados de los Pasos}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Estado} & \textbf{Significado} & \textbf{Accion al reanudar} \\
+\midrule
+\texttt{completed} & Ejecutado exitosamente & Se salta al reanudar \\
+\texttt{in\_progress} & En ejecucion o fallo & Se re-ejecuta al reanudar \\
+\texttt{pending} & No iniciado & Se ejecuta normalmente \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Flujo de Restauracion}
+
+\begin{enumerate}
+    \item Al iniciar el pipeline, verificar si existe \texttt{pipeline\_checkpoint.json}.
+    \item Si no existe $\to$ empezar desde el paso 1.
+    \item Si existe $\to$ leer el array \texttt{steps}.
+    \item Buscar el primer paso con estado \texttt{pending} o \texttt{in\_progress}.
+    \item Reanudar desde ese paso, manteniendo los pasos \texttt{completed}.
+    \item Restaurar nodos Slicer desde \texttt{data} guardados en checkpoint.
+    \item Restaurar visualizacion medica con \texttt{setup\_medical\_views()}.
+\end{enumerate}
+
+\subsection{Restauracion de Estado}
+
+Cuando un paso ya esta completado, \texttt{\_checkpoint\_step()} salta la ejecucion pero llama a
+\texttt{\_restore\_step\_state()} para que el pipeline tenga disponibles los nodos necesarios:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l}
+\toprule
+\textbf{Data key} & \textbf{Attr a restaurar} \\
+\midrule
+ct\_node\_name & ct\_node (busca por nombre en escena) \\
+pet\_node\_name & pet\_node \\
+segmentation\_node\_name & segmentation\_node \\
+ct\_masked\_node\_name & ct\_masked\_node \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Guardado de Escena}
+
+El pipeline guarda la escena \texttt{.mrb} independientemente del checkpoint JSON:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l}
+\toprule
+\textbf{Frecuencia} & \textbf{Puntos de guardado} \\
+\midrule
+\texttt{minimal} (default) & Post-carga DICOM y post-body segmentation \\
+\texttt{all} & Tras cada paso \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
+Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
+Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
+Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
+Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
+\section{AI Supervisor --- Verificacion Automatica Post-Paso}
+\label{sec:ai}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+IA & Inteligencia Artificial \\
+NCC & Normalized Cross-Correlation \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+El AI Supervisor es un revisor inteligente que analiza el resultado de cada paso del pipeline
+y detecta anomalias antes de continuar. No reemplaza la validacion medica, sino que la
+complementa con verificaciones automaticas inmediatas. Utiliza reglas duras (pre-verificacion)
+y opcionalmente consulta a un modelo de lenguaje (DeepSeek via OpenRouter) para analisis mas
+profundo.
+
+\subsection{Verificaciones por Paso --- Tabla Completa}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l l}
+\toprule
+\textbf{Paso} & \textbf{Verificacion} & \textbf{Condicion de fallo} & \textbf{Accion} \\
+\midrule
+Carga DICOM & Dimensiones, modalidades & CT o PET no detectados & Error \\
+Calibracion PET & Actividad total $A_{\text{total}}$ & $A_{\text{total}} \leq 0$ Bq & Error \\
+Eliminar camilla & Fraccion eliminada $f_{\text{rem}}$ & $f_{\text{rem}} > 0.5$ & Warning \\
+Registro PET$\to$CT & NCC entre PET y CT & NCC $< 0.6$ & Warning \\
+TotalSegmentator & Segmentos $N_{\text{seg}}$ & $N_{\text{seg}} < 20$ & Error \\
+Validacion medica & Respuesta del dialogo & Sin interaccion & Error \\
+Creacion tumor & Volumen $V_{\text{tumor}}$ & $V_{\text{tumor}} < 0.5$ cm$^3$ & Warning \\
+Body segmentation & Cobertura de organos & Organos fuera del body & Error \\
+Export labelmap & Overlap voxels & Overlap $> 0$ & Error \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Flujo de Operacion}
+
+\begin{verbatim}
+Fin de paso N
+    |
+    v
+AI Supervisor: analizar resultado
+    |
+    +-- Normal -> continuar
+    +-- Warning -> log + continuar
+    +-- Error  -> detener pipeline
+\end{verbatim}
+
+\subsection{Configuracion}
+
+\begin{verbatim}
+"ai_supervisor": {
+    "fail_on_warning": false,    // true = detener pipeline en warning
+    "log_level": "warning",      // "info", "warning", "error"
+    "checks": {
+        "carga_dicom": true,
+        "calibracion_pet": true,
+        "couch_remover": true,
+        "registro_pet_ct": true,
+        "totalsegmentator": true,
+        "creacion_tumor": true,
+        "export_labelmap": true
+    }
+}
+\end{verbatim}
+
+\subsection{Pre-verificacion Inmediata (Reglas Duras)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l l}
+\toprule
+\textbf{Regla} & \textbf{Que detecta} & \textbf{Accion} \\
+\midrule
+Metodo simple (threshold) & Segmentacion insuficiente & Warning \\
+Pocos segmentos ($\leq 2$) & Threshold sin etiquetado de organos & Warning \\
+Voxels fuera del cuerpo & Segmentacion incluye aire/camilla & Alerta \\
+Actividad total cero & Calibracion PET fallida & Error \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
+Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
+Pre-verificaciones & Todas las reglas evaluadas & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
+\section{Visualizacion 3D Automatica}
+\label{sec:vis}
+
+\subsection*{Acronimos usados en esta seccion}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+CT & Computed Tomography \\
+HU & Hounsfield Unit \\
+PET & Positron Emission Tomography \\
+TS & TotalSegmentator \\
+\bottomrule
+\end{tabular}
+
+Configurar la interfaz de 3D Slicer para mostrar las imagenes y segmentaciones en un layout
+4-up optimizado para visualizacion medica: axial, sagital, coronal y vista 3D. La funcion
+\texttt{setup\_medical\_views()} se llama tras cada paso critico del pipeline para que el
+medico pueda navegar e inspeccionar los resultados sin configuracion manual.
+
+\subsection{Momentos de Activacion}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l l}
+\toprule
+\textbf{Momento} & \textbf{Proposito} \\
+\midrule
+Tras carga DICOM & Mostrar CT y PET iniciales \\
+Tras registro PET$\to$CT & Mostrar PET re-muestreado sobre CT \\
+Tras fusion CT+PET & Mostrar las 3 imagenes (CT, PET, fusion) \\
+Tras TotalSegmentator & Mostrar segmentaciones sobre CT \\
+Tras validacion & Mostrar resultado final \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Funcion setup\_medical\_views()}
+
+\begin{enumerate}
+    \item Configurar layout 4-up:
+          \texttt{layoutManager.setLayout(SlicerLayoutFourUpView)}.
+    \item Sincronizar vistas (crosshair, posicion de slice).
+    \item Configurar foreground y background en cada slice:
+          \begin{itemize}
+              \item Background: CT (window/level abdomen: $L=40$ HU, $W=400$ HU).
+              \item Foreground: PET (opacidad 0.35, colormap rainbow invertido).
+              \item Window/level PET: percentiles $P_2$ a $P_{98}$ de valores $>0$.
+          \end{itemize}
+    \item Activar volumen rendering 3D con RayCast para CT y PET.
+    \item Resetear focal point al centro del paciente.
+    \item Activar slice linking (navegacion sincronizada).
+\end{enumerate}
+
+\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Layout activo & Layout 4-up configurado & Critico \\
+Slice linking & Navegacion sincronizada activada & Warning \\
+Volume rendering & RayCast activo para CT y PET & Warning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% ANEXO FUNDAMENTOS FISICOS
+% ============================================================
+\appendix
+\section{Fundamentos Fisicos del \texorpdfstring{$^{90}$Y}{Y-90}}
+
+\subsection*{Acronimos usados en este apendice}
+\begin{tabular}{ll}
+\toprule
+\textbf{Acronimo} & \textbf{Significado} \\
+\midrule
+BED & Biologically Effective Dose \\
+DVH & Dose-Volume Histogram \\
+EUD & Equivalent Uniform Dose \\
+FU & Fraction of Uptake \\
+MIRD & Medical Internal Radiation Dose \\
+NTCP & Normal Tissue Complication Probability \\
+SF & Shunt Fraction \\
+T/N & Tumor-to-Normal ratio \\
+TCP & Tumor Control Probability \\
+\bottomrule
+\end{tabular}
+
+\subsection{Propiedades del Isotopo}
+
+El $^{90}$Y es un emisor $\beta^-$ puro con las siguientes caracteristicas:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c l}
+\toprule
+\textbf{Propiedad} & \textbf{Valor} & \textbf{Unidad} \\
+\midrule
+Vida media $T_{1/2}$ & 64.1 & horas \\
+Constante de desintegracion $\lambda$ & $3.00 \times 10^{-6}$ & s$^{-1}$ \\
+Vida media $\tau$ & 332,916 & s \\
+Energia maxima $\beta^-$ $E_{\max}$ & 2.28 & MeV \\
+Energia media $\beta^-$ $\bar{E}_\beta$ & 0.9336 & MeV \\
+Alcance maximo en tejido & $\sim 11$ & mm \\
+Alcance medio & $\sim 2.5$ & mm \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Dosis Absorbida}
+
+La dosis absorbida $D$ se define como la energia depositada por unidad de masa:
+
+\begin{equation}\label{eq:dosis}
+    D = \frac{dE}{dm} \quad [\text{J/kg} = \text{Gy}]
+\end{equation}
+
+Para $^{90}$Y en dosimetria interna, la dosis en un voxel depende de la actividad acumulada,
+la energia liberada por desintegracion ($\bar{E}_\beta$), la fraccion de energia absorbida
+localmente (esencialmente 1 para $\beta^-$ de $^{90}$Y) y la masa del voxel.
+
+\subsection{Modelo MIRD (Partition Model)}
+
+El modelo MIRD de particion provee estimaciones analiticas rapidas:
+
+\begin{align}
+    T/N &= \frac{\text{actividad\_PET\_tumor}}{\text{actividad\_PET\_higado}} \\
+    \text{FU}_{\text{normal}} &= (1 - \text{SF})\,
+          \frac{V_{\text{higado}}}{T/N \cdot V_{\text{tumor}} + V_{\text{higado}}} \\
+    \text{FU}_{\text{tumor}} &= (1 - \text{SF})\,
+          \frac{T/N \cdot V_{\text{tumor}}}{T/N \cdot V_{\text{tumor}} + V_{\text{higado}}} \\
+    D_{\text{higado}} &= \frac{A \cdot k \cdot \text{FU}_{\text{normal}}}{m_{\text{higado}}} \\
+    D_{\text{tumor}} &= \frac{A \cdot k \cdot \text{FU}_{\text{tumor}}}{m_{\text{tumor}}}
+\end{align}
+
+\subsection{Variables del Modelo MIRD --- Tabla Completa}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\midrule
+$T/N$ & Tumor-to-Normal ratio (razon de captacion) & adimensional \\
+SF & Shunt Fraction (fraccion que escapa al pulmon) & adimensional \\
+$\text{FU}_{\text{normal}}$ & Fraction of Uptake en higado sano & adimensional \\
+$\text{FU}_{\text{tumor}}$ & Fraction of Uptake en tumor & adimensional \\
+$V_{\text{higado}}$ & Volumen del higado & cm$^3$ \\
+$V_{\text{tumor}}$ & Volumen del tumor & cm$^3$ \\
+$m_{\text{higado}}$ & Masa del higado & g \\
+$m_{\text{tumor}}$ & Masa del tumor & g \\
+$A$ & Actividad administrada & GBq \\
+$k$ & Constante MIRD para $^{90}$Y ($= 48.98$) & J/s \\
+$D_{\text{higado}}$ & Dosis absorbida en higado sano & Gy \\
+$D_{\text{tumor}}$ & Dosis absorbida en tumor & Gy \\
+$D$ & Dosis absorbida generica & Gy \\
+$\bar{E}_\beta$ & Energia media de la particula beta & MeV \\
+$\lambda$ & Constante de desintegracion & s$^{-1}$ \\
+$\tau$ & Vida media del isotopo & s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Constantes Fisicas}
+
+\begin{align}
+    \lambda &= \frac{\ln 2}{T_{1/2}} \approx 3.00 \times 10^{-6} \text{ s}^{-1} \\
+    \tau &= \frac{1}{\lambda} = \frac{T_{1/2}}{\ln 2} \approx 332\,916 \text{ s}
+\end{align}
+
+\newpage
+
+% ============================================================
+% REFERENCIAS
+% ============================================================
+\section{Referencias}
+
+\begin{enumerate}
+    \item Wasserthal, J., et al. ``TotalSegmentator: Robust Segmentation
+          of 104 Anatomic Structures in CT Images.'' \textit{Radiology
+          Artificial Intelligence}, 2023.
+    \item ICRP Publication 110. ``Adult Reference Computational
+          Phantoms.'' \textit{Annals of the ICRP}, 2009.
+    \item ICRU Report 44. ``Tissue Substitutes in Radiation Dosimetry
+          and Measurement.'' 1989.
+    \item Klein, S., et al. ``Elastix: a toolbox for intensity-based
+          medical image registration.'' \textit{IEEE Trans. Med.
+          Imaging}, 2010.
+    \item Fedorov, A., et al. ``3D Slicer as an image computing
+          platform for the Quantitative Imaging Network.''
+          \textit{Magn. Reson. Imaging}, 2012.
+    \item Gulec, S.A., et al. ``Hepatic radiation dosimetry in
+          $^{90}$Y-microsphere treatment.'' \textit{Med. Phys.}, 2003.
+    \item Chiesa, C., et al. ``The dosimetric journey of $^{90}$Y
+          radioembolization: from MIRD to voxel dosimetry.''
+          \textit{EJNMMI Physics}, 2017.
+    \item Documentacion del proyecto 3Dosim: pipeline\_mod1.py,
+          pet\_dicom\_reader.py, couch\_remover.py,
+          pet\_registration.py, fusion\_dialog.py, segmentation.py,
+          tumor\_creator.py, validation.py, labelmap\_exporter.py,
+          checkpoint.py, ai\_supervisor.py.
+\end{enumerate}
+
+\end{document}

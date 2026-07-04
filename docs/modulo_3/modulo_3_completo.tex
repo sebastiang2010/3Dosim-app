@@ -1,0 +1,1661 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{verbatim}
+\geometry{margin=2.5cm}
+\setlength{\headheight}{13.6pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small 3Dosim --- Módulo 3}
+\fancyhead[R]{\small Análisis Dosimétrico}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\newcommand{\vardef}[2]{\noindent\textbf{#1}: #2\\}
+\setlength{\parskip}{0.5em}
+\title{\textbf{Módulo 3: Análisis Dosimétrico}\\[0.5cm]
+       \large De la Simulación Monte Carlo al Reporte Clínico\\[0.3cm]
+       \normalsize Documentación Técnica --- Revisión v4.0}
+\author{Proyecto 3Dosim --- Dosimetría Hepática con $^{90}$Y}
+\date{Julio 2026}
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% =============================================================================
+% GLOSARIO GLOBAL DE ACRÓNIMOS
+% =============================================================================
+\section*{Glosario de Acrónimos}
+\addcontentsline{toc}{section}{Glosario de Acrónimos}
+
+\begin{longtable}{p{3.5cm} p{11cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+BED & Biologically Effective Dose (Dosis Biológicamente Efectiva) \\
+BQML & Becquerel per Milliliter (unidad de actividad PET) \\
+CLUT & Color Look-Up Table \\
+CT & Computed Tomography (Tomografía Computarizada) \\
+DICOM & Digital Imaging and Communications in Medicine \\
+DRF & Dose Rate Factor (factor corrector por tasa de dosis) \\
+DVH & Dose-Volume Histogram (Histograma Dosis-Volumen) \\
+EQD2 & Equivalent Dose in 2 Gy fractions \\
+EUD & Equivalent Uniform Dose \\
+FFT & Fast Fourier Transform \\
+FU & Fractional Uptake (fracción de actividad captada) \\
+GBq & Gigabecquerel ($10^9$ Bq) \\
+GPU & Graphics Processing Unit \\
+Gy & Gray (J/kg) --- unidad de dosis absorbida \\
+HU & Hounsfield Units \\
+IJK & Índices de voxel (i, j, k) \\
+LANL & Los Alamos National Laboratory \\
+LDR & Low Dose Rate \\
+LQ & Linear-Quadratic (modelo radiobiológico) \\
+MCNP & Monte Carlo N-Particle (LANL) \\
+MCTAL & Archivo de salida de MCNP con resultados de tallies \\
+MIRD & Medical Internal Radiation Dose \\
+MRB & Medical Reality Bundle (escena de 3D Slicer) \\
+MRML & Medical Reality Markup Language \\
+NPS & Number of Particle Source (historias simuladas) \\
+NRRD & Nearly Raw Raster Data \\
+NTCP & Normal Tissue Complication Probability \\
+OAR & Organ at Risk \\
+PET & Positron Emission Tomography \\
+RAS & Right-Anterior-Superior (coordenadas Slicer) \\
+ROI & Region of Interest \\
+RSE & Relative Statistical Error \\
+SF & Shunt Fraction (derivación pulmonar) \\
+SUV & Standardized Uptake Value \\
+T/N & Tumor-to-Normal uptake ratio \\
+TCP & Tumor Control Probability \\
+TFC & Tally Fluctuation Chart \\
+TMESH & Tally MESH (grilla de dosis en MCNP) \\
+VOI & Volume of Interest \\
+VTK & Visualization Toolkit \\
+Y-90 & Itrio-90 (isótopo beta, terapia hepática) \\
+\end{longtable}
+
+\newpage
+
+% =============================================================================
+% TABLA DE CONTENIDOS
+% =============================================================================
+\tableofcontents
+\newpage
+
+% =============================================================================
+% SECCIÓN 1: VISIÓN GENERAL
+% =============================================================================
+\section{Visión General --- Dosimetría Interna 3D}
+
+\begin{quote}
+\textit{De la simulación Monte Carlo al reporte clínico.} La simulación MCNP genera archivos MCTAL con energía depositada por partícula fuente en cada voxel. Sin embargo, estos valores crudos no son directamente utilizables para la práctica clínica: deben convertirse a dosis absorbida en Gray (Gy), combinarse con la actividad del paciente medida por PET, y analizarse mediante histogramas dosis-volumen y modelos radiobiológicos.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+BED & Biologically Effective Dose \\
+DVH & Dose-Volume Histogram \\
+EQD2 & Equivalent Dose in 2 Gy fractions \\
+EUD & Equivalent Uniform Dose \\
+FFT & Fast Fourier Transform \\
+HU & Hounsfield Units \\
+MCNP & Monte Carlo N-Particle \\
+MCTAL & Archivo de salida MCNP \\
+MIRD & Medical Internal Radiation Dose \\
+MRB & Medical Reality Bundle \\
+NTCP & Normal Tissue Complication Probability \\
+NRRD & Nearly Raw Raster Data \\
+ROI & Region of Interest \\
+TCP & Tumor Control Probability \\
+TMESH & Tally MESH (grilla de dosis) \\
+Y-90 & Itrio-90 \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto Clínico}
+
+En radioembolización hepática con microesferas de $^{90}$Y, la dosis absorbida en cada voxel depende de:
+
+\begin{enumerate}
+  \item La \textbf{actividad} administrada y su distribución espacial (medida por PET post-infusión).
+  \item La \textbf{densidad} de cada tejido (derivada de la TC, segmentada en Módulo 1).
+  \item El \textbf{transporte} de partículas beta (simulado por MCNP en Módulo 2).
+\end{enumerate}
+
+El Módulo 3 toma los resultados de la simulación Monte Carlo (archivo MCTAL) o la convolución de kernel (archivo \texttt{kernel.mat}) y produce:
+
+\begin{itemize}
+  \item \textbf{Mapa de dosis 3D} en Gray (Gy).
+  \item \textbf{Histogramas dosis-volumen} (DVH) acumulativos por ROI.
+  \item \textbf{Índices radiobiológicos:} BED, EUD, EQD2.
+  \item \textbf{Reporte clínico} en PDF.
+\end{itemize}
+
+\subsection{Pipeline de 10 Pasos}
+
+El pipeline del Módulo 3 se orquesta secuencialmente:
+
+\begin{verbatim}
+  PASO 1: load_scene          -- Cargar escena .mrb desde Módulo 1
+  PASO 2: read_pet_activity   -- Leer actividad PET (DICOM raw o CLI)
+  PASO 3: parse_mctal         -- Parsear archivo MCTAL (ruta MC)
+  PASO 4: convert_to_dose     -- MeV/cm^3 -> Gy (MCTAL o Kernel FFT)
+  PASO 5: compute_dvh         -- Histograma dosis-volumen (200 pts)
+  PASO 6: compute_radiobiology-- BED, EUD, EQD2
+  PASO 7: mird_partition      -- Modelo MIRD de partición
+  PASO 8: visualize_slicer    -- Isodosis + DVH interactivo en Slicer
+  PASO 9: export_report       -- Reporte clínico PDF
+  PASO 10: save_scene         -- Guardar escena final .mrb
+\end{verbatim}
+
+\subsection{Dos Rutas de Cálculo de Dosis}
+
+\begin{tabular}{p{4cm} p{5cm} p{5cm}}
+\toprule
+\textbf{Característica} & \textbf{Ruta MCTAL (MC)} & \textbf{Ruta Kernel (FFT)} \\
+\midrule
+Origen de datos & Archivo MCTAL de MCNP6 & \texttt{kernel.mat} precalculado \\
+Tiempo de cómputo & Horas (MCNP real) & Segundos (FFT) \\
+Precisión & Alta (transporte completo) & Aproximada (medio homogéneo) \\
+Multiplica por $\tau$ & Sí & No (kernel.mat lo incluye) \\
+Multiplica por $A$ & Sí & Sí (en GBq/voxel) \\
+Densidad por voxel & Sí ($\rho$ de labelmap) & No (densidad en kernel) \\
+Uso clínico & Validación final & Planificación rápida \\
+\bottomrule
+\end{tabular}
+
+\subsection{Entradas y Salidas}
+
+\begin{tabular}{p{4cm} p{5cm} p{5cm}}
+\toprule
+\textbf{Elemento} & \textbf{Ruta típica} & \textbf{Descripción} \\
+\midrule
+Entrada: escena .mrb & \texttt{resultados\_test/scenes/3Dosim\_scene.mrb} & Escena con CT+PET+labelmap+ROIs \\
+Entrada: kernel.mat & \texttt{kernel/kernel.mat} & Kernel de dosis precalculado para FFT \\
+Entrada: MCTAL & \texttt{resultados\_test/mcnp/paciente.o} & Output MCNP6 con tallies \\
+Salida: dosis 3D & \texttt{resultados\_test/dose/} & Mapa de dosis en Gy (NRRD) \\
+Salida: DVH & \texttt{resultados\_test/dvh/dvh.csv} & Tabla DVH por ROI \\
+Salida: reporte & \texttt{resultados\_test/reports/3Dosim\_reporte.pdf} & Reporte clínico completo \\
+Salida: escena final & \texttt{resultados\_test/scenes/3Dosim\_dosis\_final.mrb} & Escena con todos los nodos \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Archivos de Código}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Archivo} & \textbf{Función} \\
+\midrule
+\texttt{pet\_dicom\_reader.py} & Lectura de actividad PET DICOM raw \\
+\texttt{mctal\_parser.py} & Parser de archivos MCTAL MCNP \\
+\texttt{dosimetry.py} & Conversión MeV/cm$^3$ $\to$ Gy (ruta MCTAL) \\
+\texttt{dose\_kernel.py} & Carga y normalización de kernel.mat \\
+\texttt{fft\_dose.py} & Convolución FFT optimizada \\
+\texttt{dvh\_analysis.py} & Cálculo de DVH y métricas \\
+\texttt{radiobiology.py} & BED, EUD, EQD2, NTCP, TCP \\
+\texttt{mird\_partition.py} & Modelo MIRD de partición \\
+\texttt{isodose\_contours.py} & Generación de contornos de isodosis \\
+\texttt{report\_pdf.py} & Generación de reporte PDF \\
+\texttt{run\_dosimetry\_from\_scene.py} & Orquestador del pipeline Mod3 \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+Actividad PET $>$ 0 & Actividad total $\leq$ 0 Bq \\
+MCTAL válido & error $\geq$ 1.5 o dosis negativa en $>$ 5\% de voxeles \\
+Dosis media en tumor $\geq$ dosis en hígado & $D_{\text{tumor}} < D_{\text{liver}}$ \\
+DVH monótono decreciente & Punto DVH con pendiente positiva \\
+BED $\geq$ D físico (dosis altas) & BED $<$ D (error fórmula) \\
+EUD dentro de rango & EUD fuera de [min($D$), max($D$)] \\
+Volumen de dosis conservado & V30 + V70 $>$ 110\% (inconsistencia) \\
+Reporte PDF generado & Archivo no existe o $<$ 10 KB \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 2: LECTURA DE ACTIVIDAD PET
+% =============================================================================
+\section{Lectura de Actividad PET desde DICOM Raw}
+
+\begin{quote}
+\textit{Replicando la función MATLAB \texttt{f\_Rescale\_Bq.m}.} La actividad del paciente medida por PET post-infusión es el factor escalar que convierte la energía depositada por partícula simulada en dosis absorbida real en Gray. Este documento describe cómo se lee la actividad desde los archivos DICOM PET raw, slice por slice, usando \texttt{pydicom}.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+BQML & Becquerel per Milliliter (unidad de actividad PET) \\
+CLUT & Color Look-Up Table \\
+DICOM & Digital Imaging and Communications in Medicine \\
+GBq & Gigabecquerel ($10^9$ Bq) \\
+mCi & miliCurie (1 mCi = 37 MBq) \\
+PET & Positron Emission Tomography \\
+RescaleSlope & Factor de escala lineal DICOM \\
+RescaleIntercept & Intercepción lineal DICOM \\
+SUV & Standardized Uptake Value \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto Clínico}
+
+La actividad medida por PET es la \textbf{fuente real de radiación} en el paciente. En radioembolización con $^{90}$Y, la distribución de microesferas se visualiza mediante PET post-infusión. Cada voxel contiene una concentración de actividad en Bq/mL que debe integrarse sobre el volumen para obtener la actividad total en Bq.
+
+La lectura directa de los archivos DICOM PET raw es necesaria porque:
+\begin{enumerate}
+  \item Slicer ya aplica RescaleSlope/Intercept al cargar, pero no necesariamente por slice.
+  \item El MATLAB legacy (\texttt{f\_Rescale\_Bq.m}) lee slice por slice con \texttt{pydicom}.
+  \item La unidad puede variar: BQML (correcto) vs.\ otros modos (SUV, USCAL).
+  \item La actividad total se necesita para el diálogo de fusión y los cálculos MIRD.
+\end{enumerate}
+
+\subsection{Fórmula de Conversión por Voxel}
+
+Para cada slice $k$ de la PET:
+
+$$A_{\text{vox}}^{(k)}(i,j) = P_{\text{raw}}^{(k)}(i,j) \cdot m_k + b_k$$
+
+\vardef{$A_{\text{vox}}^{(k)}(i,j)$}{Actividad en el voxel $(i,j)$ del slice $k$ [Bq/mL]}
+\vardef{$P_{\text{raw}}^{(k)}(i,j)$}{Valor crudo DICOM (pixel\_array) del slice $k$ [adimensional]}
+\vardef{$m_k$}{\texttt{RescaleSlope} del slice $k$ [(Bq/mL)/unidad]}
+\vardef{$b_k$}{\texttt{RescaleIntercept} del slice $k$ [Bq/mL]}
+
+\subsubsection{Verificación de Unidades}
+
+Solo se aplica la conversión si \texttt{RescaleType == `BQML'}.
+
+\subsubsection{Conversión mm$^3$ $\to$ cm$^3$}
+
+Si el espaciado del PET está en milímetros cúbicos (mm$^3$), la actividad por voxel debe convertirse a cm$^3$:
+
+$$A_{\text{vox}}^{(k)}(i,j)_{\text{cm}^3} = A_{\text{vox}}^{(k)}(i,j)_{\text{mm}^3} \times \frac{1\ \text{cm}^3}{1000\ \text{mm}^3}$$
+
+\subsubsection{Actividad Total}
+
+$$A_{\text{total}} = \sum_{k=1}^{N_s} \sum_{i=1}^{N_x} \sum_{j=1}^{N_y} A_{\text{vox}}^{(k)}(i,j) \cdot V_{\text{vox}}$$
+
+\vardef{$A_{\text{total}}$}{Actividad total del paciente [Bq]}
+\vardef{$V_{\text{vox}}$}{Volumen de un voxel PET [cm$^3$]}
+\vardef{$N_s$}{Número de slices PET [---]}
+\vardef{$N_x, N_y$}{Dimensiones del slice PET [---]}
+
+\subsection{Algoritmo de Implementación}
+
+\begin{verbatim}
+1. Listar archivos DICOM PET del directorio (orden por InstanceNumber)
+2. Para cada slice k:
+   a. Leer con pydicom.dcmread()
+   b. Obtener RescaleSlope (m_k), RescaleIntercept (b_k), RescaleType
+   c. Verificar RescaleType == 'BQML'
+   d. Obtener pixel_array
+   e. Aplicar: actividad_vox = pixel_array * m_k + b_k
+   f. Si espaciado en mm^3, dividir por 1000
+3. Acumular actividad_vox en array 3D (z, y, x)
+4. Calcular actividad_total = sum(actividad_3d) * volumen_voxel
+5. Reportar en Bq, GBq, mCi, Bq/mL
+\end{verbatim}
+
+\subsection{Rangos Normales de Actividad}
+
+\begin{tabular}{p{4cm} p{2.5cm} p{2cm} p{5cm}}
+\toprule
+\textbf{Parámetro} & \textbf{Rango típico} & \textbf{Unidad} & \textbf{Notas} \\
+\midrule
+Actividad total & 1.0 -- 5.0 & GBq & Radioembolización Y-90 \\
+Actividad total & 27 -- 135 & mCi & 1 mCi = 37 MBq \\
+Concentración media & 0.1 -- 50 & kBq/mL & Depende del volumen hepático \\
+Actividad en tumor & 2 -- 10$\times$ & hígado sano & T/N ratio típico \\
+Voxeles activos & $>$ 100 & --- & Estadística válida \\
+\bottomrule
+\end{tabular}
+
+\subsection{Fallback: Actividad por CLI}
+
+Si no hay PET disponible, la actividad se acepta por línea de comandos:
+
+$$A_{\text{vox}} = \frac{A_{\text{CLI}}}{N_{\text{voxeles en ROI}}}$$
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+RescaleType = BQML & Cualquier slice con tipo diferente \\
+Actividad total $>$ 0 & Suma total $\leq$ 0 Bq \\
+Actividad en rango 0.1 -- 50 GBq & Fuera de rango (warning) \\
+Coherencia con peso paciente & Actividad/kg fuera de 0.01 -- 0.1 GBq/kg \\
+Número de archivos DICOM & Menos de 10 slices \\
+Dimensiones consistentes & Distinto tamaño entre slices \\
+Valores NaN o Inf presentes & Cualquier voxel con NaN o Inf \\
+Contraste tumor/hígado & T/N $<$ 1.5 (poco contraste) \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 3: PARSING DE ARCHIVO MCTAL
+% =============================================================================
+\section{Parsing de Archivo MCTAL de MCNP}
+
+\begin{quote}
+\textit{Extrayendo energía depositada desde el output ASCII de MCNP6.} El archivo MCTAL contiene los resultados de las tallies (detectores) de la simulación Monte Carlo. En 3Dosim, el tally de interés es el \texttt{tally 1} (TMESH o *F8), que registra la energía depositada por partícula fuente en MeV/cm$^3$.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+F6 & Tally de energía depositada en una celda \\
+F8 & Tally de energía depositada en un detector \\
+LANL & Los Alamos National Laboratory \\
+MCTAL & Archivo de resultados de MCNP (ASCII o binario) \\
+NPS & Number of Particle Source (historias simuladas) \\
+RSE & Relative Statistical Error \\
+TFC & Tally Fluctuation Chart (estadísticas en MCTAL) \\
+TMESH & Tally MESH (grilla de dosis 3D en MCNP) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto}
+
+MCNP6 escribe los resultados de las tallies en un archivo de salida llamado por defecto \texttt{OUTPUT}, pero con extensión \texttt{.o} o en formato MCTAL (especificado con \texttt{PRINT}). El formato MCTAL es un formato ASCII estructurado que MCNP usa para comunicar resultados a programas externos.
+
+Cada tally en MCTAL contiene:
+\begin{enumerate}
+  \item \textbf{Cabecera:} tipo de tally, partículas, número de bins.
+  \item \textbf{Dimensiones:} tamaño de cada eje de la grilla.
+  \item \textbf{Boundaries:} coordenadas de cada bin en el espacio.
+  \item \textbf{Valores:} pares (resultado, error relativo) para cada bin en orden \textbf{column-major Fortran}.
+\end{enumerate}
+
+\subsection{Estructura del Archivo MCTAL}
+
+\begin{verbatim}
+ tally type n    (1 = tally 1)
+   particles = p  (photons)
+   ...
+
+ tally 1
+   ...
+   energy
+   ...   (optional energy bins)
+
+   segment 1
+     ...
+
+   segment 2
+     ...
+
+   vals
+       1.2345E-03  0.0123   2.3456E-03  0.0156   ...
+       3.4567E-03  0.0189   ...
+\end{verbatim}
+
+\begin{tabular}{p{4cm} p{11cm}}
+\toprule
+\textbf{Palabra clave} & \textbf{Propósito} \\
+\midrule
+\texttt{tally 1} & Identificar el tally de energía depositada \\
+\texttt{segment 1} & Identificar el primer segmento (único para FMESH4) \\
+\texttt{vals} & Inicio de los datos numéricos \\
+\texttt{energy} & Rango de energía (si hay bins de energía) \\
+\texttt{values follow} & Formato alternativo de datos \\
+\bottomrule
+\end{tabular}
+
+\subsection{Formato de Datos}
+
+Los datos en \texttt{vals} vienen como pares (valor, error) en punto flotante:
+
+$$v_i \quad e_i \quad v_{i+1} \quad e_{i+1} \quad \ldots$$
+
+\vardef{$v_i$}{Energía depositada por partícula fuente [MeV/cm$^3$]}
+\vardef{$e_i$}{Error relativo (RSE = $\sigma / \mu$) [adimensional]}
+
+\subsubsection{Reshape Column-Major (Fortran)}
+
+MCNP escribe los valores en orden column-major (Fortran): el primer índice varía más rápido. Si la grilla TMESH tiene dimensiones $[n_x, n_y, n_z]$:
+
+\begin{enumerate}
+  \item Leer como vector plano (column-major Fortran): $v_{\text{flat}} = [v_1, v_2, v_3, \ldots]$
+  \item Reshape: $v_{\text{3D\_fortran}} = \text{reshape}(v_{\text{flat}}, [n_y, n_x, n_z], \text{order=`F'})$
+  \item Transponer a orden RAS (Row-major): $v_{\text{3D}} = \text{transpose}(v_{\text{3D\_fortran}}, [1, 0, 2])$
+\end{enumerate}
+
+\subsection{Filtros de Calidad Post-Parsing}
+
+\subsubsection{Error Relativo $\geq$ 1.5}
+
+Voxeles con $e_i \geq 1.5$ se consideran no estadísticamente significativos y su dosis se anula a 0.
+
+\subsubsection{Dosis Negativa}
+
+Por fluctuaciones estadísticas, algunos valores pueden ser negativos. Se convierten a 0.
+
+\subsubsection{Voxeles de Aire}
+
+Los voxeles marcados como aire (índice de tejido = 1) en la labelmap deben tener dosis = 0.
+
+\begin{tabular}{p{3.5cm} p{4cm} p{3cm} p{4cm}}
+\toprule
+\textbf{Filtro} & \textbf{Condición} & \textbf{Valor asignado} & \textbf{Porcentaje típico} \\
+\midrule
+Error $\geq$ 1.5 & $e_i \geq 1.5$ & 0 Gy & $<$ 2\% voxeles \\
+Dosis negativa & $v_i < 0$ & 0 Gy & $<$ 1\% voxeles \\
+Aire & labelmap == 1 & 0 Gy & $\sim$30--50\% voxeles \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Validación contra MATLAB}
+
+\begin{tabular}{p{5cm} p{2.5cm} p{2.5cm} p{2.5cm}}
+\toprule
+\textbf{Métrica} & \textbf{MATLAB} & \textbf{Python} & \textbf{Tolerancia} \\
+\midrule
+dtype después de reshape & float64 & float32 & --- \\
+Orden de datos & Fortran $\to$ transpose & Fortran $\to$ transpose & Idéntico \\
+Filtro error $\geq$ 1.5 & \texttt{error >= 1.5} & \texttt{error >= 1.5} & Idéntico \\
+Filtro negativo & $<$ 0 $\to$ 0 & $<$ 0 $\to$ 0 & Idéntico \\
+Filtro aire & air $\to$ 0 & air $\to$ 0 & Idéntico \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+Tally 1 encontrado & No existe tally 1 en el archivo \\
+Dimensiones nx, ny, nz $>$ 0 & Cualquier dimensión $\leq$ 0 \\
+Coincidencia con labelmap & Dimensiones MCTAL $\neq$ dimensiones labelmap \\
+Pares valor/error completos & Faltan pares ($n_x \times n_y \times n_z$ esperados) \\
+Error medio $<$ 0.5 & Error medio $\geq$ 0.5 (mala estadística) \\
+Filtrados $<$ 5\% del total & Más de 5\% filtrados \\
+Voxeles activos $>$ 0 & Suma total de dosis = 0 \\
+Parsing time $<$ 30 s & Timeout \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 4: CONVERSIÓN MeV/cm³ A GRAY
+% =============================================================================
+\section{Conversión de MeV/cm$^3$ a Gray}
+
+\begin{quote}
+\textit{De la energía depositada por partícula a la dosis absorbida clínica.} Este documento detalla la fórmula exacta de conversión de los valores crudos del archivo MCTAL (MeV/cm$^3$ por partícula fuente) a dosis absorbida en Gray (Gy), incluyendo las constantes físicas del $^{90}$Y, las densidades tisulares, y la diferencia crítica entre las rutas MCTAL y Kernel.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+Bq & Becquerel (desintegraciones por segundo) \\
+FFT & Fast Fourier Transform \\
+Gy & Gray (J/kg) --- unidad de dosis absorbida \\
+MCTAL & Archivo de resultados MCNP \\
+MeV & Mega-electrón-voltio ($1.6\times10^{-13}$ J) \\
+ROI & Region of Interest \\
+T½ & Período de semidesintegración \\
+$\lambda$ & Constante de desintegración \\
+$\tau$ & Vida media (mean lifetime) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto Físico}
+
+MCNP simula el transporte de $N$ partículas (historias) y reporta la energía depositada por partícula fuente en MeV/cm$^3$. Para obtener la dosis real en el paciente, se necesita:
+
+\begin{enumerate}
+  \item \textbf{Dividir por densidad} ($\rho$) para convertir MeV/cm$^3$ a MeV/g.
+  \item \textbf{Convertir MeV a Joules} ($1\ \text{MeV} = 1.6\times10^{-13}\ \text{J}$).
+  \item \textbf{Escalar por la actividad real} del paciente (Bq).
+  \item \textbf{Multiplicar por el tiempo de integración} (vida media del isótopo).
+\end{enumerate}
+
+\subsection{Ruta MCTAL (Monte Carlo)}
+
+\subsubsection{Fórmula Completa}
+
+$$D_{\text{Gy}} = \frac{D_{\text{raw}}}{\rho} \times 1.6\times10^{-13} \times \tau \times A \times 1000$$
+
+\vardef{$D_{\text{Gy}}$}{Dosis absorbida [Gy, rango típico 10--200]}
+\vardef{$D_{\text{raw}}$}{Energía depositada por partícula fuente (MCTAL) [MeV/cm$^3$, rango $10^{-6}$ a $10^{-3}$]}
+\vardef{$\rho$}{Densidad del tejido [g/cm$^3$, rango 0.001--1.92]}
+\vardef{$1.6\times10^{-13}$}{Factor de conversión MeV $\to$ J [J/MeV]}
+\vardef{$\tau$}{Vida media del $^{90}$Y [s, valor: 332,916]}
+\vardef{$A$}{Actividad total del paciente [Bq, rango $10^9$ a $5\times10^9$]}
+\vardef{$1000$}{Factor g $\to$ kg (Gy = J/kg) [g/kg]}
+
+\subsubsection{Constantes del $^{90}$Y}
+
+\begin{tabular}{p{4cm} p{2cm} p{4cm} p{2.5cm} p{2cm}}
+\toprule
+\textbf{Parámetro} & \textbf{Símbolo} & \textbf{Fórmula} & \textbf{Valor} & \textbf{Unidad} \\
+\midrule
+Período de semidesintegración & T½ & --- & 64.1 & h \\
+Constante de desintegración & $\lambda$ & $\ln(2)/\text{T}_{1/2}$ & 0.0108 & h$^{-1}$ \\
+Vida media & $\tau$ & $\text{T}_{1/2}/\ln(2)$ & 92.48 & h \\
+Vida media en segundos & $\tau$ & $92.48 \times 3600$ & 332,916 & s \\
+Factor MeV $\to$ J & MEV2J & --- & $1.602\times10^{-13}$ & J/MeV \\
+Constante MIRD & $k$ & $E_{\beta} \times 1.602\times10^{-13} \times 3600 \times 10^6$ & 48.98 & J/s \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Derivación Paso a Paso}
+
+$$D_{\text{raw}}\ [\text{MeV/cm}^3] \xrightarrow{\div \rho} \frac{D_{\text{raw}}}{\rho}\ [\text{MeV/g}]$$
+
+$$\frac{D_{\text{raw}}}{\rho}\ [\text{MeV/g}] \xrightarrow{\times 1.6\times10^{-13}} \frac{D_{\text{raw}}}{\rho} \times 1.6\times10^{-13}\ [\text{J/g}]$$
+
+$$\frac{D_{\text{raw}}}{\rho} \times 1.6\times10^{-13}\ [\text{J/g}] \xrightarrow{\times \tau A \times 1000} \frac{D_{\text{raw}}}{\rho} \times 1.6\times10^{-13} \times \tau \times A \times 1000\ [\text{J/kg} = \text{Gy}]$$
+
+\subsubsection{Densidades por Tejido}
+
+\begin{tabular}{p{4cm} p{3cm} p{2.5cm} p{3cm}}
+\toprule
+\textbf{Tejido} & \textbf{Índice phantom} & $\rho$ [g/cm$^3$] & \textbf{Fuente} \\
+\midrule
+Aire & 1 & 0.001205 & ICRU-44 \\
+Tejido blando & 30 & 1.06 & ICRP-110 \\
+Pulmón & 50 & 0.382 & ICRP-110 \\
+Hueso cortical & 80 & 1.92 & ICRP-110 \\
+Hígado & 90 & 1.06 & ICRP-110 \\
+Tumor & 100 & 1.06 & Asumido = hígado \\
+Peritumoral & 200 & 1.06 & Asumido = hígado \\
+Body (genérico) & --- & 1.0 & ICRU-44 \\
+\bottomrule
+\end{tabular}
+
+\subsection{Ruta Kernel (Convolución FFT)}
+
+\subsubsection{Diferencia Crítica}
+
+La ruta Kernel \textbf{NO multiplica por $\tau$ ni por $A$} después de la convolución porque el archivo \texttt{kernel.mat} ya incluye el factor $\tau \times A$.
+
+\subsubsection{Flujo Exacto MATLAB}
+
+\begin{verbatim}
+% MATLAB original (modulo_3/convkernel.m)
+Kernel = Kernel / sum(Kernel(:));        % normalizar
+DosisK = imfilter(A, Kernel, ...);       % convolucion
+DosisK = DosisK .* IND_liver_tumor;      % enmascarar
+% NO hay DosisK * t   (tau ya incluido en kernel.mat)
+\end{verbatim}
+
+donde:
+\begin{itemize}
+  \item $A$ = actividad \textbf{en GBq} por voxel (\texttt{PET .* 1e-9}).
+  \item \texttt{kernel.mat} incluye $\tau \times 10^9$ (vida media $\times$ GBq).
+  \item \texttt{IND\_liver\_tumor} = máscara de hígado + tumor + peritumoral.
+\end{itemize}
+
+\subsubsection{Fórmula}
+
+$$D_{\text{Gy}} = \text{FFT}^{-1}\big[\text{FFT}(A_{\text{GBq}}) \cdot \text{FFT}(K_{\text{norm}})\big] \times \text{mask}$$
+
+\vardef{$A_{\text{GBq}}$}{Actividad por voxel [GBq]}
+\vardef{$K_{\text{norm}}$}{Kernel normalizado (suma = 1) [1/cm$^3$]}
+\vardef{$\text{mask}$}{Máscara binaria hígado+tumor+peritumoral [---]}
+
+\subsection{Comparación de Rutas}
+
+\begin{tabular}{p{4cm} p{5cm} p{5cm}}
+\toprule
+\textbf{Aspecto} & \textbf{Ruta MCTAL} & \textbf{Ruta Kernel} \\
+\midrule
+Factor $\tau$ & Sí (multiplica fuera) & No (incluido en kernel.mat) \\
+Actividad en & Bq & GBq \\
+Densidad & Por voxel (labelmap) & Promedio (implícita en kernel) \\
+Enmascarado & Post-conversión & Post-convolución \\
+Tiempo de cómputo & ~minutos & ~segundos \\
+Precisión & Alta (voxel a voxel) & Aproximada \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+$\rho > 0$ en todo voxel no-aire & $\rho \leq 0$ en algún voxel \\
+$D_{\text{Gy}} \geq 0$ & Dosis negativa ($>$ 1\% de voxeles) \\
+Dosis media en tumor $>$ 0 & Tumor con dosis media = 0 \\
+Dosis máxima $<$ 1000 Gy & Dosis máxima $\geq$ 1000 Gy (fuera de rango) \\
+Dosis en aire = 0 & Voxel de aire con dosis $>$ 0 \\
+Coherencia MCTAL vs.\ Kernel & Diferencia $>$ 20\% entre rutas \\
+Actividad total $>$ 0 & Actividad = 0 (dosis = 0) \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 5: DVH
+% =============================================================================
+\section{Dose-Volume Histogram (DVH)}
+
+\begin{quote}
+\textit{Resumiendo la distribución espacial de dosis en una curva clínica.} El DVH acumulativo es la herramienta estándar en radioterapia y medicina nuclear para evaluar la calidad de un plan de tratamiento.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+D2 & Dosis que cubre el 2\% del volumen ($\sim$dosis máxima) \\
+D5 & Dosis que cubre el 5\% del volumen ($\sim$dosis máxima) \\
+D50 & Dosis que cubre el 50\% del volumen (dosis mediana) \\
+D70 & Dosis que cubre el 70\% del volumen \\
+D95 & Dosis que cubre el 95\% del volumen \\
+D98 & Dosis que cubre el 98\% del volumen \\
+DVH & Dose-Volume Histogram \\
+OAR & Organ at Risk \\
+ROI & Region of Interest \\
+V30 & Porcentaje de volumen que recibe $\geq$ 30 Gy \\
+V70 & Porcentaje de volumen que recibe $\geq$ 70 Gy \\
+\bottomrule
+\end{tabular}
+
+\subsection{Definición del DVH Acumulativo}
+
+El DVH acumulativo muestra, para cada dosis umbral $D$, el porcentaje del volumen de la ROI que recibe \textbf{al menos} esa dosis:
+
+$$V(D) = \frac{1}{N}\sum_{i=1}^{N} [D_i \geq D] \times 100\%$$
+
+\vardef{$V(D)$}{Porcentaje de volumen con dosis $\geq D$ [\%]}
+\vardef{$D$}{Dosis umbral [Gy]}
+\vardef{$D_i$}{Dosis en el voxel $i$ [Gy]}
+\vardef{$N$}{Número total de voxeles en la ROI [---]}
+\vardef{$[D_i \geq D]$}{Función indicadora: 1 si cumple, 0 si no [---]}
+
+La función indicadora se define como:
+
+$$[D_i \geq D] = \begin{cases} 1 & \text{si } D_i \geq D \\ 0 & \text{si } D_i < D \end{cases}$$
+
+\subsubsection{Propiedades}
+
+\begin{itemize}
+  \item \textbf{Monótona decreciente}: $V(D_1) \geq V(D_2)$ si $D_1 < D_2$.
+  \item \textbf{$V(0) = 100\%$}: todo el volumen recibe al menos 0 Gy.
+  \item \textbf{$V(D_{\max}) > 0\%$}: el voxel de máxima dosis está incluido.
+  \item \textbf{$V(D > D_{\max}) = 0\%$}: ningún voxel supera la dosis máxima.
+\end{itemize}
+
+\subsection{Algoritmo de Cálculo}
+
+Parámetros:
+\begin{itemize}
+  \item Número de puntos: 200 (99 intervalos).
+  \item Rango: de 0 a $D_{\max} \times 1.05$.
+  \item Incluye voxeles con dosis = 0 (percentiles sobre \textbf{todos} los voxeles).
+\end{itemize}
+
+\begin{verbatim}
+1. Obtener máscara binaria de la ROI desde la labelmap
+2. Extraer dosis de todos los voxeles dentro de la máscara
+3. Crear vector dosis_threshold = linspace(0, Dmax*1.05, 200)
+4. Para cada umbral D:
+     V(D) = 100 * sum(dosis_vox >= D) / len(dosis_vox)
+5. Almacenar curva (D, V)
+6. Extraer metricas: D98, D95, D70, D50, D5, D2, V30, V70
+\end{verbatim}
+
+\subsection{Métricas Clínicas}
+
+\subsubsection{Percentiles de Dosis}
+
+\begin{tabular}{p{2.5cm} p{2cm} p{4cm} p{2.5cm} p{2.5cm}}
+\toprule
+\textbf{Métrica} & \textbf{Percentil} & \textbf{Significado clínico} & \textbf{ROI típica} & \textbf{Valor típico} \\
+\midrule
+D98 & 2\% & Dosis mínima casi absoluta & Hígado sano & $>$ 30 Gy \\
+D95 & 5\% & Dosis mínima representativa & Tumor & $>$ 100 Gy \\
+D70 & 30\% & Dosis de cobertura intermedia & Peritumoral & $>$ 50 Gy \\
+D50 & 50\% & Dosis mediana & Todas & 30--200 Gy \\
+D5 & 95\% & Cuasi-máxima (punto caliente) & Tumor & $<$ 300 Gy \\
+D2 & 98\% & Dosis máxima representativa & OAR & $<$ 70 Gy \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Volúmenes de Dosis}
+
+\begin{tabular}{p{3cm} p{4cm} p{2.5cm} p{3cm}}
+\toprule
+\textbf{Métrica} & \textbf{Significado} & \textbf{ROI} & \textbf{Valor típico} \\
+\midrule
+V30 (hígado) & \% hígado sano con dosis $\geq$ 30 Gy & Hígado sano & $<$ 50\% \\
+V70 (hígado) & \% hígado sano con dosis $\geq$ 70 Gy & Hígado sano & $<$ 20\% \\
+V100 (tumor) & \% tumor con dosis $\geq$ 100\% prescrita & Tumor & $>$ 90\% \\
+\bottomrule
+\end{tabular}
+
+\subsection{Visualización del DVH}
+
+\subsubsection{Colores por ROI}
+
+\begin{tabular}{p{3cm} p{3cm} p{3cm} p{5cm}}
+\toprule
+\textbf{ROI} & \textbf{Color} & \textbf{Código hex} & \textbf{Uso} \\
+\midrule
+Hígado & Azul & \texttt{\#0000FF} & ROI principal de dosis hepática \\
+Tumor & Rojo & \texttt{\#FF0000} & ROI de respuesta tumoral \\
+Peritumoral & Amarillo & \texttt{\#FFFF00} & Borde de seguridad \\
+Body & Verde & \texttt{\#00AA00} & Cuerpo completo \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Escala Logarítmica}
+
+El eje Y (\% volumen) se representa en \textbf{escala logarítmica} para visualizar mejor las dosis altas en volúmenes pequeños.
+
+\subsection{Validación contra MATLAB}
+
+\begin{tabular}{p{4cm} p{2.5cm} p{2.5cm} p{2.5cm}}
+\toprule
+\textbf{Métrica} & \textbf{MATLAB} & \textbf{Python} & \textbf{Tolerancia} \\
+\midrule
+Número de puntos & 200 & 200 & Idéntico \\
+Percentiles & \texttt{prctile} & \texttt{np.percentile} & $<$ 0.01\% \\
+V30, V70 & count $\geq$ / total & count $\geq$ / total & Idéntico \\
+Incluye dosis = 0 & Sí & Sí & Idéntico \\
+Escala Y & log & log & Idéntico \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+DVH monótono decreciente & Pendiente positiva en algún punto \\
+$V(0) = 100\%$ & $V(0) \neq 100\%$ (error de máscara) \\
+D98 $<$ D95 $<$ $\ldots$ $<$ D2 & Violación de orden de percentiles \\
+V30 + V70 $\leq$ 110\% & Suma inconsistente \\
+Volumen ROI $>$ 0 & Volumen = 0 (máscara vacía) \\
+Dosis media dentro de rango & Media fuera de [min, max] \\
+Puntos DVH continuos & Saltos $>$ 10\% en la curva \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 6: MODELOS RADIOBIOLÓGICOS
+% =============================================================================
+\section{Radiobiología: BED, EUD y EQD2}
+
+\begin{quote}
+\textit{De la dosis física al efecto biológico.} La dosis absorbida en Gray no captura completamente el efecto biológico de la radiación, especialmente en terapias con radionúclidos de baja tasa de dosis como $^{90}$Y. Para cuantificar el efecto real sobre el tejido tumoral y sano, 3Dosim implementa tres modelos radiobiológicos estándar: BED, EUD y EQD2.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+BED & Biologically Effective Dose \\
+DRF & Dose Rate Factor (factor corrector por tasa de dosis) \\
+EQD2 & Equivalent Dose in 2 Gy fractions \\
+EUD & Equivalent Uniform Dose \\
+LDR & Low Dose Rate (radiación de baja tasa) \\
+LQ & Linear-Quadratic (modelo radiobiológico) \\
+NTCP & Normal Tissue Complication Probability \\
+OAR & Organ at Risk \\
+TCP & Tumor Control Probability \\
+$\alpha/\beta$ & Relación de radiosensibilidad del tejido \\
+\bottomrule
+\end{tabular}
+
+\subsection{Biologically Effective Dose (BED)}
+
+\subsubsection{Contexto}
+
+El modelo BED incorpora dos factores que la dosis física no captura:
+\begin{enumerate}
+  \item \textbf{Reparación subletal} durante la irradiación prolongada (Y-90: días).
+  \item \textbf{Radiosensibilidad intrínseca} del tejido ($\alpha/\beta$).
+\end{enumerate}
+
+\subsubsection{Fórmula para BED en Terapia con Radionúclidos}
+
+Para radionúclidos con decaimiento exponencial (baja tasa de dosis continua):
+
+$$\text{BED} = D + \frac{\lambda}{(\alpha/\beta)(\lambda + \mu)} \cdot D^2$$
+
+\vardef{$D$}{Dosis física total [Gy, rango 10--200]}
+\vardef{$\lambda$}{Constante de desintegración del isótopo [h$^{-1}$, valor: 0.0108 para Y-90]}
+\vardef{$\mu$}{Tasa de reparación subletal del tejido [h$^{-1}$, valor: 0.28]}
+\vardef{$\alpha/\beta$}{Relación de radiosensibilidad [Gy, 2.5 para hígado, 10 para tumor]}
+
+\subsubsection{Valores de $\alpha/\beta$}
+
+\begin{tabular}{p{4cm} p{3cm} p{5cm}}
+\toprule
+\textbf{Tejido} & $\alpha/\beta$ [Gy] & \textbf{Referencia} \\
+\midrule
+Hígado (sano) & 2.5 & Dawson, 2002 \\
+Tumor hepático & 10.0 & Tai, 2008 \\
+Peritumoral & 2.5 & Asumido = hígado sano \\
+Pulmón & 3.0 & Van Dyk, 1989 \\
+Riñón & 2.5 & Emami, 1991 \\
+Médula ósea & 2.0 & Fowler, 1989 \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Factor de Tasa de Dosis (DRF)}
+
+El término $\frac{\lambda}{\lambda + \mu}$ es el factor de corrección por tasa de dosis:
+
+\begin{tabular}{p{2cm} p{3cm} p{3.5cm} p{3.5cm}}
+\toprule
+\textbf{Isótopo} & $\lambda$ [h$^{-1}$] & \textbf{DRF (hígado, $\mu$=0.28)} & \textbf{DRF (tumor, $\mu$=0.28)} \\
+\midrule
+$^{90}$Y & 0.0108 & 0.0371 & 0.0371 \\
+$^{177}$Lu & 0.0018 & 0.0064 & 0.0064 \\
+$^{131}$I & 0.0036 & 0.0127 & 0.0127 \\
+HDR (EBRT) & $\infty$ & 1.0 & 1.0 \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Ejemplo Numérico}
+
+Para $D = 100$ Gy en tumor ($\alpha/\beta = 10$):
+
+$$\text{BED} = 100 + \frac{0.0108}{10 \times (0.0108 + 0.28)} \times 100^2 = 100 + 0.3714 = 100.37\ \text{Gy}$$
+
+Para $D = 50$ Gy en hígado ($\alpha/\beta = 2.5$):
+
+$$\text{BED} = 50 + \frac{0.0108}{2.5 \times 0.2908} \times 2500 = 50 + 37.14 = 87.14\ \text{Gy}$$
+
+\begin{tabular}{p{2.5cm} p{3.5cm} p{3.5cm}}
+\toprule
+\textbf{Dosis física} & \textbf{BED hígado (2.5)} & \textbf{BED tumor (10)} \\
+\midrule
+20 Gy & 22.97 Gy & 20.15 Gy \\
+50 Gy & 87.14 Gy & 50.37 Gy \\
+100 Gy & 248.6 Gy & 100.7 Gy \\
+150 Gy & 484.8 Gy & 151.1 Gy \\
+200 Gy & 795.5 Gy & 201.5 Gy \\
+\bottomrule
+\end{tabular}
+
+\subsection{Equivalent Uniform Dose (EUD)}
+
+\subsubsection{Contexto}
+
+La EUD reduce una distribución de dosis no uniforme a una dosis uniforme equivalente que produce el mismo efecto biológico. Propuesta por Niemierko (1997):
+
+$$\text{EUD} = \left(\sum_{i=1}^{N} v_i D_i^a\right)^{1/a}$$
+
+\vardef{$v_i$}{Fracción de volumen del voxel $i$ [adimensional]}
+\vardef{$D_i$}{Dosis en el voxel $i$ [Gy]}
+\vardef{$a$}{Parámetro de volumen del tejido [adimensional]}
+\vardef{$N$}{Número total de voxeles [---]}
+
+\subsubsection{Parámetro $a$}
+
+\begin{tabular}{p{4cm} p{3cm} p{5cm}}
+\toprule
+\textbf{Tejido} & $a$ & \textbf{Efecto} \\
+\midrule
+Tumor & 1 & EUD = dosis media (efecto lineal) \\
+Hígado (sano) & 11 & EUD $\approx$ dosis máxima (estructura en paralelo) \\
+Peritumoral & 8 & Intermedio \\
+Pulmón & 7 & Estructura en paralelo \\
+Riñón & 7 & Estructura en paralelo \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Interpretación}
+
+\begin{itemize}
+  \item $a = 1$: EUD = dosis media aritmética.
+  \item $a \to +\infty$: EUD = dosis máxima (órgano en serie).
+  \item $a \to -\infty$: EUD = dosis mínima (tumor con cold spots).
+\end{itemize}
+
+\subsection{Equivalent Dose in 2 Gy fractions (EQD2)}
+
+\subsubsection{Contexto}
+
+La EQD2 convierte cualquier esquema de dosis fraccionada (o dosis de radionúclido) a la dosis equivalente si se administrara en fracciones de 2 Gy, el estándar en radioterapia externa.
+
+$$\text{EQD2} = \frac{\text{BED}}{1 + \frac{2}{\alpha/\beta}}$$
+
+\vardef{BED}{Dosis biológica equivalente calculada previamente [Gy]}
+\vardef{$\alpha/\beta$}{Relación de radiosensibilidad del tejido [Gy]}
+\vardef{2}{Dosis por fracción en el esquema estándar [Gy]}
+
+\subsubsection{Derivación}
+
+Partiendo de la fórmula general de BED para fraccionamiento:
+
+$$\text{BED} = n \cdot d \left(1 + \frac{d}{\alpha/\beta}\right)$$
+
+Para el esquema estándar ($n$ fracciones de 2 Gy):
+
+$$\text{BED}_{2\text{Gy}} = n \cdot 2 \left(1 + \frac{2}{\alpha/\beta}\right) = \text{EQD2} \cdot \left(1 + \frac{2}{\alpha/\beta}\right)$$
+
+Despejando EQD2:
+
+$$\text{EQD2} = \frac{\text{BED}}{1 + \frac{2}{\alpha/\beta}}$$
+
+\subsubsection{Ejemplos Numéricos}
+
+\begin{tabular}{p{2cm} p{3cm} p{3cm} p{3cm} p{3cm}}
+\toprule
+\textbf{$D$ física} & \textbf{BED (hígado)} & \textbf{EQD2 (hígado, $\alpha/\beta$=2.5)} & \textbf{BED (tumor)} & \textbf{EQD2 (tumor, $\alpha/\beta$=10)} \\
+\midrule
+20 Gy & 22.97 Gy & 12.76 Gy & 20.15 Gy & 16.79 Gy \\
+50 Gy & 87.14 Gy & 48.41 Gy & 50.37 Gy & 41.98 Gy \\
+100 Gy & 248.6 Gy & 138.1 Gy & 100.7 Gy & 83.92 Gy \\
+150 Gy & 484.8 Gy & 269.3 Gy & 151.1 Gy & 125.9 Gy \\
+200 Gy & 795.5 Gy & 441.9 Gy & 201.5 Gy & 167.9 Gy \\
+\bottomrule
+\end{tabular}
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+BED $\geq$ D física & BED $<$ D (error en fórmula LQ) \\
+EUD dentro de [min($D$), max($D$)] & EUD fuera de rango \\
+EQD2 $\leq$ BED (para $\alpha/\beta > 0$) & EQD2 $>$ BED \\
+BED máximo $<$ 1000 Gy & BED $\geq$ 1000 Gy (fuera de rango clínico) \\
+EUD(hígado) $\leq$ D95(tumor) & EUD hígado $>$ D95 tumor (biológicamente implausible) \\
+Consistencia entre ROIs & BED(hígado) $>$ BED(tumor) si $D_{\text{liver}} < D_{\text{tumor}}$ \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 7: MODELO MIRD DE PARTICIÓN
+% =============================================================================
+\section{Modelo MIRD de Partición}
+
+\begin{quote}
+\textit{Estimación analítica de dosis media en hígado y tumor.} El modelo MIRD de partición es un método simplificado para estimar la dosis media absorbida en el hígado sano y el tumor a partir de la actividad administrada y la relación de captación T/N (Tumor-to-Normal). Proporciona una verificación cruzada rápida contra los resultados del mapa de dosis 3D.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+FU & Fractional Uptake (fracción de actividad captada) \\
+MIRD & Medical Internal Radiation Dose \\
+ROI & Region of Interest \\
+SF & Shunt Fraction (fracción de derivación pulmonar) \\
+T/N & Tumor-to-Normal uptake ratio \\
+VOI & Volume of Interest \\
+$k$ & Constante MIRD del isótopo (J/s) \\
+$\rho$ & Densidad tisular (g/cm$^3$) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Contexto Clínico}
+
+El modelo MIRD de partición fue propuesto originalmente para radioembolización hepática con $^{90}$Y-microesferas. Asume que:
+
+\begin{enumerate}
+  \item La actividad se distribuye en \textbf{dos compartimentos}: hígado sano y tumor.
+  \item La \textbf{captación relativa} T/N se mide por PET pre-tratamiento.
+  \item La \textbf{derivación pulmonar} (SF) se mide por gammagrafía o PET.
+  \item La dosis en cada compartimento es \textbf{uniforme} (aproximación).
+\end{enumerate}
+
+\subsubsection{Limitaciones}
+
+\begin{itemize}
+  \item No captura heterogeneidades espaciales de dosis (para eso está el mapa 3D).
+  \item No considera actividad en otros órganos.
+  \item Asume dosis uniforme dentro de cada compartimento.
+\end{itemize}
+
+\subsubsection{Uso en 3Dosim}
+
+El modelo MIRD se usa como:
+\begin{itemize}
+  \item \textbf{Verificación rápida}: comparar dosis media MIRD vs.\ dosis media del mapa 3D.
+  \item \textbf{Planificación pre-tratamiento}: estimar actividad necesaria para alcanzar dosis objetivo.
+  \item \textbf{Reporte complementario}: incluir en el reporte PDF como referencia.
+\end{itemize}
+
+\subsection{Ecuaciones del Modelo}
+
+\subsubsection{Relación T/N}
+
+$$T/N = \frac{\text{actividad\_PET\_tumor}}{\text{actividad\_PET\_higado}}$$
+
+\vardef{$T/N$}{Relación de captación tumor / hígado sano [adimensional]}
+\vardef{$\text{actividad\_PET\_tumor}$}{Concentración media de actividad en tumor [Bq/cm$^3$]}
+\vardef{$\text{actividad\_PET\_higado}$}{Concentración media de actividad en hígado sano [Bq/cm$^3$]}
+
+\subsubsection{Fracción de Captación (FU)}
+
+La actividad total administrada $A$ se distribuye entre hígado sano y tumor según:
+
+$$\text{FU}_{\text{normal}} = (1-\text{SF})\frac{V_{\text{higado}}}{\frac{T}{N}\cdot V_{\text{tumor}} + V_{\text{higado}}}$$
+
+$$\text{FU}_{\text{tumor}} = (1-\text{SF})\frac{\frac{T}{N}\cdot V_{\text{tumor}}}{\frac{T}{N}\cdot V_{\text{tumor}} + V_{\text{higado}}}$$
+
+\vardef{$\text{FU}_{\text{normal}}$}{Fracción de actividad captada por hígado sano [adimensional]}
+\vardef{$\text{FU}_{\text{tumor}}$}{Fracción de actividad captada por tumor [adimensional]}
+\vardef{$V_{\text{higado}}$}{Volumen de hígado sano [cm$^3$]}
+\vardef{$V_{\text{tumor}}$}{Volumen de tumor [cm$^3$]}
+\vardef{$\text{SF}$}{Fracción de derivación pulmonar, típicamente 0.0 -- 0.2 [adimensional]}
+
+\textbf{Verificación:} $\text{FU}_{\text{normal}} + \text{FU}_{\text{tumor}} + \text{SF} = 1$.
+
+\subsubsection{Dosis Absorbida}
+
+$$D_{\text{higado}} = \frac{A \cdot k \cdot \text{FU}_{\text{normal}}}{m_{\text{higado}}}$$
+
+$$D_{\text{tumor}} = \frac{A \cdot k \cdot \text{FU}_{\text{tumor}}}{m_{\text{tumor}}}$$
+
+\vardef{$A$}{Actividad total administrada [GBq, rango 0.5--5.0]}
+\vardef{$k$}{Constante MIRD del $^{90}$Y [J/s, valor: 48.98]}
+\vardef{$m_{\text{higado}}$}{Masa de hígado sano [kg, rango 1.0--2.0]}
+\vardef{$m_{\text{tumor}}$}{Masa de tumor [kg, rango 0.01--0.5]}
+
+\subsubsection{Constante MIRD $k$}
+
+$$k = E_{\beta} \times 1.602\times10^{-13} \times 3600 \times 10^6$$
+
+\vardef{$E_{\beta}$}{Energía media de la emisión beta del $^{90}$Y [MeV, valor: 0.9337]}
+\vardef{$1.602\times10^{-13}$}{Conversión de energía [J/MeV]}
+\vardef{3600}{Factor de tiempo [s/h]}
+\vardef{$10^6$}{Conversión GBq $\to$ Bq y kg $\to$ g [---]}
+
+$$k = 0.9337 \times 1.602\times10^{-13} \times 3600 \times 10^6 = 48.98\ \text{J/s}$$
+
+\subsection{Algoritmo de Implementación}
+
+\begin{verbatim}
+1. Obtener volumenes de higado sano y tumor desde la labelmap
+2. Calcular masas: m = V x rho (rho = 1.06 g/cm^3 para ambos)
+3. Obtener T/N desde PET:
+   a. Actividad media en tumor (voxeles con label=100)
+   b. Actividad media en higado sano (label=90)
+   c. T/N = media_tumor / media_higado
+4. Si no hay PET: T/N default = 3.0
+5. Calcular FU_normal y FU_tumor
+6. Calcular D_higado y D_tumor
+\end{verbatim}
+
+\subsection{Ejemplo Numérico}
+
+\begin{tabular}{p{5cm} p{3cm} p{3cm}}
+\toprule
+\textbf{Parámetro} & \textbf{Valor} & \textbf{Unidad} \\
+\midrule
+Actividad total ($A$) & 3.5 & GBq \\
+T/N (PET) & 4.2 & --- \\
+Shunt (SF) & 0.05 (5\%) & --- \\
+Volumen hígado sano & 1234.5 & cm$^3$ \\
+Volumen tumor & 45.2 & cm$^3$ \\
+Masa hígado sano & 1.309 & kg \\
+Masa tumor & 0.048 & kg \\
+\bottomrule
+\end{tabular}
+
+\textbf{Cálculos:}
+
+$$\text{FU}_{\text{normal}} = (1 - 0.05) \times \frac{1234.5}{4.2 \times 45.2 + 1234.5} = 0.95 \times 0.8667 = 0.823$$
+
+$$\text{FU}_{\text{tumor}} = (1 - 0.05) \times \frac{4.2 \times 45.2}{4.2 \times 45.2 + 1234.5} = 0.95 \times 0.1333 = 0.127$$
+
+$$D_{\text{higado}} = \frac{3.5 \times 48.98 \times 0.823}{1.309} = 107.8\ \text{Gy}$$
+
+$$D_{\text{tumor}} = \frac{3.5 \times 48.98 \times 0.127}{0.048} = 453.2\ \text{Gy}$$
+
+\subsection{Verificación contra el Mapa 3D}
+
+La implementación actual calcula la dosis media directamente desde el mapa 3D y la reporta junto con los valores MIRD como verificación, requiriendo una diferencia $<$ 20\% entre ambos métodos.
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+T/N $>$ 1 & T/N $\leq$ 1 (tumor capta menos que hígado) \\
+FU$_{\text{total}}$ + SF $\approx$ 1 & FU$_{\text{normal}}$ + FU$_{\text{tumor}}$ + SF $\neq$ 1 (tol.\ 0.01) \\
+FU dentro de [0, 1] & FU fuera de rango \\
+Masa $>$ 0 & Masa = 0 (volumen cero) \\
+Dosis MIRD vs.\ 3D $<$ 20\% & Diferencia $\geq$ 20\% entre modelos \\
+$D_{\text{tumor}} > D_{\text{liver}}$ & $D_{\text{tumor}} \leq D_{\text{liver}}$ \\
+SF en rango [0, 0.2] & SF $>$ 0.2 o $<$ 0 \\
+Actividad $>$ 0 & $A = 0$ (dosis cero) \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 8: ISODOSIS Y VISUALIZACIÓN EN SLICER
+% =============================================================================
+\section{Isodosis y Visualización en 3D Slicer}
+
+\begin{quote}
+\textit{Del mapa de dosis numérico a contornos clínicos interpretables.} Este documento describe cómo se renderiza el mapa de dosis 3D en 3D Slicer, la generación de contornos de isodosis, y la visualización interactiva del DVH.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+CLUT & Color Look-Up Table \\
+FPE & Focal Point Elevation (ángulo de cámara 3D) \\
+FPS & Frames Per Second \\
+GPU & Graphics Processing Unit \\
+IJK & Índices de voxel (i, j, k) \\
+IJKToRAS & Matriz de transformación voxel $\to$ coordenadas anatómicas \\
+MRML & Medical Reality Markup Language (árbol de Slicer) \\
+RAS & Right-Anterior-Superior (sistema de coordenadas Slicer) \\
+ROI & Region of Interest \\
+VTK & Visualization Toolkit (motor gráfico de Slicer) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Nodo de Dosis 3D en Slicer}
+
+El mapa de dosis se carga en Slicer como un \texttt{vtkMRMLScalarVolumeNode} con overlay rainbow invertido. Se copia la geometría del CT de referencia (orientación, espaciado, origen) y se asignan los datos del mapa de dosis en formato \texttt{vtkFloatArray} con orden column-major Fortran para compatibilidad con Slicer.
+
+\subsubsection{Overlay Rainbow Invertido}
+
+El overlay de dosis se configura con una Look-Up Table (LUT) rainbow invertida:
+
+\begin{tabular}{p{1.5cm} p{2cm} p{2cm} p{2cm} p{3cm}}
+\toprule
+\textbf{Punto} & \textbf{Rojo} & \textbf{Verde} & \textbf{Azul} & \textbf{Significado} \\
+\midrule
+0\% & 0.0 & 0.0 & 0.0 & Transparente (fondo) \\
+10\% & 0.0 & 0.0 & 0.5 & Azul oscuro \\
+20\% & 0.0 & 0.0 & 1.0 & Azul \\
+30\% & 0.0 & 0.5 & 1.0 & Cyan \\
+40\% & 0.0 & 1.0 & 1.0 & Verde \\
+50\% & 0.5 & 1.0 & 0.0 & Amarillo-verde \\
+60\% & 1.0 & 1.0 & 0.0 & Amarillo \\
+80\% & 1.0 & 0.5 & 0.0 & Naranja \\
+100\% & 1.0 & 0.0 & 0.0 & Rojo \\
+\bottomrule
+\end{tabular}
+
+\subsection{Isodosis}
+
+\subsubsection{Niveles}
+
+Se generan \textbf{10 niveles} de isodosis desde 10\% hasta 100\% de la dosis máxima:
+
+$$D_{\text{nivel}} = D_{\max} \times \frac{p}{100}, \quad p \in \{10, 20, 30, 40, 50, 60, 70, 80, 90, 100\}$$
+
+\subsubsection{Smoothing}
+
+Antes de generar contornos, se aplica un filtro Gaussiano 3D (equivalente a \texttt{smooth3} de MATLAB):
+
+$$D_{\text{smooth}} = \text{gaussian\_filter}(D_{\text{Gy}}, \sigma = 1.0)$$
+
+\subsubsection{Colormap Jet (10 muestras)}
+
+Se utiliza el colormap \texttt{jet} de matplotlib con 10 muestras, una por nivel de isodosis.
+
+\subsubsection{Generación de Contornos (VTK Marching Cubes)}
+
+Los contornos se generan mediante VTK Marching Cubes (\texttt{vtkDiscreteMarchingCubes}). Cada contorno se almacena como un \texttt{vtkMRMLModelNode} en la escena de Slicer con un color y opacidad proporcional al nivel de dosis:
+
+$$\text{opacidad}_i = 0.3 + 0.5 \times \frac{p_i}{100}$$
+
+\subsubsection{Fallback: SlicerRT Isodose Module}
+
+Si el módulo \textbf{SlicerRT} está disponible, se usa su generación nativa de isodosis. En caso contrario, se utiliza VTK Marching Cubes.
+
+\subsection{DVH Interactivo en Slicer}
+
+\subsubsection{Módulo Plots}
+
+El DVH se visualiza usando el módulo nativo \textbf{Plots} de Slicer:
+
+\begin{itemize}
+  \item Se crea un \texttt{vtkMRMLPlotChartNode} con título ``DVH''.
+  \item Por cada ROI se crea un \texttt{vtkMRMLPlotSeriesNode} con:
+    \begin{itemize}
+      \item Tipo de gráfico: \texttt{PlotTypeLine}.
+      \item Eje X: ``Dosis [Gy]'' en escala lineal.
+      \item Eje Y: ``Volumen [\%]'' en escala logarítmica.
+    \end{itemize}
+  \item Colores por ROI: Hígado (azul), Tumor (rojo), Peritumoral (amarillo), Body (verde).
+  \item Rango X forzado: $[0, D_{\max} \times 1.05]$.
+\end{itemize}
+
+\subsection{Layout de Visualización}
+
+\begin{verbatim}
++------------------------------------------------------------+
+|              3D Slicer --- 3Dosim Dosis Final               |
++------------+------------+------------+---------------------+
+|            |            |            |                     |
+|   Axial    |  Sagital   |  Coronal   |      Vista 3D       |
+|   CT +     |   CT +     |   CT +     |  (Volume Rendering  |
+|  dosis     |  dosis     |  dosis     |   + isodosis)       |
+|  overlay   |  overlay   |  overlay   |                     |
+|            |            |            |                     |
++------------+------------+------------+---------------------+
+|                    DVH Plot (abajo)                        |
+|      +-----------------------------------------+           |
+|      |  % Vol vs Dosis [Gy] (log Y)            |           |
+|      |  4 curvas: Hig, Tum, Peri, Body         |           |
+|      +-----------------------------------------+           |
++------------------------------------------------------------+
+\end{verbatim}
+
+\subsection{Guardado de Escena Final}
+
+Al finalizar, se guarda la escena completa con todos los nodos:
+
+\begin{itemize}
+  \item \texttt{3Dosim\_dosis\_final.mrb} --- Escena completa de Slicer.
+  \item \texttt{dose\_gy.nrrd} --- Mapa de dosis en formato NRRD.
+  \item \texttt{dose\_gy.nii} --- Mapa de dosis en formato NIfTI.
+\end{itemize}
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{tabular}{p{5cm} p{10cm}}
+\toprule
+\textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+Nodo de dosis creado & No existe nodo dosis en la escena \\
+Overlay visible & Dosis display node mal configurado \\
+Isodosis generadas & Número de contornos $<$ 10 \\
+Isodosis cubren el hígado+tumor & Contornos fuera de las ROIs \\
+DVH con 4 curvas & Faltan ROIs principales \\
+Escena final guardada & Archivo .mrb no se creó \\
+Coordenadas consistentes & Nodo dosis fuera de alineación con CT \\
+\bottomrule
+\end{tabular}
+
+\newpage
+
+% =============================================================================
+% SECCIÓN 9: PIPELINE COMPLETO
+% =============================================================================
+\section{Pipeline Completo --- Módulo 3: Dosimetría}
+
+\begin{quote}
+\textit{De la escena segmentada al reporte clínico.} El pipeline del Módulo 3 transforma la escena generada por el Módulo 1 (con CT, PET, labelmap y ROIs) en un mapa de dosis 3D en Gray, histogramas dosis-volumen, índices radiobiológicos y un reporte PDF listo para la práctica clínica.
+\end{quote}
+
+\subsection*{Acrónimos usados en esta sección}
+
+\begin{tabular}{p{3cm} p{12cm}}
+\toprule
+\textbf{Acrónimo} & \textbf{Significado} \\
+\midrule
+BED & Biologically Effective Dose \\
+DVH & Dose-Volume Histogram \\
+EQD2 & Equivalent Dose in 2 Gy fractions \\
+EUD & Equivalent Uniform Dose \\
+FFT & Fast Fourier Transform \\
+MCNP & Monte Carlo N-Particle \\
+MCTAL & Archivo de salida MCNP con tallies \\
+MIRD & Medical Internal Radiation Dose \\
+MRB & Medical Reality Bundle (escena Slicer) \\
+NRRD & Nearly Raw Raster Data \\
+PDF & Portable Document Format \\
+ROI & Region of Interest \\
+TMESH & Tally MESH (grilla de dosis en MCNP) \\
+\bottomrule
+\end{tabular}
+
+\subsection{Integración Mod1 $\to$ Mod3}
+
+\begin{verbatim}
+Modulo 1 (PREPARACION)          Modulo 3 (DOSIMETRIA)
+----------------------          ----------------------
+
+CT + PET DICOM
+      |
+      v
+Segmentacion (TS)
+      |
+      v
+Labelmap dosimetrica -------->  Escena .mrb
+(NIfTI + NRRD,                  |-- CT (referencia espacial)
+ indices phantom)                |-- PET (actividad Bq/mL)
+      |                          |-- Labelmap (90=higado, 100=tumor...)
+      v                          |-- ROIs (higado, tumor, peritumoral)
+Modulo 2 (MCNP)                  |-- Transforms (IJK->RAS)
+      |
+      v                                   |
+Archivo MCTAL ------------------>   Parse MCTAL
+(paciente.o)                            |
+                                        v
+                                  Mapa dosis 3D (Gy)
+                                        |
+                             +----------+----------+
+                             v          v          v
+                           DVH       BED/EUD     MIRD
+                                              (verificacion)
+                             |          |          |
+                             +----------+----------+
+                                        |
+                                        v
+                                  Reporte PDF
+                                  Escena final .mrb
+\end{verbatim}
+
+\subsection{Los 10 Pasos del Pipeline}
+
+\begin{longtable}{p{0.5cm} p{2.5cm} p{3cm} p{4cm} p{4cm}}
+\toprule
+\textbf{\#} & \textbf{Paso} & \textbf{Archivo} & \textbf{Entrada} & \textbf{Salida} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{Paso} & \textbf{Archivo} & \textbf{Entrada} & \textbf{Salida} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+1 & \texttt{load\_scene} & \texttt{run\_dosimetry\_from\_scene.py} & \texttt{.mrb} & Nodos CT+PET+Labelmap+ROIs \\
+2 & \texttt{read\_pet\_activity} & \texttt{pet\_dicom\_reader.py} & DICOM PET o \texttt{--activity} & Actividad total (Bq, GBq) \\
+3 & \texttt{parse\_mctal} (opt.) & \texttt{mctal\_parser.py} & \texttt{paciente.o} & \texttt{dose\_raw} [MeV/cm$^3$] \\
+4 & \texttt{compute\_dose\_mctal} & \texttt{dosimetry.py} & \texttt{dose\_raw} + $\rho$ + $\tau$ + $A$ & \texttt{dose\_gy} (ruta MCTAL) \\
+4b & \texttt{compute\_dose\_kernel} & \texttt{dose\_kernel.py} + \texttt{fft\_dose.py} & \texttt{kernel.mat} + PET [GBq] & \texttt{dose\_gy} (ruta Kernel) \\
+5 & \texttt{compute\_dvh} & \texttt{dvh\_analysis.py} & \texttt{dose\_gy} + máscaras ROI & DVH (200 pts), D98--D2, V30--V70 \\
+6 & \texttt{compute\_radiobiology} & \texttt{radiobiology.py} & \texttt{dose\_gy} + $\alpha/\beta$ & BED, EUD, EQD2 \\
+7 & \texttt{mird\_partition} & \texttt{mird\_partition.py} & Actividad + T/N + volúmenes & $D_{\text{liver}}$, $D_{\text{tumor}}$ (MIRD) \\
+8 & \texttt{visualize\_slicer} & \texttt{isodose\_contours.py} & \texttt{dose\_gy} & Nodos isodosis + DVH en Slicer \\
+9 & \texttt{export\_report} & \texttt{report\_pdf.py} & Tablas + gráficos + capturas & \texttt{3Dosim\_reporte.pdf} \\
+10 & \texttt{save\_scene} & \texttt{run\_dosimetry\_from\_scene.py} & Escena con nodos dosis & \texttt{3Dosim\_dosis\_final.mrb} \\
+\end{longtable}
+
+\subsection{Archivos de Entrada y Salida}
+
+\subsubsection{Entradas}
+
+\begin{tabular}{p{4cm} p{5cm} p{4cm}}
+\toprule
+\textbf{Archivo} & \textbf{Ruta} & \textbf{Origen} \\
+\midrule
+Escena .mrb & \texttt{resultados\_test/scenes/3Dosim\_scene.mrb} & Módulo 1 \\
+MCTAL (.o) & \texttt{resultados\_test/mcnp/paciente.o} & MCNP (Módulo 2) \\
+kernel.mat & \texttt{kernel/kernel.mat} & Precalculado \\
+PET DICOM & \texttt{C:/MAT/3Dosim/ai-pipe/imagenes/PET/} & Estudio original \\
+Config JSONC & \texttt{PipelineOrchestrator/pipeline\_config.jsonc} & Config global \\
+Tissue config & \texttt{SlicerDosim/Resources/Config/tissue\_config.json} & Densidades \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Salidas}
+
+\begin{tabular}{p{4cm} p{4cm} p{6cm}}
+\toprule
+\textbf{Archivo} & \textbf{Ruta} & \textbf{Contenido} \\
+\midrule
+\texttt{dose\_gy.nrrd} & \texttt{resultados\_test/dose/} & Mapa de dosis 3D en Gy \\
+\texttt{dvh.csv} & \texttt{resultados\_test/dvh/} & Tabla DVH por ROI \\
+\texttt{radiobiology.csv} & \texttt{resultados\_test/radiobiology/} & BED, EUD, EQD2 \\
+\texttt{3Dosim\_reporte.pdf} & \texttt{resultados\_test/reports/} & Reporte clínico completo \\
+\texttt{3Dosim\_dosis\_final.mrb} & \texttt{resultados\_test/scenes/} & Escena con todos los nodos \\
+\texttt{pipeline\_results.json} & \texttt{resultados\_test/} & Historial de ejecuciones \\
+\bottomrule
+\end{tabular}
+
+\subsubsection{Checkpoints}
+
+\begin{tabular}{p{4cm} p{10cm}}
+\toprule
+\textbf{Checkpoint} & \textbf{Datos guardados} \\
+\midrule
+\texttt{scene\_loaded} & Nodos de escena, dimensiones \\
+\texttt{activity\_read} & Actividad GBq, estadísticas PET \\
+\texttt{mctal\_parsed} & \texttt{dose\_raw}, error, filtros \\
+\texttt{dose\_computed} & \texttt{dose\_gy}, dosis media por ROI \\
+\texttt{dvh\_computed} & Tabla DVH, métricas \\
+\texttt{radiobiology\_computed} & BED, EUD, EQD2 \\
+\texttt{mird\_computed} & $D_{\text{liver}}$, $D_{\text{tumor}}$, diferencia \\
+\texttt{scene\_saved} & Ruta de escena final \\
+\bottomrule
+\end{tabular}
+
+\subsection{Modos de Ejecución}
+
+\begin{tabular}{p{3cm} p{3cm} p{2cm} p{6cm}}
+\toprule
+\textbf{Modo} & \textbf{Flag} & \textbf{Pasos} & \textbf{Cuándo usarlo} \\
+\midrule
+Completo (MCTAL) & (ninguno) & 10 & Validación final con Monte Carlo \\
+Solo Kernel & \texttt{--kernel} & 9 (sin paso 3) & Planificación rápida \\
+Solo DVH & \texttt{--dvh-only} & 1, 5 & Si ya existe \texttt{dose\_gy.nrrd} \\
+Reporte & \texttt{--report-only} & 9 & Regenerar PDF sin recalcular \\
+Reset & \texttt{--reset} & 10 (desde cero) & Elimina checkpoints previos \\
+\bottomrule
+\end{tabular}
+
+\subsection{Integración con SlicerDosimMod3}
+
+El módulo \textbf{SlicerDosimMod3} dentro de 3D Slicer ejecuta el pipeline automáticamente:
+
+\begin{enumerate}
+  \item Al abrir el módulo: auto-detecta escena \texttt{.mrb} en \texttt{resultados\_test/}.
+  \item Auto-ejecuta: carga escena $\to$ encuentra CT/PET/labelmap $\to$ kernel FFT $\to$ dosis $\to$ DVH $\to$ isodosis $\to$ guarda escena.
+  \item Botones individuales: Cargar escena, Calcular dosis, DVH, Isodosis, MIRD, Guardar escena, Exportar PDF.
+  \item Log en tiempo real en el panel de texto del UI.
+\end{enumerate}
+
+\textbf{Configuración del módulo:}
+\begin{verbatim}
+Slicer -> Edit -> Settings -> Modules -> Additional paths:
+C:\programas\3Dosim\3Dosim_v4\slicer_modules\SlicerDosim\Modules\Scripted
+\end{verbatim}
+
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{longtable}{p{0.5cm} p{4cm} p{4.5cm} p{5cm}}
+\toprule
+\textbf{\#} & \textbf{Paso} & \textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{Paso} & \textbf{Verificación} & \textbf{Condición de fallo} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+1 & Cargar escena & Nodos CT, PET, Labelmap presentes & Falta algún nodo \\
+2 & Actividad PET & Actividad $>$ 0 Bq & Actividad $\leq$ 0 \\
+3 & Parse MCTAL & Error medio $<$ 0.5 & Error $\geq$ 0.5 \\
+4 & Dosis Gy & Dosis $\geq$ 0 en todos los voxeles & Dosis negativa $>$ 1\% \\
+5 & DVH & Monótono decreciente & Pendiente positiva \\
+6 & Radiobiología & BED $\geq$ D física & BED $<$ D \\
+7 & MIRD & Diferencia 3D vs.\ MIRD $<$ 20\% & Diferencia $\geq$ 20\% \\
+8 & Visualización & Nodos isodosis creados & Isodosis no generadas \\
+9 & Reporte PDF & Archivo $>$ 10 KB & No existe o vacío \\
+10 & Escena final & Archivo .mrb creado & No se guardó \\
+\end{longtable}
+
+\newpage
+
+% =============================================================================
+% APÉNDICE A: CONSTANTES FÍSICAS DEL Y-90
+% =============================================================================
+\section*{Apéndice A: Constantes Físicas del $^{90}$Y}
+\addcontentsline{toc}{section}{Apéndice A: Constantes Físicas del Y-90}
+
+\begin{longtable}{p{6cm} p{3cm} p{2cm} p{2cm}}
+\toprule
+\textbf{Parámetro} & \textbf{Símbolo} & \textbf{Valor} & \textbf{Unidad} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Parámetro} & \textbf{Símbolo} & \textbf{Valor} & \textbf{Unidad} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Número atómico & Z & 39 & --- \\
+Masa atómica & A & 90 & u \\
+Período de semidesintegración & T$_{1/2}$ & 64.1 & h \\
+Período de semidesintegración & T$_{1/2}$ & 230,760 & s \\
+Constante de desintegración & $\lambda$ & 0.0108 & h$^{-1}$ \\
+Vida media & $\tau$ & 92.48 & h \\
+Vida media & $\tau$ & 332,916 & s \\
+Energía beta media & $E_{\beta,\text{media}}$ & 0.9337 & MeV \\
+Energía beta máxima & $E_{\beta,\text{máx}}$ & 2.28 & MeV \\
+Alcance máximo en agua & $R_{\text{máx}}$ & 11 & mm \\
+Alcance medio en agua & $R_{\text{medio}}$ & 2.5 & mm \\
+Factor de conversión MeV $\to$ J & MEV2J & $1.602\times10^{-13}$ & J/MeV \\
+Constante MIRD & $k$ & 48.98 & J/s \\
+Constante de tasa de dosis & $\dot{D}$ & 0.0371 & h$^{-1}$ \\
+\bottomrule
+\end{longtable}
+
+\subsection*{Derivaciones}
+
+$$\lambda = \frac{\ln 2}{\text{T}_{1/2}} = \frac{0.693147}{64.1\ \text{h}} = 0.0108\ \text{h}^{-1}$$
+
+$$\tau = \frac{\text{T}_{1/2}}{\ln 2} = \frac{64.1}{0.693147} = 92.48\ \text{h} = 332,916\ \text{s}$$
+
+$$k = E_{\beta} \times 1.602\times10^{-13} \times 3600 \times 10^6 = 0.9337 \times 1.602\times10^{-13} \times 3600 \times 10^6 = 48.98\ \text{J/s}$$
+
+\newpage
+
+% =============================================================================
+% APÉNDICE B: DENSIDADES Y PARÁMETROS α/β
+% =============================================================================
+\section*{Apéndice B: Densidades y Parámetros $\alpha/\beta$}
+\addcontentsline{toc}{section}{Apéndice B: Densidades y Parámetros $\alpha/\beta$}
+
+\subsection*{B.1 Densidades Tisulares}
+
+\begin{tabular}{p{4cm} p{3cm} p{2.5cm} p{4cm}}
+\toprule
+\textbf{Tejido} & $\rho$ [g/cm$^3$] & \textbf{Fuente} & \textbf{Notas} \\
+\midrule
+Aire & 0.001205 & ICRU-44 & Densidad del aire a 20$^\circ$C \\
+Tejido blando & 1.06 & ICRP-110 & Promedio de tejidos blandos \\
+Pulmón & 0.382 & ICRP-110 & Tejido pulmonar insuflado \\
+Hueso cortical & 1.92 & ICRP-110 & Densidad máxima \\
+Hígado & 1.06 & ICRP-110 & Parénquima hepático \\
+Tumor hepático & 1.06 & Asumido & Igual al hígado sano \\
+Peritumoral & 1.06 & Asumido & Igual al hígado sano \\
+Sangre & 1.06 & ICRU-44 & Similar al tejido blando \\
+Grasa & 0.95 & ICRU-44 & Tejido adiposo \\
+\bottomrule
+\end{tabular}
+
+\subsection*{B.2 Parámetros $\alpha/\beta$ y $a$ para EUD}
+
+\begin{tabular}{p{4cm} p{2.5cm} p{2.5cm} p{4cm}}
+\toprule
+\textbf{Tejido} & $\alpha/\beta$ [Gy] & $a$ (EUD) & \textbf{Referencia} \\
+\midrule
+Hígado sano & 2.5 & 11 & Dawson IJROBP 2002 \\
+Tumor hepático & 10.0 & 1 & Tai IJROBP 2008 \\
+Peritumoral & 2.5 & 8 & Asumido \\
+Pulmón & 3.0 & 7 & Van Dyk 1989 \\
+Riñón & 2.5 & 7 & Emami IJROBP 1991 \\
+Médula ósea & 2.0 & 5 & Fowler BJR 1989 \\
+Piel & 8.0 & 5 & Fowler BJR 1989 \\
+Médula espinal & 2.0 & 20 & --- \\
+\bottomrule
+\end{tabular}
+
+\subsection*{B.3 Tasa de Reparación Subletal $\mu$}
+
+$$\mu = 0.28\ \text{h}^{-1} \quad (\text{asumido para todos los tejidos})$$
+
+Período de reparación subletal asociado:
+
+$$T_{1/2,\ \text{reparación}} = \frac{\ln 2}{\mu} = \frac{0.693}{0.28} = 2.475\ \text{h}$$
+
+\newpage
+
+% =============================================================================
+% REFERENCIAS
+% =============================================================================
+\section*{Referencias}
+\addcontentsline{toc}{section}{Referencias}
+
+\begin{enumerate}
+  \item MIRD Pamphlet No.~1: ``A Schema for Absorbed-Dose Calculations for Biologically Distributed Radionuclides'' (1968).
+  \item MIRD Pamphlet No.~5: ``Estimates of Absorbed Dose for Radionuclides Distributed in the Human Body'' (1972).
+  \item MIRD Pamphlet No.~21: ``A Generalized Schema for Radiopharmaceutical Dosimetry'' (2009).
+  \item ICRP-110: ``Adult Reference Computational Phantoms'' (2009).
+  \item ICRU-44: ``Tissue Substitutes in Radiation Dosimetry and Measurement'' (1989).
+  \item ICRU Report 83: ``Prescribing, Recording, and Reporting Photon-Beam IMRT'' (2010).
+  \item MCNP6 User's Manual, LA-UR-13-22934, Los Alamos National Laboratory (2013).
+  \item Eckerman \& Sjoreen, ``Radiation Dosimetry of Y-90'', Health Phys. (2005).
+  \item Gulec SA et al., ``Hepatic Radioembolization with Y-90 Microspheres'', Semin Nucl Med 38(3) (2008).
+  \item Dezarn WA et al., ``Recommendations for Radioembolization Dosimetry'', J Vasc Interv Radiol 32(5) (2021).
+  \item Chiesa C et al., ``Radioembolization of Hepatic Lesions: A Review of Dosimetric Models'', EJNMMI Physics 4(1) (2017).
+  \item Dale RG, ``The Application of the Linear-Quadratic Model to Fractionated and Continuous Radiotherapy'', Br J Radiol 58(690) (1985).
+  \item Fowler JF, ``The Linear-Quadratic Formula and Progress in Fractionated Radiotherapy'', Br J Radiol 62(740) (1989).
+  \item Niemierko A, ``Reporting and Analyzing Dose Distributions: A Concept of Equivalent Uniform Dose'', Med Phys 24(1) (1997).
+  \item Dawson LA et al., ``Radiation-related Liver Disease'', Int J Radiat Oncol Biol Phys 53(4) (2002).
+  \item Tai A et al., ``$\alpha/\beta$ for Liver Tumors'', Int J Radiat Oncol Biol Phys 70(4) (2008).
+  \item Drzymala RE et al., ``Dose-Volume Histograms'', Int J Radiat Oncol Biol Phys 21(1) (1991).
+  \item Loewinger R et al., ``MIRD Primer for Absorbed Dose Calculations'', Society of Nuclear Medicine (1991).
+  \item Ho S et al., ``Partition Model for Estimating Radiation Doses from Y-90 Microspheres'', Eur J Nucl Med 24(10) (1997).
+  \item Fedorov A et al., ``3D Slicer as an Image Computing Platform for the Quantitative Imaging Network'', Magn. Reson. Imaging 30(9) (2012).
+  \item MATLAB `f\_Rescale\_Bq.m`, `f\_dosis.m`, `f\_DVH.m`, `f\_BED\_EUD\_EQD2.m`, `f\_MIRD.m`, `f\_Isodosis.m` de 3Dosim v3.14 (legacy `modulo\_3/`).
+  \item Python `pet\_dicom\_reader.py`, `mctal\_parser.py`, `dosimetry.py`, `dvh\_analysis.py`, `radiobiology.py`, `mird\_partition.py`, `isodose\_contours.py`, `run\_dosimetry\_from\_scene.py` en `3Dosim\_v4/`.
+\end{enumerate}
+
+\end{document}

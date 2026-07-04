@@ -1,4 +1,5 @@
 {
+  "appVersion": "4.0",
   "scene_output_dir": "C:/MAT/3Dosim/ai-pipe/scenes",
   "screenshot_output_dir": "C:/MAT/3Dosim/ai-pipe/screenshots",
   "image_output_dir": "C:/MAT/3Dosim/ai-pipe/exports",
@@ -60,7 +61,8 @@
   },
   "paths": {
     "ct_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\CT",
-    "pet_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\PET"
+    "pet_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\PET",
+    "source_file_path": "C:/programas/3Dosim/3Dosim_v4/mcnp-source"
   },
   "save_scene": {
     "frequency": "minimal"
