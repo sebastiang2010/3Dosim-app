@@ -15,8 +15,24 @@
 \usepackage{longtable}
 \usepackage{array}
 \usepackage{verbatim}
+\usepackage[most]{tcolorbox}
 \geometry{margin=2.5cm}
 \setlength{\headheight}{13.6pt}
+% ============================================================
+% PALETA DE COLORES 3Dosim
+% ============================================================
+\definecolor{cPrimary}{RGB}{30,64,124}      % azul oscuro titulos
+\definecolor{cSecondary}{RGB}{70,130,180}   % azul claro subtitulos
+\definecolor{cAccent}{RGB}{220,50,50}        % rojo AI Supervisor / alertas
+\definecolor{cBg}{RGB}{245,245,245}          % gris muy claro fondo
+\definecolor{cDarkBg}{RGB}{230,230,230}      % gris fondo tablas
+
+% ============================================================
+% FORMATO DE SECCIONES CON COLORES
+% ============================================================
+\titleformat*{\section}{\normalfont\Large\bfseries\color{cPrimary}}
+\titleformat*{\subsection}{\normalfont\large\bfseries\color{cSecondary}}
+\titleformat*{\subsubsection}{\normalfont\normalsize\bfseries\color{cPrimary}}
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small 3Dosim --- Modulo 2}
@@ -30,10 +46,52 @@
        \normalsize Documentacion Tecnica --- Revision v4.0}
 \author{Proyecto 3Dosim --- Dosimetria Hepatica con $^{90}$Y}
 \date{Julio 2026}
+% ============================================================
+% CAJA COLOREADA PARA AI SUPERVISOR
+% ============================================================
+\tcbset{
+  aiSupervisor/.style = {
+    colback=cBg,
+    colframe=cAccent,
+    boxrule=0.7pt,
+    arc=3pt,
+    left=4mm,
+    right=4mm,
+    top=3mm,
+    bottom=3mm,
+    fonttitle=\bfseries\large,
+    title=Control de Calidad (AI Supervisor),
+    coltitle=white,
+    colbacktitle=cAccent,
+    attach boxed title to top left={yshift=-3mm,xshift=5mm},
+    boxed title style={colback=cAccent,arc=2pt}
+  }
+}
 \begin{document}
 \maketitle
 \thispagestyle{empty}
 \newpage
+
+
+% ============================================================
+% RESUMEN DEL MODULO
+% ============================================================
+\section*{Resumen}
+\addcontentsline{toc}{section}{Resumen}
+
+Este modulo forma parte del pipeline completo \textbf{3Dosim} para dosimetria hepatica con Yttrium-90.
+Su objetivo es transformar imagenes DICOM (CT anatomico + PET funcional) en una \textbf{labelmap dosimetrica}
+-- un volumen 3D donde cada voxel se clasifica segun su tipo de tejido siguiendo la nomenclatura ICRP-110/ICRU-44.
+Esta labelmap constituye la entrada fundamental para el Modulo 2, donde se genera el input de simulacion Monte Carlo (MCNP).
+
+\vspace{0.5em}
+\noindent
+\textbf{Pregunta que resuelve:} \textit{Cual es la forma mas precisa y automatica de identificar y clasificar cada tejido del paciente para poder calcular la dosis absorbida por voxel?}
+
+\vspace{0.3em}
+\noindent
+\textbf{Resultado principal:} Labelmap NIfTI/NRRD con 53+ materiales ICRP-110 indexados, lista para MCNP.
+
 
 % ============================================================
 % GLOSARIO DE ACRONIMOS
@@ -214,7 +272,86 @@ El pipeline se configura mediante \texttt{pipeline\_config.jsonc}:
 \end{tabular}
 \end{center}
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado & Archivo no existe o $<$ 10 KB & Critico \\
+Keywords MCNP presentes & Falta C, cells, surfaces, data & Critico \\
+Coordenadas RPP vs TMESH & Rango TMESH fuera del RPP & Critico \\
+Tarjetas CUT presentes & Modo P o E sin CUT:P/E & Critico \\
+Materiales asignados & Voxel con indice 0 (sin material) & Critico \\
+Archivo .src generado & No existe o esta vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 2. CARGA DE ESCENA
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado & Archivo no existe o $<$ 10 KB & Critico \\
+Keywords MCNP presentes & Falta C, cells, surfaces, data & Critico \\
+Coordenadas RPP vs TMESH & Rango TMESH fuera del RPP & Critico \\
+Tarjetas CUT presentes & Modo P o E sin CUT:P/E & Critico \\
+Materiales asignados & Voxel con indice 0 (sin material) & Critico \\
+Archivo .src generado & No existe o esta vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 2. CARGA DE ESCENA
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado & Archivo no existe o $<$ 10 KB & Critico \\
+Keywords MCNP presentes & Falta C, cells, surfaces, data & Critico \\
+Coordenadas RPP vs TMESH & Rango TMESH fuera del RPP & Critico \\
+Tarjetas CUT presentes & Modo P o E sin CUT:P/E & Critico \\
+Materiales asignados & Voxel con indice 0 (sin material) & Critico \\
+Archivo .src generado & No existe o esta vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 2. CARGA DE ESCENA
+% ============================================================
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering
@@ -410,7 +547,83 @@ z_max = -245.0 + 2.50 * 180 / 2 = -245.0 + 225.0 = -20.0
 \end{tabular}
 \end{center}
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Escena cargada exitosamente & Error en \texttt{loadScene()} & Critico \\
+TC y labelmap mismas dims & \texttt{tc\_dims $\neq$ lm\_dims} & Critico \\
+VOIs requeridos presentes & Falta Liver/Tumor/Kidney & Critico \\
+Matriz IJK$\to$RAS invertible & Determinante cero & Critico \\
+Espaciado valido & $dx \leq 0$ o $dy \leq 0$ o $dz \leq 0$ & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 3. ASIGNACION DE MATERIALES
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Escena cargada exitosamente & Error en \texttt{loadScene()} & Critico \\
+TC y labelmap mismas dims & \texttt{tc\_dims $\neq$ lm\_dims} & Critico \\
+VOIs requeridos presentes & Falta Liver/Tumor/Kidney & Critico \\
+Matriz IJK$\to$RAS invertible & Determinante cero & Critico \\
+Espaciado valido & $dx \leq 0$ o $dy \leq 0$ o $dz \leq 0$ & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 3. ASIGNACION DE MATERIALES
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Escena cargada exitosamente & Error en \texttt{loadScene()} & Critico \\
+TC y labelmap mismas dims & \texttt{tc\_dims $\neq$ lm\_dims} & Critico \\
+VOIs requeridos presentes & Falta Liver/Tumor/Kidney & Critico \\
+Matriz IJK$\to$RAS invertible & Determinante cero & Critico \\
+Espaciado valido & $dx \leq 0$ o $dy \leq 0$ o $dz \leq 0$ & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 3. ASIGNACION DE MATERIALES
+% ============================================================
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering
@@ -607,7 +820,86 @@ Las densidades se aplican en la celda correspondiente:
 200 2 -1.06      -4 5 6 ...  $ Celda de tejido blando (material 2, rho=1.06)
 \end{verbatim}
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Mapa TS\_SEGMENT\_MAP completo & Segmento sin mapeo & Critico \\
+Indices labelmap validos (1 a 153) & Indice 0 o $>$ 153 & Critico \\
+Densidad fisica & $\rho \leq 0$ o $\rho \geq 20$ g/cm$^3$ & Critico \\
+Composicion suma $\sim 1.0$ & $|\Sigma \text{fracciones} - 1| > 10^{-4}$ & Critico \\
+Refinamiento HU plausible & $> 50\%$ voxeles recategorizados & Advertencia \\
+Archivo tissue\_config.json cargable & Parse error & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 4. GEOMETRIA VOXELIZADA MCNP
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Mapa TS\_SEGMENT\_MAP completo & Segmento sin mapeo & Critico \\
+Indices labelmap validos (1 a 153) & Indice 0 o $>$ 153 & Critico \\
+Densidad fisica & $\rho \leq 0$ o $\rho \geq 20$ g/cm$^3$ & Critico \\
+Composicion suma $\sim 1.0$ & $|\Sigma \text{fracciones} - 1| > 10^{-4}$ & Critico \\
+Refinamiento HU plausible & $> 50\%$ voxeles recategorizados & Advertencia \\
+Archivo tissue\_config.json cargable & Parse error & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 4. GEOMETRIA VOXELIZADA MCNP
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Mapa TS\_SEGMENT\_MAP completo & Segmento sin mapeo & Critico \\
+Indices labelmap validos (1 a 153) & Indice 0 o $>$ 153 & Critico \\
+Densidad fisica & $\rho \leq 0$ o $\rho \geq 20$ g/cm$^3$ & Critico \\
+Composicion suma $\sim 1.0$ & $|\Sigma \text{fracciones} - 1| > 10^{-4}$ & Critico \\
+Refinamiento HU plausible & $> 50\%$ voxeles recategorizados & Advertencia \\
+Archivo tissue\_config.json cargable & Parse error & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 4. GEOMETRIA VOXELIZADA MCNP
+% ============================================================
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering
@@ -886,7 +1178,83 @@ Velocidad de transporte & Independiente de la geometria (depende de materiales) 
 \end{tabular}
 \end{center}
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+RPP del lattice contiene todo el body & Voxeles fuera del RPP & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Todos los materiales tienen celda U=1 & Falta celda voxel & Critico \\
+RLE mantiene integridad de materiales & Suma repeticiones $\neq nx \times ny$ & Critico \\
+flip\_rows/flip\_z consistentes con image\_origin & Error de registro espacial & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 5. DEFINICION DE LA FUENTE
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+RPP del lattice contiene todo el body & Voxeles fuera del RPP & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Todos los materiales tienen celda U=1 & Falta celda voxel & Critico \\
+RLE mantiene integridad de materiales & Suma repeticiones $\neq nx \times ny$ & Critico \\
+flip\_rows/flip\_z consistentes con image\_origin & Error de registro espacial & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 5. DEFINICION DE LA FUENTE
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+RPP del lattice contiene todo el body & Voxeles fuera del RPP & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Todos los materiales tienen celda U=1 & Falta celda voxel & Critico \\
+RLE mantiene integridad de materiales & Suma repeticiones $\neq nx \times ny$ & Critico \\
+flip\_rows/flip\_z consistentes con image\_origin & Error de registro espacial & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 5. DEFINICION DE LA FUENTE
+% ============================================================
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering
@@ -1105,7 +1473,86 @@ Volumen fuente & Tumor / Higado & Segmentacion \\
 \end{tabular}
 \end{center}
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Espectro definido para isotopo & Falta entrada en SPECTRA dict & Critico \\
+Archivo .src generado (si aplica) & No existe o 0 particulas & Critico \\
+SDEF tiene ERG y WGT consistentes & Mismatch entre parametros & Critico \\
+Peso suma $\approx 1.0$ & $|\Sigma WGT - 1| > 0.01$ & Critico \\
+Particulas dentro del VOI & Coordenadas fuera de la malla & Critico \\
+MODE coincide con la particula & Modo P sin electrones para beta & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 6. TALLIES Y DETECTORES
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Espectro definido para isotopo & Falta entrada en SPECTRA dict & Critico \\
+Archivo .src generado (si aplica) & No existe o 0 particulas & Critico \\
+SDEF tiene ERG y WGT consistentes & Mismatch entre parametros & Critico \\
+Peso suma $\approx 1.0$ & $|\Sigma WGT - 1| > 0.01$ & Critico \\
+Particulas dentro del VOI & Coordenadas fuera de la malla & Critico \\
+MODE coincide con la particula & Modo P sin electrones para beta & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 6. TALLIES Y DETECTORES
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Espectro definido para isotopo & Falta entrada en SPECTRA dict & Critico \\
+Archivo .src generado (si aplica) & No existe o 0 particulas & Critico \\
+SDEF tiene ERG y WGT consistentes & Mismatch entre parametros & Critico \\
+Peso suma $\approx 1.0$ & $|\Sigma WGT - 1| > 0.01$ & Critico \\
+Particulas dentro del VOI & Coordenadas fuera de la malla & Critico \\
+MODE coincide con la particula & Modo P sin electrones para beta & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 6. TALLIES Y DETECTORES
+% ============================================================
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering
@@ -1344,7 +1791,89 @@ $$
 
 El ratio debe estar entre 0.95 y 1.05.
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+TMESH cubre todo el volumen RPP & Rango TMESH $<$ RPP & Critico \\
+CORA/CORB/CORC definidos & Falta alguno de los 3 ejes & Critico \\
+nx, ny, nz enteros $>$ 0 & $nx \leq 0$ o no entero & Critico \\
+DE4/DF4 tienen 11 puntos cada uno & Distinta cantidad de puntos & Critico \\
+*F8 asocia celda existente & Celda del detector no definida & Critico \\
+CUT:P y CUT:E presentes & Modo P o E sin CUT & Critico \\
+ENDSD cierra TMESH & Falta ENDSD & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 7. GENERACION DEL ARCHIVO .i
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+TMESH cubre todo el volumen RPP & Rango TMESH $<$ RPP & Critico \\
+CORA/CORB/CORC definidos & Falta alguno de los 3 ejes & Critico \\
+nx, ny, nz enteros $>$ 0 & $nx \leq 0$ o no entero & Critico \\
+DE4/DF4 tienen 11 puntos cada uno & Distinta cantidad de puntos & Critico \\
+*F8 asocia celda existente & Celda del detector no definida & Critico \\
+CUT:P y CUT:E presentes & Modo P o E sin CUT & Critico \\
+ENDSD cierra TMESH & Falta ENDSD & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 7. GENERACION DEL ARCHIVO .i
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+TMESH cubre todo el volumen RPP & Rango TMESH $<$ RPP & Critico \\
+CORA/CORB/CORC definidos & Falta alguno de los 3 ejes & Critico \\
+nx, ny, nz enteros $>$ 0 & $nx \leq 0$ o no entero & Critico \\
+DE4/DF4 tienen 11 puntos cada uno & Distinta cantidad de puntos & Critico \\
+*F8 asocia celda existente & Celda del detector no definida & Critico \\
+CUT:P y CUT:E presentes & Modo P o E sin CUT & Critico \\
+ENDSD cierra TMESH & Falta ENDSD & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 7. GENERACION DEL ARCHIVO .i
+% ============================================================
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering
@@ -1615,7 +2144,92 @@ Si $n_{particulas} > 0$, el archivo .src debe existir y no estar vacio.
 \end{tabular}
 \end{center}
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado $>$ 10 KB & Tamano $\leq$ 10 KB & Critico \\
+Todas las keywords MCNP presentes & Keyword faltante & Critico \\
+Coordenadas TMESH dentro del RPP & TMESH fuera de limites & Critico \\
+Tarjetas CUT para modos activos & Modo sin CUT & Critico \\
+Todas las celdas tienen material $>$ 0 & Celda con material 0 & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Material M definido para cada celda & Material referenciado sin M & Critico \\
+Archivo .src existe y tiene contenido & Archivo faltante o vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 8. PIPELINE COMPLETO
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado $>$ 10 KB & Tamano $\leq$ 10 KB & Critico \\
+Todas las keywords MCNP presentes & Keyword faltante & Critico \\
+Coordenadas TMESH dentro del RPP & TMESH fuera de limites & Critico \\
+Tarjetas CUT para modos activos & Modo sin CUT & Critico \\
+Todas las celdas tienen material $>$ 0 & Celda con material 0 & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Material M definido para cada celda & Material referenciado sin M & Critico \\
+Archivo .src existe y tiene contenido & Archivo faltante o vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 8. PIPELINE COMPLETO
+% ============================================================
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Archivo .i generado $>$ 10 KB & Tamano $\leq$ 10 KB & Critico \\
+Todas las keywords MCNP presentes & Keyword faltante & Critico \\
+Coordenadas TMESH dentro del RPP & TMESH fuera de limites & Critico \\
+Tarjetas CUT para modos activos & Modo sin CUT & Critico \\
+Todas las celdas tienen material $>$ 0 & Celda con material 0 & Critico \\
+FILL tiene $nx \times ny \times nz$ elementos & Cuenta incorrecta & Critico \\
+Material M definido para cada celda & Material referenciado sin M & Critico \\
+Archivo .src existe y tiene contenido & Archivo faltante o vacio & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% 8. PIPELINE COMPLETO
+% ============================================================
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering
@@ -1935,7 +2549,92 @@ output_dir/
 +-- pipeline_results.json  (historial de ejecuciones)
 \end{verbatim}
 
-\subsection{Control de Calidad (AI Supervisor)}
+
+\begin{tcolorbox}[aiSupervisor]
+
+\begin{tcolorbox}[aiSupervisor]
+\subsection*{Control de Calidad (AI Supervisor)}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Flujo completo ejecutado & Todos los pasos completados & Critico \\
+Interfaz Mod1 $\to$ Mod2 & Escena .mrb cargable & Critico \\
+Interfaz Mod2 $\to$ Mod3 & Archivo .i valido & Critico \\
+Tiempo de generacion & $t_{gen} < 5$ min & Advertencia \\
+Conservacion de energia & Ratio 0.95--1.05 & Critico \\
+Reproducibilidad & Mismo RAND seed produce mismo resultado & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% APENDICE A: CONSTANTES FISICAS
+% ============================================================
+\section*{Apendice: Constantes Fisicas}
+\addcontentsline{toc}{section}{Apendice: Constantes Fisicas}
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Flujo completo ejecutado & Todos los pasos completados & Critico \\
+Interfaz Mod1 $\to$ Mod2 & Escena .mrb cargable & Critico \\
+Interfaz Mod2 $\to$ Mod3 & Archivo .i valido & Critico \\
+Tiempo de generacion & $t_{gen} < 5$ min & Advertencia \\
+Conservacion de energia & Ratio 0.95--1.05 & Critico \\
+Reproducibilidad & Mismo RAND seed produce mismo resultado & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% APENDICE A: CONSTANTES FISICAS
+% ============================================================
+\section*{Apendice: Constantes Fisicas}
+\addcontentsline{toc}{section}{Apendice: Constantes Fisicas}
+
+\end{tcolorbox}
+
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llc}
+\toprule
+\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\midrule
+Flujo completo ejecutado & Todos los pasos completados & Critico \\
+Interfaz Mod1 $\to$ Mod2 & Escena .mrb cargable & Critico \\
+Interfaz Mod2 $\to$ Mod3 & Archivo .i valido & Critico \\
+Tiempo de generacion & $t_{gen} < 5$ min & Advertencia \\
+Conservacion de energia & Ratio 0.95--1.05 & Critico \\
+Reproducibilidad & Mismo RAND seed produce mismo resultado & Critico \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+% ============================================================
+% APENDICE A: CONSTANTES FISICAS
+% ============================================================
+\section*{Apendice: Constantes Fisicas}
+\addcontentsline{toc}{section}{Apendice: Constantes Fisicas}
+
+\end{tcolorbox}
+
 
 \begin{table}[H]
 \centering

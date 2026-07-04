@@ -307,6 +307,26 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
             if show_lines_2d:
                 disp.SetSliceIntersectionThickness(2)
 
+        # ── Color Legend ──
+        try:
+            legend = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLColorLegendDisplayNode")
+            legend.SetAndObserveColorNodeID(ctbl.GetID())
+            legend.SetVisibility(True)
+            legend.SetTitleText("Isodose (Gy)")
+            legend.SetLabelFormat("%.0f Gy")
+            legend.SetMaxNumberOfColors(len(levels))
+            legend.SetNumberOfLabels(len(levels))
+            try:
+                legend.SetOrientation(legend.Vertical)
+            except Exception:
+                pass
+            legend.SetPosition(0.85, 0.15)
+            legend.SetSize(0.12, 0.7)
+            legend.SetUseColorNamesForLabels(False)
+            logger.info(f"  Color legend creada: {len(levels)} niveles")
+        except Exception as _le:
+            logger.warning(f"  Color legend fallo (no critico): {_le}")
+
         logger.info(f"  {len(levels)} niveles generados via VTK fallback")
         return model_node, None
 

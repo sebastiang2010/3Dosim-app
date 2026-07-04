@@ -348,8 +348,8 @@ def export_labelmap(
     if body_mask is not None:
         unassigned_inside_body = (body_mask > 0) & ~any_organ & (final_labelmap == 0)
         if unassigned_inside_body.sum() > 0:
-            logger.warning(f"  {int(unassigned_inside_body.sum())} voxeles dentro del body sin asignar")
-            final_labelmap[body_mask > 0] = 30  # Default Tejido_blando
+            logger.warning(f"  {int(unassigned_inside_body.sum())} voxeles dentro del body sin asignar, asignando como Tejido_blando")
+            final_labelmap[unassigned_inside_body] = 30  # Default Tejido_blando — NO sobrescribir organos
 
     # --- 6. Crear nodo labelmap en Slicer ---
     logger.info("  Creando nodo labelmap en Slicer...")

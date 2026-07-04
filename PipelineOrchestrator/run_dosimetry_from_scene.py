@@ -867,11 +867,15 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         col_x.SetName("Dose (Gy)")
         col_y = vtk.vtkFloatArray()
         col_y.SetName("Volume (%)")
+        col_label = vtk.vtkStringArray()
+        col_label.SetName("Label")
         for i in range(len(d_vals)):
             col_x.InsertNextValue(float(d_vals[i]))
             col_y.InsertNextValue(float(a_vals[i]))
+            col_label.InsertNextValue(f"{d_vals[i]:.1f} Gy / {a_vals[i]:.1f}%")
         table.AddColumn(col_x)
         table.AddColumn(col_y)
+        table.AddColumn(col_label)
 
         # Crear serie que referencia la tabla
         series = slicer.mrmlScene.AddNewNodeByClass(
@@ -880,6 +884,7 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         series.SetAndObserveTableNodeID(table_node.GetID())
         series.SetXColumnName("Dose (Gy)")
         series.SetYColumnName("Volume (%)")
+        series.SetLabelColumnName("Label")
         series.SetPlotType(slicer.vtkMRMLPlotSeriesNode.PlotTypeLine)
         series.SetColor(*color)
         series.SetLineWidth(2)
@@ -2827,8 +2832,9 @@ def main():
                 slicer.app.processEvents()
                 if dose_node:
                     slicer.util.setSliceViewerLayers(foreground=dose_node, foregroundOpacity=0.4)
+                # Layout SIN vista 3D: ConventionalView = axial/sagital/coronal + plot
                 slicer.app.layoutManager().setLayout(
-                    slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+                    slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
             except Exception:
                 pass
 
