@@ -433,6 +433,25 @@ class PipelineMod1:
         else:
             self._log_consola("Modulo 1 finalizado con ERRORES. Revise el reporte.")
 
+        # Guardar escena final completa (sin labelmap para no colgar)
+        self._log_consola("Guardando escena final del pipeline...")
+        try:
+            import slicer
+            labelmap_node = slicer.util.getNode("3Dosim_Labelmap")
+            if labelmap_node:
+                scene = slicer.mrmlScene
+                scene.RemoveNode(labelmap_node)
+                self._save_scene("99_final", force=True)
+                scene.AddNode(labelmap_node)
+            else:
+                self._save_scene("99_final", force=True)
+        except Exception as e:
+            logger.warning(f"  No se pudo guardar escena final: {e}")
+            try:
+                self._save_scene("99_final", force=True)
+            except Exception:
+                pass
+
     # ==================================================================
     # METODOS INTERNOS (extraidos de pipeline.py)
     # ==================================================================
@@ -744,6 +763,7 @@ class PipelineMod1:
             logger.info(f"  Cargando escena guardada: {scene_path}")
             try:
                 success = slicer.util.loadScene(scene_path)
+                slicer.app.processEvents()
                 if success:
                     logger.info("  Escena cargada OK desde checkpoint")
                     # Listar nodos cargados para debug
@@ -1802,7 +1822,7 @@ class PipelineMod1:
                 }
                 QPushButton:hover { background-color: #27ae60; }
             """)
-            close_btn.clicked.connect(dlg.accept)
+            close_btn.clicked.connect(lambda: dlg.accept())
             btn_layout = QHBoxLayout()
             btn_layout.addStretch()
             btn_layout.addWidget(close_btn)

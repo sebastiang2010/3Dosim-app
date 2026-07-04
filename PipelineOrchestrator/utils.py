@@ -151,7 +151,7 @@ def track_time(description: str, timeout: int = 5):
 def _show_progress_dialog(description: str):
     """Muestra QDialog no-modal con indicador de progreso mientras corre un proceso."""
     try:
-        from qt import QDialog, QVBoxLayout, QLabel, QApplication, QProgressBar
+        from qt import QDialog, QVBoxLayout, QLabel, QApplication, QProgressBar, QTimer
         import slicer
         main_w = slicer.util.mainWindow()
         dlg = QDialog(main_w)
@@ -183,6 +183,14 @@ def _show_progress_dialog(description: str):
         layout.addWidget(progress)
         dlg.show()
         QApplication.processEvents()
+
+        # Timer para mantener la UI responsiva y animar la barra indeterminada
+        timer = QTimer(dlg)
+        timer.setInterval(50)
+        timer.timeout.connect(lambda: QApplication.processEvents())
+        timer.start()
+        dlg._progress_timer = timer  # Referencia para que no se recolecte
+
         return dlg
     except Exception:
         return None

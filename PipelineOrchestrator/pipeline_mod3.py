@@ -574,17 +574,56 @@ class PipelineMod3:
             except Exception as e:
                 logger.debug(f"No se pudo restaurar visualizacion: {e}")
 
-    def _save_scene(self, tag=None):
-        """Guarda escena .mrb actual (una sola, se sobrescribe)."""
+    def _save_scene(self, tag=None, force=False):
+        """Guarda la escena 3Dosim.mrb (una sola, se sobrescribe).
+
+        Args:
+            tag: Identificador opcional para el paso (log).
+            force: Si True, guarda siempre ignorando config save_scene.frequency.
+        """
+        import slicer
+        # ── Verificar config de frecuencia ──
+        freq = self.pipeline_config.get("save_scene", {}).get("frequency", "minimal")
+        if not force and freq == "minimal":
+            allowed = {"01_post_activity", "02_post_mctal", "03_post_dvh", "04_post_report", "05_post_dose_node"}
+            if tag not in allowed:
+                logger.info(f"  Escena '{tag}' omitida (save_scene.frequency=minimal)")
+                return None
+
+        # ── Mostrar cartel no-modal "Guardando escena..." ──
+        dialog = None
         try:
-            import slicer
-            filename = "3Dosim_mod3_scene.mrb"
+            from qt import QDialog, QVBoxLayout, QLabel, QApplication
+            main_w = slicer.util.mainWindow()
+            dialog = QDialog(main_w)
+            dialog.setWindowTitle("3Dosim — Guardando escena")
+            dialog.setModal(False)
+            dialog.setMinimumWidth(320)
+            layout = QVBoxLayout(dialog)
+            msg = QLabel(
+                "<b>Guardando escena...</b><br>"
+                "Puede tomar hasta 2 minutos si la escena es grande.<br>"
+                "No cerrar Slicer."
+            )
+            msg.setWordWrap(True)
+            msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+            layout.addWidget(msg)
+            dialog.show()
+            QApplication.processEvents()
+        except Exception:
+            dialog = None  # Qt no disponible, seguir sin cartel
+
+        try:
+            # Una sola escena — se sobrescribe acumulando cada paso
+            filename = "3Dosim.mrb"
             scene_dir = getattr(self, "scene_output_dir", None)
             if not scene_dir:
                 scene_dir = os.path.join(self.output_dir, "scenes")
-            os.makedirs(scene_dir, exist_ok=True)
             filepath = os.path.join(scene_dir, filename)
-
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            t0 = time.time()
+            logger.info(f"  Escena{' ['+tag+']' if tag else ''} -> {filepath}")
+            logger.info(f"  Guardando escena (puede tomar hasta 2 min si la escena es grande)...")
             old_tmp = os.environ.get("TMP", "")
             old_temp = os.environ.get("TEMP", "")
             try:
@@ -596,13 +635,26 @@ class PipelineMod3:
             finally:
                 os.environ["TMP"] = old_tmp
                 os.environ["TEMP"] = old_temp
-
+            elapsed = time.time() - t0
             if success:
-                logger.info(f"  Escena{' ['+tag+']' if tag else ''} guardada: {os.path.basename(filepath)}")
+                new_size = os.path.getsize(filepath)
+                logger.info(f"  Escena guardada ({elapsed:.0f}s): {os.path.basename(filepath)} ({new_size/1024/1024:.0f} MB)")
                 return filepath
+            else:
+                logger.warning(f"  saveScene devolvio False ({elapsed:.0f}s)")
+                return None
         except Exception as e:
             logger.warning(f"No se pudo guardar escena '{tag}': {e}")
             return None
+        finally:
+            if dialog is not None:
+                try:
+                    dialog.close()
+                    dialog.deleteLater()
+                    from qt import QApplication
+                    QApplication.processEvents()
+                except Exception:
+                    pass
 
     def _tomar_screenshot(self, nombre):
         """Toma screenshot de toda la ventana de Slicer."""
@@ -745,6 +797,8 @@ class PipelineMod3:
 
         with track_time("Cargando escena"):
             success = load_scene(self.scene_path)
+            import slicer
+            slicer.app.processEvents()
             if not success:
                 raise RuntimeError(f"No se pudo cargar escena: {self.scene_path}")
 

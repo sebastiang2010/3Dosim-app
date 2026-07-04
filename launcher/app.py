@@ -584,7 +584,7 @@ class ConfigDialog(QDialog):
                 background-color: {color};
             }}
         """)
-        accept_btn.clicked.connect(self.accept)
+        accept_btn.clicked.connect(lambda: self.accept())
         btn_layout.addWidget(accept_btn)
 
         outer.addLayout(btn_layout)

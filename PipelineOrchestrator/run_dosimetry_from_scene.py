@@ -2830,11 +2830,21 @@ def main():
             try:
                 slicer.util.selectModule("Plots")
                 slicer.app.processEvents()
-                if dose_node:
-                    slicer.util.setSliceViewerLayers(foreground=dose_node, foregroundOpacity=0.4)
                 # Layout SIN vista 3D: ConventionalView = axial/sagital/coronal + plot
                 slicer.app.layoutManager().setLayout(
                     slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
+                # Re-saltar al voxel de maxima dosis DESPUÉS del layout (evita reset de vistas)
+                if dose_node is not None:
+                    import vtk as _vtk
+                    max_idx = np.unravel_index(np.argmax(dose_gy), dose_gy.shape)
+                    ijk = [float(max_idx[2]), float(max_idx[1]), float(max_idx[0]), 1.0]
+                    mat_ras = _vtk.vtkMatrix4x4()
+                    dose_node.GetIJKToRASMatrix(mat_ras)
+                    ras = [0.0, 0.0, 0.0, 0.0]
+                    mat_ras.MultiplyPoint(ijk, ras)
+                    from qt import QTimer
+                    QTimer.singleShot(300,
+                        lambda r=ras[:3]: slicer.modules.markups.logic().JumpSlicesToLocation(r[0], r[1], r[2], True))
             except Exception:
                 pass
 

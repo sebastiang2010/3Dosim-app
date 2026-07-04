@@ -323,6 +323,15 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
             legend.SetPosition(0.85, 0.15)
             legend.SetSize(0.12, 0.7)
             legend.SetUseColorNamesForLabels(False)
+            # Asociar legend a las vistas slice para que se renderice
+            try:
+                lm = slicer.app.layoutManager()
+                for view_name in ("Red", "Yellow", "Green"):
+                    sw = lm.sliceWidget(view_name)
+                    if sw:
+                        legend.AddViewNodeID(sw.sliceView().mrmlViewNode().GetID())
+            except Exception:
+                pass
             logger.info(f"  Color legend creada: {len(levels)} niveles")
         except Exception as _le:
             logger.warning(f"  Color legend fallo (no critico): {_le}")
