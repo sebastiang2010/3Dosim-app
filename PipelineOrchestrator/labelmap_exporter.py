@@ -228,13 +228,9 @@ def export_labelmap(
     logger.info(f"  Total segmentos: {len(mapping)}")
     logger.info(f"  Indices phantom unicos: {len(unique_indices)}: {sorted(unique_indices)}")
 
-    # --- 3. Exportar cada segmento a labelmap individual ---
-    logger.info("  Exportando segmentos a labelmap...")
-
-    # Segmentos contenedor (baja prioridad, se restan de los organos)
+    # --- 3. Separar segmentos: organos (prioridad) vs contenedores (se restan) ---
+    logger.info("  Separando segmentos: organos vs contenedores...")
     CONTAINER_NAMES = {"trunk", "body", "skin"}
-
-    # Separar mapping en organos (alta prioridad) y contenedores (se restan)
     organ_mapping = {}
     container_mapping = {}
     for seg_name, idx in mapping.items():
@@ -242,27 +238,22 @@ def export_labelmap(
             container_mapping[seg_name] = idx
         else:
             organ_mapping[seg_name] = idx
-
     if container_mapping:
-        logger.info(f"  Segmentos contenedor (se restaran de organos): {list(container_mapping.keys())}")
+        logger.info(f"  Contenedores (se restaran de organos): {list(container_mapping.keys())}")
+    logger.info(f"  Organos: {list(organ_mapping.keys())}")
 
-    # Obtener dimensiones del CT para la labelmap final
+    # --- 4. Extraer TODAS las mascaras binarias (sin indices) ---
+    logger.info("  Extrayendo mascaras binarias de segmentos...")
     ct_dims = ct_node.GetImageData().GetDimensions()
     ct_spacing = ct_node.GetSpacing()
-
-    # Crear labelmap acumuladora (inicialmente 0 = Aire, index 1)
-    final_labelmap = np.zeros((ct_dims[2], ct_dims[1], ct_dims[0]), dtype=np.int16)
-
-    # Acumulador binario: 1 = voxel ocupado por algun organo
-    any_organ = np.zeros((ct_dims[2], ct_dims[1], ct_dims[0]), dtype=bool)
 
     errors = []
     export_count = 0
     overlap_voxels = 0
 
-    # --- Fase A: Extraer mascaras de organos y validar que sean disjuntas ---
+    # 4a. Mascaras de organos
     organ_masks = {}
-    for seg_name, phantom_idx in organ_mapping.items():
+    for seg_name in organ_mapping:
         try:
             mask = _extract_single_segment_mask(segmentation_node, seg_name, ct_node)
             if mask is not None:
@@ -270,68 +261,108 @@ def export_labelmap(
         except Exception as e:
             errors.append(f"  Error extrayendo '{seg_name}': {e}")
             logger.warning(f"  Error en segmento '{seg_name}': {e}")
+    logger.info(f"  Organos extraidos: {len(organ_masks)}/{len(organ_mapping)}")
 
-    if organ_masks:
+    # 4b. Mascaras de contenedores (desde el mismo nodo segmentation_node)
+    container_masks = {}
+    for seg_name in container_mapping:
+        try:
+            mask = _extract_single_segment_mask(segmentation_node, seg_name, ct_node)
+            if mask is not None:
+                container_masks[seg_name] = mask
+        except Exception as e:
+            errors.append(f"  Error extrayendo contenedor '{seg_name}': {e}")
+    if container_masks:
+        logger.info(f"  Contenedores extraidos: {list(container_masks.keys())}")
+
+    # 4c. Body desde body_segmentation_node (TS task='body')
+    body_mask = None
+    if body_segmentation_node is not None:
+        logger.info("  Extrayendo body desde nodo body_segmentation...")
+        try:
+            body_mask = _extract_single_segment_mask(
+                body_segmentation_node, None, ct_node, first_segment=True
+            )
+            if body_mask is not None:
+                logger.info(f"  Body extraido: {int(body_mask.sum())} voxeles")
+        except Exception as e:
+            logger.warning(f"  Error extrayendo body: {e}")
+
+    # ==================================================================
+    # FASE B: RESOLVER OVERLAPS EN MASCARAS BINARIAS (sin indices)
+    #   Patron: body = body & ~organo  (como higado_sano = higado & ~tumor)
+    #   Esto garantiza que ninguna mascara se solapa al final
+    # ==================================================================
+    logger.info("")
+    logger.info("  Resolviendo overlaps entre mascaras (AND-NOT)...")
+
+    # B1: Acumular todos los organos en una sola mascara binaria
+    any_organ = np.zeros((ct_dims[2], ct_dims[1], ct_dims[0]), dtype=bool)
+    for mask in organ_masks.values():
+        any_organ[mask > 0] = True
+
+    # B2: Restar organos de contenedores
+    for name in list(container_masks.keys()):
+        antes = int(container_masks[name].sum())
+        container_masks[name] = container_masks[name] & ~any_organ
+        despues = int(container_masks[name].sum())
+        restados_cc = antes - despues
+        if restados_cc > 0:
+            logger.info(f"  '{name}': {restados_cc} voxeles restados (organos), quedan {despues}")
+        else:
+            logger.info(f"  '{name}': {despues} voxeles (sin overlap con organos)")
+
+    # B3: Detectar overlap entre organos (solo warning informativo)
+    if len(organ_masks) > 1:
         accumulated = np.zeros_like(next(iter(organ_masks.values())), dtype=np.uint8)
-        for seg_name, mask in organ_masks.items():
-            already_set = accumulated[mask > 0]
-            n = int((already_set > 0).sum())
-            if n > 0:
-                logger.warning(f"  OVERLAP: '{seg_name}' solapa con otros organos: {n} voxeles")
-                overlap_voxels += n
+        for mask in organ_masks.values():
             accumulated[mask > 0] += 1
-
-        n_total = int((accumulated > 1).sum())
-        if n_total:
-            logger.warning(f"  Total overlap entre organos: {n_total} voxeles")
+        n_overlap = int((accumulated > 1).sum())
+        if n_overlap > 0:
+            logger.warning(f"  OVERLAP entre organos: {n_overlap} voxeles en conflicto")
+            logger.warning("  El ultimo organo asignado pisara al anterior en esos voxeles")
+            overlap_voxels = n_overlap
         else:
             logger.info("  Organos disjuntos — sin overlap entre ellos")
 
-    # --- Fase B: Asignar organos a la labelmap ---
+    # B4: Restar organos del body
+    if body_mask is not None:
+        antes = int(body_mask.sum())
+        body_mask = body_mask & ~any_organ
+        despues = int(body_mask.sum())
+        logger.info(f"  Body: {antes - despues} voxeles restados (organos), quedan {despues}")
+
+    # ==================================================================
+    # FASE C: ASIGNAR INDICES PHANTOM (orden no importa, mascaras disjuntas)
+    # ==================================================================
+    logger.info("")
+    logger.info("  Asignando indices phantom a labelmap...")
+    final_labelmap = np.zeros((ct_dims[2], ct_dims[1], ct_dims[0]), dtype=np.int16)
+
+    # C1: Organos
     for seg_name, mask in organ_masks.items():
         phantom_idx = organ_mapping[seg_name]
         final_labelmap[mask > 0] = phantom_idx
-        any_organ[mask > 0] = True
         export_count += 1
+        logger.info(f"    {phantom_idx:3d} <- {seg_name} ({int(mask.sum())} voxeles)")
 
-    # --- Fase C: Procesar contenedores con resta explicita (AND-NOT) ---
-    for seg_name, phantom_idx in container_mapping.items():
-        try:
-            mask = _extract_single_segment_mask(segmentation_node, seg_name, ct_node)
-            if mask is None:
-                logger.warning(f"  Contenedor '{seg_name}' no se pudo extraer")
-                continue
-            container_only = (mask > 0) & ~any_organ
-            n = int(container_only.sum())
-            if n > 0:
-                final_labelmap[container_only] = phantom_idx
-                logger.info(f"  '{seg_name}' asignado: {n} voxeles (restados {int(mask.sum()) - n} de organos)")
-            else:
-                logger.warning(f"  '{seg_name}' completamente contenido en organos — 0 voxeles nuevos")
-        except Exception as e:
-            errors.append(f"  Error procesando contenedor '{seg_name}': {e}")
-            logger.warning(f"  Error en contenedor '{seg_name}': {e}")
+    # C2: Contenedores
+    for seg_name, mask in container_masks.items():
+        if mask.sum() == 0:
+            continue
+        phantom_idx = container_mapping[seg_name]
+        final_labelmap[mask > 0] = phantom_idx
+        export_count += 1
+        logger.info(f"    {phantom_idx:3d} <- {seg_name} (contenedor, {int(mask.sum())} voxeles)")
 
-    # --- 4. Incorporar body segmentation si existe ---
-    body_mask = None
-    if body_segmentation_node is not None:
-        logger.info("  Incorporando body segmentation...")
-        try:
-            body_mask = _extract_single_segment_mask(
-                body_segmentation_node, None, ct_node,
-                first_segment=True
-            )
-            if body_mask is not None:
-                body_idx = 30  # Tejido_blando
-                # Body = contorno corporal MENOS organos (resta EXPLICITA)
-                # Usa any_organ, no final_labelmap == 0
-                body_region = (body_mask > 0) & ~any_organ
-                final_labelmap[body_region] = body_idx
-                logger.info(f"  Body incorporado: {int(body_region.sum())} voxeles nuevos")
-        except Exception as e:
-            logger.warning(f"  Error incorporando body: {e}")
+    # C3: Body
+    body_idx = 30  # Tejido_blando
+    if body_mask is not None and body_mask.sum() > 0:
+        final_labelmap[body_mask > 0] = body_idx
+        export_count += 1
+        logger.info(f"    {body_idx:3d} <- body ({int(body_mask.sum())} voxeles)")
 
-    # --- 5. Verificar solapamiento final ---
+    # --- 5. Verificar integridad ---
     logger.info("")
     logger.info("  Verificando integridad de la labelmap...")
 
@@ -339,17 +370,18 @@ def export_labelmap(
     logger.info(f"  Valores unicos en labelmap: {sorted(unique_values)}")
 
     if overlap_voxels > 0:
-        logger.warning(f"  OVERLAP DETECTADO entre organos: {overlap_voxels} voxeles en conflicto")
-        logger.warning("  Los contenedores (trunk/body/skin) se restaron correctamente via AND-NOT")
+        logger.warning(f"  OVERLAP detectado entre organos: {overlap_voxels} voxeles")
     else:
         logger.info("  [OK] Sin solapamiento entre segmentos")
 
-    # Verificar que no haya voxeles sin asignar dentro del body
+    # Voxeles sin asignar dentro del body (solo informativo, no sobreescribe)
     if body_mask is not None:
-        unassigned_inside_body = (body_mask > 0) & ~any_organ & (final_labelmap == 0)
-        if unassigned_inside_body.sum() > 0:
-            logger.warning(f"  {int(unassigned_inside_body.sum())} voxeles dentro del body sin asignar, asignando como Tejido_blando")
-            final_labelmap[unassigned_inside_body] = 30  # Default Tejido_blando — NO sobrescribir organos
+        unassigned = (body_mask > 0) & (final_labelmap == 0)
+        if unassigned.sum() > 0:
+            logger.warning(f"  {int(unassigned.sum())} voxeles dentro del body sin asignar — asignando como Tejido_blando")
+            final_labelmap[unassigned] = body_idx
+        else:
+            logger.info("  Body completamente asignado — 0 voxeles sin etiquetar")
 
     # --- 6. Crear nodo labelmap en Slicer ---
     logger.info("  Creando nodo labelmap en Slicer...")

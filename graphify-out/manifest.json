@@ -70,13 +70,13 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\isodose_contours.py": {
-    "mtime": 1783106080.7850428,
-    "ast_hash": "02a02374566e08dc8826e79091a08375",
+    "mtime": 1783173149.019795,
+    "ast_hash": "ddb8193464fa1cb4a2953b264d147b1f",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\labelmap_exporter.py": {
-    "mtime": 1783096783.975595,
-    "ast_hash": "5cefcc2f636490fc0bd3a4a1f811e18d",
+    "mtime": 1783174389.2765052,
+    "ast_hash": "2f96c8a5fe1eac83dee1c5b061f0eded",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\latex_report_generator.py": {
@@ -477,6 +477,16 @@
   "C:\\programas\\3Dosim\\3Dosim_v4\\tareas.md": {
     "mtime": 1783096945.953552,
     "ast_hash": "cd909aafab7cdef8455f88bd2137d6aa",
+    "semantic_hash": ""
+  },
+  "C:\\programas\\3Dosim\\3Dosim_v4\\scripts\\fix_duplicates.py": {
+    "mtime": 1783171660.2102861,
+    "ast_hash": "9ff0e6bd06c1c3da817cab42a6bb09e0",
+    "semantic_hash": ""
+  },
+  "C:\\programas\\3Dosim\\3Dosim_v4\\scripts\\update_doc_aesthetics.py": {
+    "mtime": 1783171541.90783,
+    "ast_hash": "0edc5d0c8ec7ca44072ddbcde3fff4c2",
     "semantic_hash": ""
   }
 }
