@@ -621,6 +621,17 @@ def compute_dvh(
     n_nonzero = int(np.sum(doses > 0))
     frac_zero = (n_total - n_nonzero) / n_total * 100
 
+    # Posicion IJK del voxel con dosis maxima dentro de la estructura
+    max_pos_ijk = None
+    if n_total > 0:
+        max_idx = int(np.argmax(doses))
+        coords = np.where(mask)
+        max_pos_ijk = (
+            int(coords[0][max_idx]),
+            int(coords[1][max_idx]),
+            int(coords[2][max_idx]),
+        )
+
     # D98, D70, D50, D2 — percentiles de dosis
     # Usar TODOS los voxeles (incluye dosis=0) - identico MATLAB percentil
     # Dx = dosis que cubre el x% del volumen (min dose to hottest x%)
@@ -662,6 +673,7 @@ def compute_dvh(
         "mean_dose_gy": mean_dose,
         "min_dose_gy": min_dose,
         "max_dose_gy": max_dose,
+        "max_dose_pos_ijk": max_pos_ijk,  # [i, j, k] voxel con dosis maxima
         "std_dose_gy": std_dose,
         "d98_gy": d98,
         "d95_gy": d95,
@@ -2277,6 +2289,10 @@ def main():
                 lo = np.maximum(lo, 0)
                 hi = np.minimum(hi, dims)
                 A_crop = A[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]]
+                # Convertir a float32 para reducir memoria (~50% menos)
+                A_crop = np.asarray(A_crop, dtype=np.float32)
+                # Liberar A (float64 original) — ya no se necesita en esta rama
+                del A
                 logger.info(f"  ROI actividad: {A_crop.shape} (full: {dims})")
                 _log_consola(f"Convolucion FFT sobre ROI {A_crop.shape}...")
                 sys.stdout.flush()
@@ -2298,14 +2314,18 @@ def main():
             else:
                 # Sin higado/tumor: fallback a full
                 logger.warning("  Sin voxeles activos, convolucion full...")
+                A_f32 = np.asarray(A, dtype=np.float32)
+                del A
                 t_conv = time.time()
-                dose_gy = convolve_imfilter_symmetric(A, kernel)
+                dose_gy = convolve_imfilter_symmetric(A_f32, kernel)
                 dt_conv = time.time() - t_conv
                 logger.info(f"  Convolucion FFT (full) en {dt_conv:.1f}s")
                 _log_consola(f"Convolucion FFT: {dt_conv:.1f}s")
         else:
+            A_f32 = np.asarray(A, dtype=np.float32)
+            del A
             t_conv = time.time()
-            dose_gy = convolve_imfilter_symmetric(A, kernel)
+            dose_gy = convolve_imfilter_symmetric(A_f32, kernel)
             dt_conv = time.time() - t_conv
             logger.info(f"  Convolucion FFT (full) en {dt_conv:.1f}s")
             _log_consola(f"Convolucion FFT: {dt_conv:.1f}s")
@@ -2486,9 +2506,16 @@ def main():
                     slicer.app.processEvents()
                     logger.info("  Slices configurados: CT fondo + Dosis overlay (0.4)")
                     _log_consola_ok("Vista: CT + Dosis rainbow")
+                    # Reset view en todos los slices (equivale a click "Reset View" de cada slice)
+                    try:
+                        slicer.util.resetSliceViews()
+                        logger.info("  Slice views reseteados (field of view auto)")
+                    except Exception as e:
+                        logger.debug(f"  resetSliceViews: {e}")
                 except Exception as e:
                     logger.warning(f"  Configurando slices: {e}")
                 # ── Saltar al voxel con maxima dosis ──
+                _max_ras = None
                 try:
                     if dose_node is not None:
                         import vtk as _vtk
@@ -2505,6 +2532,7 @@ def main():
                                     f"IJK({max_idx[0]},{max_idx[1]},{max_idx[2]}) "
                                     f"-> RAS({ras[0]:.1f},{ras[1]:.1f},{ras[2]:.1f})")
                         _log_consola_ok(f"Maxima dosis: {dose_gy.max():.2f} Gy")
+                        _max_ras = list(ras[:3])
                 except Exception as e:
                     logger.warning(f"  No se pudo saltar al maximo de dosis: {e}")
                 # ── Isodosis (NO BLOQUEANTE: corre en background via QTimer) ──
@@ -2544,6 +2572,13 @@ def main():
                                     except Exception:
                                         pass
                                     logger.info("  Slices restaurados post-isodosis (CT + Dosis)")
+                                    # Reset views post-isodosis: centra field of view correctamente
+                                    # (equivale a click "Actualizar vistas" manual)
+                                    try:
+                                        slicer.util.resetSliceViews()
+                                        logger.info("  Slice views reseteados post-isodosis")
+                                    except Exception:
+                                        pass
                                 except Exception as e:
                                     logger.warning(f"  No se pudieron restaurar slices post-isodosis: {e}")
                             else:
@@ -2630,6 +2665,7 @@ def main():
             "mean_dose_gy": dvh["mean_dose_gy"],
             "min_dose_gy": dvh["min_dose_gy"],
             "max_dose_gy": dvh["max_dose_gy"],
+            "max_dose_pos_ijk": dvh["max_dose_pos_ijk"],
             "std_dose_gy": dvh["std_dose_gy"],
             "d98_gy": dvh["d98_gy"],
             "d95_gy": dvh["d95_gy"],
@@ -2705,6 +2741,9 @@ def main():
             f.write(f"    Dosis media: {s['mean_dose_gy']:.2f} Gy\n")
             f.write(f"    Dosis min:   {s['min_dose_gy']:.2f} Gy\n")
             f.write(f"    Dosis max:   {s['max_dose_gy']:.2f} Gy\n")
+            pos = s.get('max_dose_pos_ijk')
+            if pos:
+                f.write(f"    Pos max (IJK): i={pos[0]}, j={pos[1]}, k={pos[2]}\n")
             f.write(f"    D98:         {s['d98_gy']:.2f} Gy\n")
             f.write(f"    D95:         {s['d95_gy']:.2f} Gy\n")
             f.write(f"    D70:         {s['d70_gy']:.2f} Gy\n")

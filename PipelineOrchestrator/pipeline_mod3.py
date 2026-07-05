@@ -1008,6 +1008,7 @@ class PipelineMod3:
                 "mean_dose_gy": dvh["mean_dose_gy"],
                 "min_dose_gy": dvh["min_dose_gy"],
                 "max_dose_gy": dvh["max_dose_gy"],
+                "max_dose_pos_ijk": dvh["max_dose_pos_ijk"],
                 "std_dose_gy": dvh["std_dose_gy"],
                 "d98_gy": dvh["d98_gy"],
                 "d95_gy": dvh["d95_gy"],
@@ -1183,6 +1184,10 @@ class PipelineMod3:
                 f.write(f"  {name.upper()} (indice={s['index']}):\n")
                 f.write(f"    Voxeles:     {s['n_voxels']}\n")
                 f.write(f"    Dosis media: {s['mean_dose_gy']:.2f} Gy\n")
+                f.write(f"    Dosis max:   {s['max_dose_gy']:.2f} Gy\n")
+                pos = s.get('max_dose_pos_ijk')
+                if pos:
+                    f.write(f"    Pos max (IJK): i={pos[0]}, j={pos[1]}, k={pos[2]}\n")
                 f.write(f"    D98:         {s['d98_gy']:.2f} Gy\n")
                 f.write(f"    D95:         {s['d95_gy']:.2f} Gy\n")
                 f.write(f"    D70:         {s['d70_gy']:.2f} Gy\n")

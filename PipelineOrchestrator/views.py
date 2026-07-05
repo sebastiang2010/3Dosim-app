@@ -157,13 +157,22 @@ def setup_medical_views(
         except Exception as e:
             logger.warning(f"  setSliceViewerLayers fallo: {e}")
 
-    # --- 3. Resetear slices para que se vean inmediatamente ---
+    # --- 3. Resetear slices 2D con FitSliceToBackground (mas robusto que resetSliceViews) ---
     if reset_slices:
         try:
-            slicer.util.resetSliceViews()
-            logger.info("  Slices reseteados - imagenes visibles")
-        except Exception:
-            pass
+            for slice_name in ["Red", "Yellow", "Green"]:
+                sw = lm.sliceWidget(slice_name)
+                if sw:
+                    sw.sliceLogic().FitSliceToBackground()
+                    logger.info(f"  Slice {slice_name}: FitSliceToBackground")
+            logger.info("  Slices 2D ajustados al background")
+        except Exception as e:
+            logger.warning(f"  Error ajustando slices 2D: {e}")
+            # Fallback
+            try:
+                slicer.util.resetSliceViews()
+            except Exception:
+                pass
 
     # --- 4. Mostrar segmentacion en 2D y 3D ---
     if segmentation_node:
@@ -187,7 +196,13 @@ def setup_medical_views(
                 f"  No se pudo configurar display de segmentacion: {e}"
             )
 
-    # --- 5. Resetear focal point en vista 3D ---
+    # --- 5. Activar Volume Rendering 3D (para que la vista 3D tenga contenido) ---
+    if bg_node:
+        _enable_volume_rendering(bg_node, name="CT")
+    if pet_node and pet_node.GetImageData():
+        _enable_volume_rendering(pet_node, name="PET")
+
+    # --- 6. Resetear focal point en vista 3D (ahora con VR activo el contenido es visible) ---
     try:
         three_d_widget = lm.threeDWidget(0)
         if three_d_widget:
@@ -227,6 +242,33 @@ def setup_medical_views(
     logger.info("  Vistas medicas configuradas")
     logger.info("  ========================================================")
     logger.info("")
+
+
+def _enable_volume_rendering(volume_node, name="Volume"):
+    """Activa volume rendering 3D RayCast para que la vista 3D muestre el volumen."""
+    try:
+        import slicer
+        vr_logic = slicer.modules.volumerendering.logic()
+        # Verificar si ya tiene VR
+        existing = vr_logic.GetFirstVolumeRenderingDisplayNode(volume_node)
+        if existing:
+            existing.SetVisibility(True)
+            logger.debug(f"  VR ya activo para {name}")
+            return
+
+        # Obtener o crear el display node de volumen rendering
+        vr_display_node = vr_logic.CreateDefaultVolumeRenderingDisplayNode(volume_node)
+        if not vr_display_node:
+            logger.warning(f"  No se pudo crear VR display node para {name}")
+            return
+        vr_display_node.SetVisibility(True)
+        slicer.mrmlScene.AddNode(vr_display_node)
+
+        # Asignar al volumen
+        volume_node.AddAndObserveDisplayNodeID(vr_display_node.GetID())
+        logger.info(f"  Volume rendering 3D activado: {name}")
+    except Exception as e:
+        logger.debug(f"  Volume rendering no disponible para {name}: {e}")
 
 
 def ensure_inverted_rainbow():

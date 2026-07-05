@@ -13,6 +13,7 @@ NOTA: el kernel DEBE estar normalizado (sum=1) antes de llamar.
 NO multiplicar por T_mean despues — identico al flujo MATLAB.
 """
 
+import gc
 import hashlib
 import numpy as np
 import time
@@ -137,7 +138,8 @@ def convolve_imfilter_symmetric(
     activity_pad = np.pad(activity_f32, tuple((d, d) for d in kr), mode='symmetric')
     dt_pad = time.time() - t_pad
 
-    # ── Tamano FFT optimo ──
+    # ── Tamano FFT optimo (next_fast_len reduce latencia FFT) ──
+    from scipy.fft import next_fast_len
     full_shape = tuple(
         activity_pad.shape[i] + kernel.shape[i] - 1
         for i in range(3)
@@ -146,6 +148,9 @@ def convolve_imfilter_symmetric(
 
     logger.info(f"  Activity: {activity.shape} -> pad {kr} -> "
                 f"{activity_pad.shape} -> full {full_shape} -> FFT {fft_shape}")
+
+    # ── Liberar activity_f32 (no se necesita mas despues del pad) ──
+    del activity_f32
 
     # ── Kernel FFT cacheado ──
     t_cache = time.time()
@@ -160,6 +165,9 @@ def convolve_imfilter_symmetric(
         logger.info(f"  Kernel FFT: desde cache")
     K_fft = _KERNEL_FFT_CACHE[cache_key]
     dt_cache = time.time() - t_cache
+
+    # ── Liberar memoria residual antes de FFT ──
+    gc.collect()
 
     # ── Ejecutar FFT + IFFT con timeout ──
     logger.info(f"  Lanzando FFT (timeout={timeout_s:.0f}s, workers={FFT_WORKERS})...")

@@ -184,17 +184,6 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
             label = f"{level:.0f} Gy"
             color_table_node.SetColor(i, label,
                                       color[0], color[1], color[2], 1.0)
-        # Color legend visible
-        try:
-            param_node.SetColorLegendVisibility(True)
-        except Exception:
-            pass
-        # Configurar formato del color legend: mostrar valor (no nombre de color)
-        try:
-            param_node.SetColorLegendTitle("Isodosis")
-        except Exception:
-            pass
-
         # Generar
         ok = isodose_logic.CreateIsodoseSurfaces(param_node)
         if not ok:
@@ -215,10 +204,28 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
             if show_lines_2d:
                 disp.SetSliceIntersectionThickness(2)
 
+        # ── Color Legend via API oficial de Slicer ──
         try:
-            isodose_logic.SetColorLegendDefaults(param_node)
-        except Exception:
-            pass
+            color_legend = slicer.modules.colors.logic().AddDefaultColorLegendDisplayNode(model_node)
+            if color_legend:
+                color_legend.SetTitleText("Isodosis (Gy)")
+                color_legend.SetLabelFormat("%.0f Gy")
+                color_legend.SetVisibility(True)
+                logger.info("  Color legend (SlicerRT) creada correctamente")
+            else:
+                logger.warning("  AddDefaultColorLegendDisplayNode devolvio None")
+        except Exception as e:
+            logger.warning(f"  Color legend (SlicerRT) fallo: {e}")
+
+        # Workaround bug Slicer#6827: slices no muestran legend si no estan visibles
+        try:
+            layoutManager = slicer.app.layoutManager()
+            if layoutManager:
+                for sliceViewName in layoutManager.sliceViewNames():
+                    sliceNode = layoutManager.sliceWidget(sliceViewName).sliceView().mrmlSliceNode()
+                    sliceNode.SetSliceVisible(True)
+        except Exception as e:
+            logger.debug(f"  SliceVisible workaround: {e}")
 
         return model_node, param_node
 
@@ -230,10 +237,13 @@ def _create_via_slicerrt(dose_node, levels, show_lines_2d, show_surfaces_3d,
 
 
 def _create_fallback_legend(ctbl, levels):
-    """Fallback: crear leyenda usando vtkMRMLColorTableNode directamente."""
+    """Fallback ultra: crear leyenda manualmente si AddDefaultColorLegendDisplayNode falla.
+
+    Busca el modelo que usa ctbl y crea vtkMRMLColorLegendDisplayNode manual.
+    """
     import slicer
     try:
-        # Buscar si ya hay un modelo con esta color table
+        # Buscar el modelo que usa esta color table
         models = slicer.util.getNodesByClass("vtkMRMLModelNode")
         target_model = None
         for m in models:
@@ -243,16 +253,29 @@ def _create_fallback_legend(ctbl, levels):
                 break
 
         if target_model:
-            # Asociar la tabla de colores al display del modelo
+            # Intentar usar API oficial primero
+            try:
+                color_legend = slicer.modules.colors.logic().AddDefaultColorLegendDisplayNode(target_model)
+                if color_legend:
+                    color_legend.SetTitleText("Isodose (Gy)")
+                    color_legend.SetLabelFormat("%.0f Gy")
+                    color_legend.SetVisibility(True)
+                    color_legend.SetPosition(0.85, 0.15)
+                    color_legend.SetSize(0.12, 0.7)
+                    logger.info(f"  Fallback legend via API oficial: {target_model.GetName()}")
+                    return
+            except Exception:
+                pass
+
+            # Fallback manual si API oficial no funciona
             disp = target_model.GetModelDisplayNode()
             if disp:
                 disp.SetActiveScalarName("isolevels")
                 disp.SetAndObserveColorNodeID(ctbl.GetID())
                 disp.SetScalarVisibility(True)
                 disp.SetAutoScalarRange(True)
-                logger.info(f"  Leyenda via modelo: {target_model.GetName()}")
 
-        # Intentar crear leyenda con nombre alternativo
+        # Crear leyenda manual
         legend = slicer.mrmlScene.AddNewNodeByClass(
             "vtkMRMLColorLegendDisplayNode"
         )
@@ -274,7 +297,7 @@ def _create_fallback_legend(ctbl, levels):
         except Exception:
             pass
 
-        logger.info(f"  Fallback legend creada: {len(levels)} niveles")
+        logger.info(f"  Fallback legend manual: {len(levels)} niveles")
     except Exception as e:
         logger.warning(f"  Fallback legend fallo: {e}")
 
@@ -380,63 +403,42 @@ def _create_via_vtk(dose_node, levels, show_lines_2d, show_surfaces_3d):
             if show_lines_2d:
                 disp.SetSliceIntersectionThickness(2)
 
-        # ── Color Legend ──
-        # Asociar la tabla de colores al display del modelo para que Slicer
-        # muestre automaticamente la barra de colores en las vistas
+        # ── Color Legend via API oficial de Slicer ──
         try:
-            # Forzar que el modelo use la tabla de colores y muestre escalares
-            disp = model_node.GetModelDisplayNode()
-            if disp:
-                disp.SetActiveScalarName("isolevels")
-                disp.SetAndObserveColorNodeID(ctbl.GetID())
-                disp.SetScalarVisibility(True)
-                disp.SetAutoScalarRange(True)
-
-            # Intentar crear vtkMRMLColorLegendDisplayNode (Slicer >= 5.0)
-            legend = slicer.mrmlScene.AddNewNodeByClass(
-                "vtkMRMLColorLegendDisplayNode"
-            )
-            legend.SetAndObserveColorNodeID(ctbl.GetID())
-            legend.SetVisibility(True)
-            legend.SetVisibility2D(True)
-            legend.SetTitleText("Isodose (Gy)")
-            legend.SetLabelFormat("%.0f Gy")
-            legend.SetMaxNumberOfColors(len(levels))
-            legend.SetNumberOfLabels(len(levels))
-            try:
-                legend.SetOrientation(legend.Vertical)
-            except Exception:
-                pass
-            legend.SetPosition(0.85, 0.15)
-            legend.SetSize(0.12, 0.7)
-            legend.SetUseColorNamesForLabels(False)
-
-            # Asociar legend a TODAS las vistas (slices + 3D)
-            try:
-                view_nodes = slicer.mrmlScene.GetNodesByClass(
-                    "vtkMRMLAbstractViewNode"
-                )
-                for i in range(view_nodes.GetNumberOfItems()):
-                    legend.AddViewNodeID(
-                        view_nodes.GetItemAsObject(i).GetID()
-                    )
-            except Exception:
-                pass
-
-            # Vincular legend al modelo via display node
-            try:
-                legend.SetAndObserveDisplayNodeID(disp.GetID())
-            except Exception:
-                pass
-
-            logger.info(f"  Color legend creada: {len(levels)} niveles")
-        except Exception as _le:
-            # Fallback: intentar con vtkMRMLSliceDisplayNode
-            logger.warning(f"  Color legend fallo: {_le}")
+            color_legend = slicer.modules.colors.logic().AddDefaultColorLegendDisplayNode(model_node)
+            if color_legend:
+                color_legend.SetTitleText("Isodose (Gy)")
+                color_legend.SetLabelFormat("%.0f Gy")
+                color_legend.SetVisibility(True)
+                color_legend.SetMaxNumberOfColors(len(levels))
+                color_legend.SetNumberOfLabels(len(levels))
+                try:
+                    color_legend.SetOrientation(color_legend.Vertical)
+                except Exception:
+                    pass
+                color_legend.SetPosition(0.85, 0.15)
+                color_legend.SetSize(0.12, 0.7)
+                color_legend.SetUseColorNamesForLabels(False)
+                logger.info(f"  Color legend creada correctamente: {len(levels)} niveles")
+            else:
+                logger.warning("  AddDefaultColorLegendDisplayNode devolvio None, usando fallback manual")
+                _create_fallback_legend(ctbl, levels)
+        except Exception as e:
+            logger.warning(f"  Color legend via Colors logic fallo: {e}, usando fallback manual")
             try:
                 _create_fallback_legend(ctbl, levels)
-            except Exception as _le2:
-                logger.warning(f"  Fallback legend tambien fallo: {_le2}")
+            except Exception as e2:
+                logger.warning(f"  Fallback legend tambien fallo: {e2}")
+
+        # Workaround bug Slicer#6827: slices no muestran legend si no estan visibles
+        try:
+            layoutManager = slicer.app.layoutManager()
+            if layoutManager:
+                for sliceViewName in layoutManager.sliceViewNames():
+                    sliceNode = layoutManager.sliceWidget(sliceViewName).sliceView().mrmlSliceNode()
+                    sliceNode.SetSliceVisible(True)
+        except Exception as e:
+            logger.debug(f"  SliceVisible workaround: {e}")
 
         logger.info(f"  {len(levels)} niveles generados via VTK fallback")
         return model_node, None
