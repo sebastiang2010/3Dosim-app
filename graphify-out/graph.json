@@ -189,7 +189,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L98",
       "id": "launcher_app_save_config",
-      "community": 77,
+      "community": 256,
       "norm_label": "_save_config()"
     },
     {
@@ -198,7 +198,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L98",
       "id": "launcher_app_py_bool",
-      "community": 77,
+      "community": 256,
       "norm_label": "bool"
     },
     {
@@ -369,7 +369,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L758",
       "id": "launcher_app_logpanel",
-      "community": 92,
+      "community": 216,
       "norm_label": "logpanel"
     },
     {
@@ -396,7 +396,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L777",
       "id": "launcher_app_logpanel_log",
-      "community": 54,
+      "community": 216,
       "norm_label": ".log()"
     },
     {
@@ -504,7 +504,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L985",
       "id": "launcher_app_launcherwindow_build_ui",
-      "community": 92,
+      "community": 216,
       "norm_label": "._build_ui()"
     },
     {
@@ -540,7 +540,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L1206",
       "id": "launcher_app_launcherwindow_kill_slicer",
-      "community": 54,
+      "community": 216,
       "norm_label": "._kill_slicer()"
     },
     {
@@ -558,7 +558,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L1427",
       "id": "launcher_app_launcherwindow_on_slicer_done",
-      "community": 54,
+      "community": 92,
       "norm_label": "._on_slicer_done()"
     },
     {
@@ -567,7 +567,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L1465",
       "id": "launcher_app_launcherwindow_apply_config_override",
-      "community": 54,
+      "community": 256,
       "norm_label": "._apply_config_override()"
     },
     {
@@ -612,7 +612,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L99",
       "id": "launcher_app_rationale_99",
-      "community": 77,
+      "community": 256,
       "norm_label": "guarda config.jsonc (hace backup primero)."
     },
     {
@@ -684,7 +684,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L759",
       "id": "launcher_app_rationale_759",
-      "community": 92,
+      "community": 216,
       "norm_label": "panel de registro de eventos."
     },
     {
@@ -783,7 +783,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L1207",
       "id": "launcher_app_rationale_1207",
-      "community": 54,
+      "community": 216,
       "norm_label": "mata cualquier proceso slicer existente para evitar single-instance conflict."
     },
     {
@@ -801,7 +801,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L1428",
       "id": "launcher_app_rationale_1428",
-      "community": 54,
+      "community": 92,
       "norm_label": "callback cuando slicer termina. nunca cierra el launcher."
     },
     {
@@ -810,7 +810,7 @@
       "source_file": "launcher/app.py",
       "source_location": "L1466",
       "id": "launcher_app_rationale_1466",
-      "community": 54,
+      "community": 256,
       "norm_label": "escribe la config del usuario en config.jsonc antes de lanzar slicer."
     },
     {
@@ -2277,7 +2277,7 @@
       "source_file": "PipelineOrchestrator/isodose_contours.py",
       "source_location": "L70",
       "id": "pipelineorchestrator_isodose_contours_create_isodose_contours",
-      "community": 83,
+      "community": 0,
       "norm_label": "create_isodose_contours()"
     },
     {
@@ -2331,7 +2331,7 @@
       "source_file": "PipelineOrchestrator/isodose_contours.py",
       "source_location": "L73",
       "id": "pipelineorchestrator_isodose_contours_rationale_73",
-      "community": 83,
+      "community": 0,
       "norm_label": "genera curvas/superficies de isodosis.      prioriza slicerrt isodose module. si"
     },
     {
@@ -2799,7 +2799,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L1",
       "id": "pipelineorchestrator_logging_setup_py",
-      "community": 186,
+      "community": 22,
       "norm_label": "logging_setup.py"
     },
     {
@@ -2808,7 +2808,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L27",
       "id": "pipelineorchestrator_logging_setup_tee",
-      "community": 186,
+      "community": 22,
       "norm_label": "_tee"
     },
     {
@@ -2817,7 +2817,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L30",
       "id": "pipelineorchestrator_logging_setup_tee_init",
-      "community": 186,
+      "community": 22,
       "norm_label": ".__init__()"
     },
     {
@@ -2826,7 +2826,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L30",
       "id": "textio",
-      "community": 186,
+      "community": 22,
       "norm_label": "textio"
     },
     {
@@ -2835,7 +2835,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L34",
       "id": "pipelineorchestrator_logging_setup_tee_write",
-      "community": 186,
+      "community": 22,
       "norm_label": ".write()"
     },
     {
@@ -2844,7 +2844,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L34",
       "id": "pipelineorchestrator_logging_setup_py_str",
-      "community": 186,
+      "community": 22,
       "norm_label": "str"
     },
     {
@@ -2853,7 +2853,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L48",
       "id": "pipelineorchestrator_logging_setup_tee_flush",
-      "community": 186,
+      "community": 22,
       "norm_label": ".flush()"
     },
     {
@@ -2862,7 +2862,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L63",
       "id": "pipelineorchestrator_logging_setup_setup_global_logging",
-      "community": 186,
+      "community": 22,
       "norm_label": "setup_global_logging()"
     },
     {
@@ -2871,7 +2871,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L1",
       "id": "pipelineorchestrator_logging_setup_rationale_1",
-      "community": 186,
+      "community": 22,
       "norm_label": "logging_setup.py - logging global para 3dosim pipeline en slicer.  captura todo:"
     },
     {
@@ -2880,7 +2880,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L28",
       "id": "pipelineorchestrator_logging_setup_rationale_28",
-      "community": 186,
+      "community": 22,
       "norm_label": "duplica escrituras: a stream original + a archivo de log."
     },
     {
@@ -2889,7 +2889,7 @@
       "source_file": "PipelineOrchestrator/logging_setup.py",
       "source_location": "L64",
       "id": "pipelineorchestrator_logging_setup_rationale_64",
-      "community": 186,
+      "community": 22,
       "norm_label": "configura logging global.      crea filehandler en el root logger + tee de stdou"
     },
     {
@@ -3564,7 +3564,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L56",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_init",
-      "community": 28,
+      "community": 19,
       "norm_label": ".__init__()"
     },
     {
@@ -3573,7 +3573,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L56",
       "id": "pipelineorchestrator_pipeline_mod1_py_str",
-      "community": 270,
+      "community": 19,
       "norm_label": "str"
     },
     {
@@ -3582,7 +3582,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L56",
       "id": "pipelineorchestrator_pipeline_mod1_py_bool",
-      "community": 28,
+      "community": 19,
       "norm_label": "bool"
     },
     {
@@ -3591,7 +3591,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L56",
       "id": "pipelineorchestrator_pipeline_mod1_py_int",
-      "community": 101,
+      "community": 19,
       "norm_label": "int"
     },
     {
@@ -3744,7 +3744,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L826",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_save_scene",
-      "community": 28,
+      "community": 276,
       "norm_label": "._save_scene()"
     },
     {
@@ -3798,7 +3798,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1042",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_read_dicom_patient_id",
-      "community": 270,
+      "community": 82,
       "norm_label": "._read_dicom_patient_id()"
     },
     {
@@ -3807,7 +3807,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1073",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_show_fusion",
-      "community": 190,
+      "community": 82,
       "norm_label": "._show_fusion()"
     },
     {
@@ -3834,7 +3834,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1289",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_anonymize",
-      "community": 25,
+      "community": 270,
       "norm_label": "._anonymize()"
     },
     {
@@ -3861,7 +3861,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1496",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_remove_couch_air",
-      "community": 25,
+      "community": 270,
       "norm_label": "._remove_couch_air()"
     },
     {
@@ -3870,7 +3870,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1503",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_segment",
-      "community": 25,
+      "community": 270,
       "norm_label": "._segment()"
     },
     {
@@ -3897,7 +3897,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1568",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_add_tumor",
-      "community": 25,
+      "community": 270,
       "norm_label": "._add_tumor()"
     },
     {
@@ -3906,7 +3906,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1588",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_create_healthy_liver",
-      "community": 25,
+      "community": 270,
       "norm_label": "._create_healthy_liver()"
     },
     {
@@ -3924,7 +3924,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1628",
       "id": "pipelineorchestrator_pipeline_mod1_pipelinemod1_segment_body",
-      "community": 25,
+      "community": 270,
       "norm_label": "._segment_body()"
     },
     {
@@ -3987,7 +3987,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L827",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_827",
-      "community": 28,
+      "community": 276,
       "norm_label": "guarda la escena 3dosim.mrb.          args:             tag: identificador op"
     },
     {
@@ -4014,7 +4014,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1043",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_1043",
-      "community": 270,
+      "community": 82,
       "norm_label": "lee el patientid real desde los archivos dicom con pydicom.          prueba pr"
     },
     {
@@ -4059,7 +4059,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L28",
       "id": "pipelineorchestrator_pipeline_mod2_pipelinemod2",
-      "community": 18,
+      "community": 242,
       "norm_label": "pipelinemod2"
     },
     {
@@ -4077,7 +4077,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L133",
       "id": "pipelineorchestrator_pipeline_mod2_pipelinemod2_run",
-      "community": 183,
+      "community": 18,
       "norm_label": ".run()"
     },
     {
@@ -4104,7 +4104,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L320",
       "id": "pipelineorchestrator_pipeline_mod2_pipelinemod2_restore_step_state",
-      "community": 18,
+      "community": 242,
       "norm_label": "._restore_step_state()"
     },
     {
@@ -4113,7 +4113,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L360",
       "id": "pipelineorchestrator_pipeline_mod2_pipelinemod2_save_scene",
-      "community": 28,
+      "community": 88,
       "norm_label": "._save_scene()"
     },
     {
@@ -4167,7 +4167,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L508",
       "id": "pipelineorchestrator_pipeline_mod2_pipelinemod2_log_consola_ok",
-      "community": 18,
+      "community": 284,
       "norm_label": "._log_consola_ok()"
     },
     {
@@ -4257,7 +4257,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L878",
       "id": "pipelineorchestrator_pipeline_mod2_main",
-      "community": 183,
+      "community": 279,
       "norm_label": "main()"
     },
     {
@@ -4275,7 +4275,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L29",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_29",
-      "community": 18,
+      "community": 242,
       "norm_label": "pipeline modulo 2: carga escena .mrb (generada por mod1),     escanea nodos y g"
     },
     {
@@ -4293,7 +4293,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L134",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_134",
-      "community": 183,
+      "community": 18,
       "norm_label": "ejecuta el pipeline mod2 completo."
     },
     {
@@ -4311,7 +4311,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L321",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_321",
-      "community": 18,
+      "community": 242,
       "norm_label": "restaura estado desde checkpoint data.          soporta dos formatos:"
     },
     {
@@ -4320,7 +4320,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L361",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_361",
-      "community": 28,
+      "community": 88,
       "norm_label": "guarda la escena 3dosim.mrb (una sola, se sobrescribe).          args:"
     },
     {
@@ -4356,7 +4356,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L509",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_509",
-      "community": 18,
+      "community": 284,
       "norm_label": "envia un mensaje de exito a la consola."
     },
     {
@@ -4446,7 +4446,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L879",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_879",
-      "community": 183,
+      "community": 279,
       "norm_label": "entry point cli para pipelinemod2."
     },
     {
@@ -4455,7 +4455,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L1",
       "id": "pipelineorchestrator_pipeline_mod3_py",
-      "community": 268,
+      "community": 28,
       "norm_label": "pipeline_mod3.py"
     },
     {
@@ -4473,7 +4473,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L108",
       "id": "pipelineorchestrator_pipeline_mod3_pipelinemod3_init",
-      "community": 66,
+      "community": 28,
       "norm_label": ".__init__()"
     },
     {
@@ -4500,7 +4500,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L108",
       "id": "pipelineorchestrator_pipeline_mod3_py_bool",
-      "community": 66,
+      "community": 28,
       "norm_label": "bool"
     },
     {
@@ -4698,7 +4698,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L1073",
       "id": "pipelineorchestrator_pipeline_mod3_alpha_beta_rows",
-      "community": 268,
+      "community": 28,
       "norm_label": "_alpha_beta_rows()"
     },
     {
@@ -4707,7 +4707,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L1081",
       "id": "pipelineorchestrator_pipeline_mod3_density_rows",
-      "community": 268,
+      "community": 28,
       "norm_label": "_density_rows()"
     },
     {
@@ -4743,7 +4743,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L1334",
       "id": "pipelineorchestrator_pipeline_mod3_auto_detect_scene",
-      "community": 66,
+      "community": 28,
       "norm_label": "_auto_detect_scene()"
     },
     {
@@ -4761,7 +4761,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L1",
       "id": "pipelineorchestrator_pipeline_mod3_rationale_1",
-      "community": 268,
+      "community": 28,
       "norm_label": "pipelinemod3 - modulo 3: analisis dosimetrico desde escena + mctal. flujo: carg"
     },
     {
@@ -4779,7 +4779,7 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L120",
       "id": "pipelineorchestrator_pipeline_mod3_rationale_120",
-      "community": 66,
+      "community": 28,
       "norm_label": "args:             scene_path: ruta a escena .mrb. si none, auto-detecta."
     },
     {
@@ -5085,7 +5085,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L192",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_py_bool",
-      "community": 256,
+      "community": 233,
       "norm_label": "bool"
     },
     {
@@ -5130,7 +5130,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L442",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_py_float",
-      "community": 0,
+      "community": 233,
       "norm_label": "float"
     },
     {
@@ -5148,7 +5148,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L522",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_convert_to_gy",
-      "community": 268,
+      "community": 233,
       "norm_label": "convert_to_gy()"
     },
     {
@@ -5157,7 +5157,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L522",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_py_ndarray",
-      "community": 268,
+      "community": 233,
       "norm_label": "ndarray"
     },
     {
@@ -5166,7 +5166,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L580",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_compute_dvh",
-      "community": 268,
+      "community": 233,
       "norm_label": "compute_dvh()"
     },
     {
@@ -5175,7 +5175,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L580",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_py_int",
-      "community": 268,
+      "community": 233,
       "norm_label": "int"
     },
     {
@@ -5184,7 +5184,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L692",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_compute_biophysical",
-      "community": 256,
+      "community": 233,
       "norm_label": "compute_biophysical()"
     },
     {
@@ -5193,7 +5193,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L761",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_compute_mird",
-      "community": 268,
+      "community": 233,
       "norm_label": "compute_mird()"
     },
     {
@@ -5209,7 +5209,7 @@
       "label": "_export_dvh_png()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L941",
+      "source_location": "L945",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_export_dvh_png",
       "community": 212,
       "norm_label": "_export_dvh_png()"
@@ -5218,7 +5218,7 @@
       "label": "_add_page_number()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L981",
+      "source_location": "L986",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_add_page_number",
       "community": 235,
       "norm_label": "_add_page_number()"
@@ -5227,7 +5227,7 @@
       "label": "generate_pdf_report()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L987",
+      "source_location": "L992",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_generate_pdf_report",
       "community": 0,
       "norm_label": "generate_pdf_report()"
@@ -5236,7 +5236,7 @@
       "label": "_generate_pdf_matplotlib_fallback()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1595",
+      "source_location": "L1600",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_generate_pdf_matplotlib_fallback",
       "community": 0,
       "norm_label": "_generate_pdf_matplotlib_fallback()"
@@ -5245,7 +5245,7 @@
       "label": "setup_slicer_paths()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1652",
+      "source_location": "L1657",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_setup_slicer_paths",
       "community": 247,
       "norm_label": "setup_slicer_paths()"
@@ -5254,7 +5254,7 @@
       "label": "get_labelmap_array()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1679",
+      "source_location": "L1684",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_get_labelmap_array",
       "community": 250,
       "norm_label": "get_labelmap_array()"
@@ -5263,7 +5263,7 @@
       "label": "load_kernel()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1688",
+      "source_location": "L1693",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_load_kernel",
       "community": 0,
       "norm_label": "load_kernel()"
@@ -5272,7 +5272,7 @@
       "label": "_show_popup()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1717",
+      "source_location": "L1722",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_show_popup",
       "community": 88,
       "norm_label": "_show_popup()"
@@ -5281,7 +5281,7 @@
       "label": "_close_popup()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1723",
+      "source_location": "L1728",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_close_popup",
       "community": 210,
       "norm_label": "_close_popup()"
@@ -5290,7 +5290,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1729",
+      "source_location": "L1734",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_main",
       "community": 0,
       "norm_label": "main()"
@@ -5299,7 +5299,7 @@
       "label": "_setup_display_sync()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L2903",
+      "source_location": "L2908",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
       "community": 0,
       "norm_label": "_setup_display_sync()"
@@ -5308,7 +5308,7 @@
       "label": "_reassign_dvh_chart()",
       "file_type": "code",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L2984",
+      "source_location": "L2989",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
       "community": 0,
       "norm_label": "_reassign_dvh_chart()"
@@ -5391,7 +5391,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L528",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_528",
-      "community": 268,
+      "community": 233,
       "norm_label": "convierte mev/cm3/particula \u2192 gy.      algoritmo matlab cargo_mctal.m lineas 3"
     },
     {
@@ -5400,7 +5400,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L586",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_586",
-      "community": 268,
+      "community": 233,
       "norm_label": "computa dvh para una estructura.     nota: volumen se computa externamente (cal"
     },
     {
@@ -5409,7 +5409,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L697",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_697",
-      "community": 256,
+      "community": 233,
       "norm_label": "computa bed, eud, eqd2.      bed = d + (lamda/((alpha/beta)*(lamda+mu))) * d2"
     },
     {
@@ -5418,7 +5418,7 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L766",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_766",
-      "community": 268,
+      "community": 233,
       "norm_label": "calcula mird partition model para higado y tumor.      matlab cargo_mctal.m li"
     },
     {
@@ -5434,8 +5434,8 @@
       "label": "Exporta DVH como PNG usando matplotlib (si disponible).      dvh_curves: list",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L942",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_942",
+      "source_location": "L946",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_946",
       "community": 212,
       "norm_label": "exporta dvh como png usando matplotlib (si disponible).      dvh_curves: list"
     },
@@ -5443,8 +5443,8 @@
       "label": "Agrega numero de pagina y footer al pie de la figura (matplotlib fallback).",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L982",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_982",
+      "source_location": "L987",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_987",
       "community": 235,
       "norm_label": "agrega numero de pagina y footer al pie de la figura (matplotlib fallback)."
     },
@@ -5452,8 +5452,8 @@
       "label": "Genera reporte PDF con reportlab (5 paginas):       P1: Portada con metadatos y",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L992",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_992",
+      "source_location": "L997",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_997",
       "community": 0,
       "norm_label": "genera reporte pdf con reportlab (5 paginas):       p1: portada con metadatos y"
     },
@@ -5461,8 +5461,8 @@
       "label": "Fallback: genera PDF con matplotlib si reportlab no esta disponible.",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1598",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1598",
+      "source_location": "L1603",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1603",
       "community": 0,
       "norm_label": "fallback: genera pdf con matplotlib si reportlab no esta disponible."
     },
@@ -5470,8 +5470,8 @@
       "label": "Configura sys.path para importar SlicerDosimLib. Retorna path o None.",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1653",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1653",
+      "source_location": "L1658",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1658",
       "community": 247,
       "norm_label": "configura sys.path para importar slicerdosimlib. retorna path o none."
     },
@@ -5479,8 +5479,8 @@
       "label": "Extrae array 3D del labelmap, transpone a (nx, ny, nz).",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1680",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1680",
+      "source_location": "L1685",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1685",
       "community": 250,
       "norm_label": "extrae array 3d del labelmap, transpone a (nx, ny, nz)."
     },
@@ -5488,8 +5488,8 @@
       "label": "Carga kernel de dosis desde archivo .mat (v7.3 HDF5) y lo normaliza.      Cent",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1689",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1689",
+      "source_location": "L1694",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1694",
       "community": 0,
       "norm_label": "carga kernel de dosis desde archivo .mat (v7.3 hdf5) y lo normaliza.      cent"
     },
@@ -5497,8 +5497,8 @@
       "label": "Wrapper para compatibilidad \u2014 usa la funcion compartida en utils.",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1718",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1718",
+      "source_location": "L1723",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1723",
       "community": 88,
       "norm_label": "wrapper para compatibilidad \u2014 usa la funcion compartida en utils."
     },
@@ -5506,8 +5506,8 @@
       "label": "Wrapper para compatibilidad \u2014 usa la funcion compartida en utils.",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1724",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1724",
+      "source_location": "L1729",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1729",
       "community": 210,
       "norm_label": "wrapper para compatibilidad \u2014 usa la funcion compartida en utils."
     },
@@ -5515,8 +5515,8 @@
       "label": "Configura el display COMPLETO de forma sincr\u00f3nica:     layout, crosshair, trans",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L2904",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2904",
+      "source_location": "L2909",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2909",
       "community": 0,
       "norm_label": "configura el display completo de forma sincronica:     layout, crosshair, trans"
     },
@@ -5524,8 +5524,8 @@
       "label": "Timer postergado (~2200ms): re-asigna chart DVH + re-aplica jump/FOV/crosshair.",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L2985",
-      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2985",
+      "source_location": "L2990",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2990",
       "community": 0,
       "norm_label": "timer postergado (~2200ms): re-asigna chart dvh + re-aplica jump/fov/crosshair."
     },
@@ -5724,7 +5724,7 @@
       "source_file": "PipelineOrchestrator/tumor_creator.py",
       "source_location": "L645",
       "id": "pipelineorchestrator_tumor_creator_show_manual_tumor_dialog",
-      "community": 216,
+      "community": 26,
       "norm_label": "_show_manual_tumor_dialog()"
     },
     {
@@ -5868,7 +5868,7 @@
       "source_file": "PipelineOrchestrator/tumor_creator.py",
       "source_location": "L646",
       "id": "pipelineorchestrator_tumor_creator_rationale_646",
-      "community": 216,
+      "community": 26,
       "norm_label": "dialogo no modal para segmentacion manual del tumor."
     },
     {
@@ -6138,7 +6138,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L54",
       "id": "pipelineorchestrator_utils_add_module_path",
-      "community": 28,
+      "community": 88,
       "norm_label": "add_module_path()"
     },
     {
@@ -6147,7 +6147,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L54",
       "id": "pipelineorchestrator_utils_py_bool",
-      "community": 28,
+      "community": 88,
       "norm_label": "bool"
     },
     {
@@ -6165,7 +6165,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L107",
       "id": "pipelineorchestrator_utils_track_time",
-      "community": 25,
+      "community": 270,
       "norm_label": "track_time()"
     },
     {
@@ -6201,7 +6201,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L229",
       "id": "pipelineorchestrator_utils_show_save_scene_dialog",
-      "community": 28,
+      "community": 88,
       "norm_label": "show_save_scene_dialog()"
     },
     {
@@ -6228,7 +6228,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L306",
       "id": "pipelineorchestrator_utils_close_popup",
-      "community": 210,
+      "community": 0,
       "norm_label": "close_popup()"
     },
     {
@@ -6264,7 +6264,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L55",
       "id": "pipelineorchestrator_utils_rationale_55",
-      "community": 28,
+      "community": 88,
       "norm_label": "agrega el directorio scripted/ a sys.path para importar slicerdosimlib.      b"
     },
     {
@@ -6282,7 +6282,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L108",
       "id": "pipelineorchestrator_utils_rationale_108",
-      "community": 25,
+      "community": 270,
       "norm_label": "context manager para procesos que pueden demorar.      muestra un cartel qdial"
     },
     {
@@ -6309,7 +6309,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L230",
       "id": "pipelineorchestrator_utils_rationale_230",
-      "community": 28,
+      "community": 88,
       "norm_label": "muestra cartel no-modal 'guardando escena...' mientras se guarda el .mrb."
     },
     {
@@ -6336,7 +6336,7 @@
       "source_file": "PipelineOrchestrator/utils.py",
       "source_location": "L307",
       "id": "pipelineorchestrator_utils_rationale_307",
-      "community": 210,
+      "community": 0,
       "norm_label": "cierra dialogo no-modal creado con show_popup()."
     },
     {
@@ -6606,7 +6606,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L1",
       "id": "pipelineorchestrator_views_py",
-      "community": 190,
+      "community": 28,
       "norm_label": "views.py"
     },
     {
@@ -6615,7 +6615,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L14",
       "id": "pipelineorchestrator_views_setup_medical_views",
-      "community": 190,
+      "community": 28,
       "norm_label": "setup_medical_views()"
     },
     {
@@ -6624,7 +6624,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L14",
       "id": "pipelineorchestrator_views_py_str",
-      "community": 190,
+      "community": 28,
       "norm_label": "str"
     },
     {
@@ -6633,7 +6633,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L14",
       "id": "pipelineorchestrator_views_py_float",
-      "community": 190,
+      "community": 28,
       "norm_label": "float"
     },
     {
@@ -6642,7 +6642,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L14",
       "id": "pipelineorchestrator_views_py_bool",
-      "community": 190,
+      "community": 28,
       "norm_label": "bool"
     },
     {
@@ -6651,7 +6651,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L247",
       "id": "pipelineorchestrator_views_enable_volume_rendering",
-      "community": 190,
+      "community": 28,
       "norm_label": "_enable_volume_rendering()"
     },
     {
@@ -6660,7 +6660,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L274",
       "id": "pipelineorchestrator_views_ensure_inverted_rainbow",
-      "community": 190,
+      "community": 28,
       "norm_label": "ensure_inverted_rainbow()"
     },
     {
@@ -6678,7 +6678,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L1",
       "id": "pipelineorchestrator_views_rationale_1",
-      "community": 190,
+      "community": 28,
       "norm_label": "setup_medical_views() - visualizacion medica automatica para 3d slicer.  centr"
     },
     {
@@ -6687,7 +6687,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L30",
       "id": "pipelineorchestrator_views_rationale_30",
-      "community": 190,
+      "community": 28,
       "norm_label": "configura automaticamente las vistas medicas de slicer.      activa layout med"
     },
     {
@@ -6696,7 +6696,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L248",
       "id": "pipelineorchestrator_views_rationale_248",
-      "community": 190,
+      "community": 28,
       "norm_label": "activa volume rendering 3d raycast para que la vista 3d muestre el volumen."
     },
     {
@@ -6705,7 +6705,7 @@
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L275",
       "id": "pipelineorchestrator_views_rationale_275",
-      "community": 190,
+      "community": 28,
       "norm_label": "crea/retorna un rainbow invertido (azul=bajo, rojo=alto).      en slicer el ra"
     },
     {
@@ -6885,7 +6885,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L157",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3logic_load_scene_mrb",
-      "community": 90,
+      "community": 62,
       "norm_label": ".load_scene_mrb()"
     },
     {
@@ -6894,7 +6894,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L157",
       "id": "slicer_modules_slicerdosim_modules_scripted_slicerdosimmod3_slicerdosimmod3_py_str",
-      "community": 48,
+      "community": 259,
       "norm_label": "str"
     },
     {
@@ -6912,7 +6912,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L176",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3logic_find_scene_nodes",
-      "community": 73,
+      "community": 296,
       "norm_label": ".find_scene_nodes()"
     },
     {
@@ -6921,7 +6921,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L213",
       "id": "slicerdosimmod3_slicerdosimmod3_array_from_labelmap",
-      "community": 73,
+      "community": 296,
       "norm_label": "_array_from_labelmap()"
     },
     {
@@ -6957,7 +6957,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L237",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3logic_load_kernel",
-      "community": 62,
+      "community": 295,
       "norm_label": ".load_kernel()"
     },
     {
@@ -6966,7 +6966,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L237",
       "id": "slicer_modules_slicerdosim_modules_scripted_slicerdosimmod3_slicerdosimmod3_py_ndarray",
-      "community": 62,
+      "community": 295,
       "norm_label": "ndarray"
     },
     {
@@ -6975,7 +6975,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L249",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3logic_compute_dose",
-      "community": 62,
+      "community": 295,
       "norm_label": ".compute_dose()"
     },
     {
@@ -7110,7 +7110,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L629",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3widget_connect_btn",
-      "community": 48,
+      "community": 259,
       "norm_label": "._connect_btn()"
     },
     {
@@ -7119,7 +7119,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L635",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3widget_find_button",
-      "community": 48,
+      "community": 259,
       "norm_label": "._find_button()"
     },
     {
@@ -7146,7 +7146,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L705",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3widget_on_load_scene",
-      "community": 73,
+      "community": 296,
       "norm_label": "._on_load_scene()"
     },
     {
@@ -7191,7 +7191,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L781",
       "id": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3widget_on_save_scene",
-      "community": 259,
+      "community": 48,
       "norm_label": "._on_save_scene()"
     },
     {
@@ -7254,7 +7254,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L158",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_158",
-      "community": 90,
+      "community": 62,
       "norm_label": "carga escena .mrb en slicer."
     },
     {
@@ -7263,7 +7263,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L177",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_177",
-      "community": 73,
+      "community": 296,
       "norm_label": "busca ct, pet, labelmap en la escena actual."
     },
     {
@@ -7281,7 +7281,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L238",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_238",
-      "community": 62,
+      "community": 295,
       "norm_label": "carga kernel.mat, retorna kernel normalizado."
     },
     {
@@ -7290,7 +7290,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L250",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_250",
-      "community": 62,
+      "community": 295,
       "norm_label": "ejecuta convolution fft: dosis = a * kernel."
     },
     {
@@ -7380,7 +7380,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L630",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_630",
-      "community": 48,
+      "community": 259,
       "norm_label": "conecta un boton del .ui si existe."
     },
     {
@@ -7389,7 +7389,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L636",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_636",
-      "community": 48,
+      "community": 259,
       "norm_label": "busca un qpushbutton por objectname en el ui."
     },
     {
@@ -7416,7 +7416,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L706",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_706",
-      "community": 73,
+      "community": 296,
       "norm_label": "carga escena manualmente."
     },
     {
@@ -7452,7 +7452,7 @@
       "source_file": "slicer_modules/SlicerDosim/Modules/Scripted/SlicerDosimMod3/SlicerDosimMod3.py",
       "source_location": "L782",
       "id": "slicerdosimmod3_slicerdosimmod3_rationale_782",
-      "community": 259,
+      "community": 48,
       "norm_label": "guarda escena actual."
     },
     {
@@ -11997,7 +11997,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/config.py",
       "source_location": "L22",
       "id": "slicerdosimlib_config_find_config_path",
-      "community": 5,
+      "community": 47,
       "norm_label": "_find_config_path()"
     },
     {
@@ -12060,7 +12060,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/config.py",
       "source_location": "L95",
       "id": "slicerdosimlib_config_tissueconfig_get_all_tissues",
-      "community": 5,
+      "community": 303,
       "norm_label": ".get_all_tissues()"
     },
     {
@@ -12249,7 +12249,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/config.py",
       "source_location": "L23",
       "id": "slicerdosimlib_config_rationale_23",
-      "community": 5,
+      "community": 47,
       "norm_label": "busca tissue_config.json relativo a la ubicacion de este modulo.     orden de b"
     },
     {
@@ -12276,7 +12276,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/config.py",
       "source_location": "L96",
       "id": "slicerdosimlib_config_rationale_96",
-      "community": 5,
+      "community": 303,
       "norm_label": "retorna lista de todos los tejidos."
     },
     {
@@ -12420,7 +12420,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/dosimetry.py",
       "source_location": "L1",
       "id": "slicer_modules_slicerdosim_slicerdosimlib_dosimetry_py",
-      "community": 45,
+      "community": 233,
       "norm_label": "dosimetry.py"
     },
     {
@@ -12528,7 +12528,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/dosimetry.py",
       "source_location": "L1",
       "id": "slicerdosimlib_dosimetry_rationale_1",
-      "community": 45,
+      "community": 233,
       "norm_label": "modulo de calculo dosimetrico para slicerdosim.  procesa el output mcnp (archi"
     },
     {
@@ -12771,7 +12771,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L160",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator",
-      "community": 12,
+      "community": 268,
       "norm_label": "mcnpinputgenerator"
     },
     {
@@ -12780,7 +12780,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L173",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_init",
-      "community": 12,
+      "community": 268,
       "norm_label": ".__init__()"
     },
     {
@@ -12798,7 +12798,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L189",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_build_material_maps",
-      "community": 12,
+      "community": 268,
       "norm_label": "._build_material_maps()"
     },
     {
@@ -12807,7 +12807,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L267",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_generate",
-      "community": 12,
+      "community": 186,
       "norm_label": ".generate()"
     },
     {
@@ -12816,7 +12816,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L267",
       "id": "slicer_modules_slicerdosim_slicerdosimlib_mcnp_generator_py_str",
-      "community": 12,
+      "community": 268,
       "norm_label": "str"
     },
     {
@@ -12825,7 +12825,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L267",
       "id": "slicer_modules_slicerdosim_slicerdosimlib_mcnp_generator_py_int",
-      "community": 12,
+      "community": 190,
       "norm_label": "int"
     },
     {
@@ -12834,7 +12834,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L267",
       "id": "slicer_modules_slicerdosim_slicerdosimlib_mcnp_generator_py_bool",
-      "community": 12,
+      "community": 186,
       "norm_label": "bool"
     },
     {
@@ -12843,7 +12843,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L400",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_get_volume_info",
-      "community": 12,
+      "community": 297,
       "norm_label": "._get_volume_info()"
     },
     {
@@ -12888,7 +12888,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L643",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_header",
-      "community": 12,
+      "community": 186,
       "norm_label": "._write_header()"
     },
     {
@@ -12915,7 +12915,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L706",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_lattice",
-      "community": 12,
+      "community": 190,
       "norm_label": "._write_lattice()"
     },
     {
@@ -12924,7 +12924,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L738",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_rle_fill",
-      "community": 12,
+      "community": 190,
       "norm_label": "._write_rle_fill()"
     },
     {
@@ -12933,7 +12933,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L797",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_surfaces",
-      "community": 12,
+      "community": 186,
       "norm_label": "._write_surfaces()"
     },
     {
@@ -12942,7 +12942,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L829",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_mode",
-      "community": 12,
+      "community": 300,
       "norm_label": "._write_mode()"
     },
     {
@@ -12951,7 +12951,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L840",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_source",
-      "community": 12,
+      "community": 190,
       "norm_label": "._write_source()"
     },
     {
@@ -12960,7 +12960,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L933",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_tallies",
-      "community": 12,
+      "community": 302,
       "norm_label": "._write_tallies()"
     },
     {
@@ -12969,7 +12969,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L973",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_random_tallies",
-      "community": 12,
+      "community": 301,
       "norm_label": "._write_random_tallies()"
     },
     {
@@ -12978,7 +12978,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L1065",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_materials",
-      "community": 12,
+      "community": 299,
       "norm_label": "._write_materials()"
     },
     {
@@ -12987,7 +12987,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L1133",
       "id": "slicerdosimlib_mcnp_generator_mcnpinputgenerator_write_footer",
-      "community": 12,
+      "community": 298,
       "norm_label": "._write_footer()"
     },
     {
@@ -13005,7 +13005,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L161",
       "id": "slicerdosimlib_mcnp_generator_rationale_161",
-      "community": 12,
+      "community": 268,
       "norm_label": "generador de entrada mcnp siguiendo el formato matlab de 3dosim.      produce"
     },
     {
@@ -13023,7 +13023,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L190",
       "id": "slicerdosimlib_mcnp_generator_rationale_190",
-      "community": 12,
+      "community": 268,
       "norm_label": "construye mapas de materiales desde tissueconfig.          crea:           se"
     },
     {
@@ -13032,7 +13032,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L282",
       "id": "slicerdosimlib_mcnp_generator_rationale_282",
-      "community": 12,
+      "community": 186,
       "norm_label": "genera archivo de entrada mcnp completo.          args:             ct_volume"
     },
     {
@@ -13041,7 +13041,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L401",
       "id": "slicerdosimlib_mcnp_generator_rationale_401",
-      "community": 12,
+      "community": 297,
       "norm_label": "obtiene (dimensions, origin, spacing) de un volumen vtk."
     },
     {
@@ -13077,7 +13077,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L644",
       "id": "slicerdosimlib_mcnp_generator_rationale_644",
-      "community": 12,
+      "community": 186,
       "norm_label": "escribe cabecera del archivo."
     },
     {
@@ -13104,7 +13104,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L707",
       "id": "slicerdosimlib_mcnp_generator_rationale_707",
-      "community": 12,
+      "community": 190,
       "norm_label": "escribe lattice wrapper + fill data con rle.         cell lattice_wrapper = fil"
     },
     {
@@ -13113,7 +13113,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L739",
       "id": "slicerdosimlib_mcnp_generator_rationale_739",
-      "community": 12,
+      "community": 190,
       "norm_label": "escribe fill de voxeles con rle estilo matlab.         nota: flips ya aplicados"
     },
     {
@@ -13122,7 +13122,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L798",
       "id": "slicerdosimlib_mcnp_generator_rationale_798",
-      "community": 12,
+      "community": 186,
       "norm_label": "escribe superficies: rpp bounding box + rpp voxel + so 650 sphere."
     },
     {
@@ -13131,7 +13131,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L830",
       "id": "slicerdosimlib_mcnp_generator_rationale_830",
-      "community": 12,
+      "community": 300,
       "norm_label": "escribe tarjetas de modo, phys y cut."
     },
     {
@@ -13140,7 +13140,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L841",
       "id": "slicerdosimlib_mcnp_generator_rationale_841",
-      "community": 12,
+      "community": 190,
       "norm_label": "escribe fuente mcnp.         sdef con read file y90cel3d.src + distribucion vox"
     },
     {
@@ -13149,7 +13149,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L934",
       "id": "slicerdosimlib_mcnp_generator_rationale_934",
-      "community": 12,
+      "community": 302,
       "norm_label": "escribe talles tmesh.                  importante: las dimensiones del mesh ta"
     },
     {
@@ -13158,7 +13158,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L977",
       "id": "slicerdosimlib_mcnp_generator_rationale_977",
-      "community": 12,
+      "community": 301,
       "norm_label": "genera *f8 point detectors aleatorios en higado y tumor.          replica f_ge"
     },
     {
@@ -13167,7 +13167,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L1066",
       "id": "slicerdosimlib_mcnp_generator_rationale_1066",
-      "community": 12,
+      "community": 299,
       "norm_label": "escribe tarjetas de materiales mcnp desde tissueconfig.          formato matla"
     },
     {
@@ -13176,7 +13176,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L1134",
       "id": "slicerdosimlib_mcnp_generator_rationale_1134",
-      "community": 12,
+      "community": 298,
       "norm_label": "escribe rand, dbcn, print, prdmp, nps."
     },
     {
@@ -13770,7 +13770,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mctal_parser.py",
       "source_location": "L1",
       "id": "slicer_modules_slicerdosim_slicerdosimlib_mctal_parser_py",
-      "community": 45,
+      "community": 233,
       "norm_label": "mctal_parser.py"
     },
     {
@@ -13779,7 +13779,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mctal_parser.py",
       "source_location": "L41",
       "id": "slicerdosimlib_mctal_parser_mctalparseerror",
-      "community": 45,
+      "community": 42,
       "norm_label": "mctalparseerror"
     },
     {
@@ -13797,7 +13797,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mctal_parser.py",
       "source_location": "L45",
       "id": "slicerdosimlib_mctal_parser_mctalparser",
-      "community": 45,
+      "community": 233,
       "norm_label": "mctalparser"
     },
     {
@@ -13806,7 +13806,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mctal_parser.py",
       "source_location": "L57",
       "id": "slicerdosimlib_mctal_parser_mctalparser_init",
-      "community": 45,
+      "community": 233,
       "norm_label": ".__init__()"
     },
     {
@@ -13905,7 +13905,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mctal_parser.py",
       "source_location": "L1",
       "id": "slicerdosimlib_mctal_parser_rationale_1",
-      "community": 45,
+      "community": 233,
       "norm_label": "parser de archivos mctal (output mcnp) \u2014 version matlab-compatible.  lee archi"
     },
     {
@@ -13914,7 +13914,7 @@
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mctal_parser.py",
       "source_location": "L46",
       "id": "slicerdosimlib_mctal_parser_rationale_46",
-      "community": 45,
+      "community": 233,
       "norm_label": "parsea archivos mctal de mcnp \u2014 compatible con f_cargo_mctall.m.      uso:"
     },
     {
@@ -24331,6 +24331,105 @@
       "norm_label": "7. referencias"
     },
     {
+      "label": "Exporta DVH como PNG usando matplotlib (si disponible).      dvh_curves: list",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L942",
+      "community": 212,
+      "norm_label": "exporta dvh como png usando matplotlib (si disponible).      dvh_curves: list",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_942"
+    },
+    {
+      "label": "Agrega numero de pagina y footer al pie de la figura (matplotlib fallback).",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L982",
+      "community": 235,
+      "norm_label": "agrega numero de pagina y footer al pie de la figura (matplotlib fallback).",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_982"
+    },
+    {
+      "label": "Genera reporte PDF con reportlab (5 paginas):       P1: Portada con metadatos y",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L992",
+      "community": 0,
+      "norm_label": "genera reporte pdf con reportlab (5 paginas):       p1: portada con metadatos y",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_992"
+    },
+    {
+      "label": "Fallback: genera PDF con matplotlib si reportlab no esta disponible.",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1598",
+      "community": 0,
+      "norm_label": "fallback: genera pdf con matplotlib si reportlab no esta disponible.",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1598"
+    },
+    {
+      "label": "Configura sys.path para importar SlicerDosimLib. Retorna path o None.",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1653",
+      "community": 247,
+      "norm_label": "configura sys.path para importar slicerdosimlib. retorna path o none.",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1653"
+    },
+    {
+      "label": "Extrae array 3D del labelmap, transpone a (nx, ny, nz).",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1680",
+      "community": 250,
+      "norm_label": "extrae array 3d del labelmap, transpone a (nx, ny, nz).",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1680"
+    },
+    {
+      "label": "Carga kernel de dosis desde archivo .mat (v7.3 HDF5) y lo normaliza.      Cent",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1689",
+      "community": 0,
+      "norm_label": "carga kernel de dosis desde archivo .mat (v7.3 hdf5) y lo normaliza.      cent",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1689"
+    },
+    {
+      "label": "Wrapper para compatibilidad \u2014 usa la funcion compartida en utils.",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1718",
+      "community": 88,
+      "norm_label": "wrapper para compatibilidad \u2014 usa la funcion compartida en utils.",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1718"
+    },
+    {
+      "label": "Wrapper para compatibilidad \u2014 usa la funcion compartida en utils.",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1724",
+      "community": 210,
+      "norm_label": "wrapper para compatibilidad \u2014 usa la funcion compartida en utils.",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1724"
+    },
+    {
+      "label": "Configura el display COMPLETO de forma sincr\u00f3nica:     layout, crosshair, trans",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L2904",
+      "community": 0,
+      "norm_label": "configura el display completo de forma sincronica:     layout, crosshair, trans",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2904"
+    },
+    {
+      "label": "Timer postergado (~2200ms): re-asigna chart DVH + re-aplica jump/FOV/crosshair.",
+      "file_type": "rationale",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L2985",
+      "community": 0,
+      "norm_label": "timer postergado (~2200ms): re-asigna chart dvh + re-aplica jump/fov/crosshair.",
+      "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2985"
+    },
+    {
       "label": "Auto-detecta la escena .mrb mas reciente.",
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
@@ -24488,7 +24587,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1084",
-      "community": 270,
+      "community": 82,
       "norm_label": "lee el patientid real desde los archivos dicom con pydicom.          prueba pr",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_1084"
     },
@@ -24551,7 +24650,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L535",
-      "community": 18,
+      "community": 284,
       "norm_label": "envia un mensaje de exito a la consola.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_535"
     },
@@ -24641,7 +24740,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L905",
-      "community": 183,
+      "community": 279,
       "norm_label": "entry point cli para pipelinemod2.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_905"
     },
@@ -25928,7 +26027,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L685",
-      "community": 256,
+      "community": 233,
       "norm_label": "computa bed, eud, eqd2.      bed = d + (lamda/((alpha/beta)*(lamda+mu))) * d2",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_685"
     },
@@ -25937,7 +26036,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L754",
-      "community": 268,
+      "community": 233,
       "norm_label": "calcula mird partition model para higado y tumor.      matlab cargo_mctal.m li",
       "id": "pipelineorchestrator_run_dosimetry_from_scene_rationale_754"
     },
@@ -26027,7 +26126,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/views.py",
       "source_location": "L233",
-      "community": 190,
+      "community": 28,
       "norm_label": "crea/retorna un rainbow invertido (azul=bajo, rojo=alto).      en slicer el ra",
       "id": "pipelineorchestrator_views_rationale_233"
     },
@@ -26279,7 +26378,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L851",
-      "community": 28,
+      "community": 276,
       "norm_label": "guarda la escena 3dosim.mrb.          args:             tag: identificador op",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_851"
     },
@@ -26306,7 +26405,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1108",
-      "community": 270,
+      "community": 82,
       "norm_label": "lee el patientid real desde los archivos dicom con pydicom.          prueba pr",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_1108"
     },
@@ -26342,7 +26441,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L182",
-      "community": 12,
+      "community": 268,
       "norm_label": "construye mapas de materiales desde tissueconfig.          crea:           se",
       "id": "slicerdosimlib_mcnp_generator_rationale_182"
     },
@@ -26351,7 +26450,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L274",
-      "community": 12,
+      "community": 186,
       "norm_label": "genera archivo de entrada mcnp completo.          args:             ct_volume",
       "id": "slicerdosimlib_mcnp_generator_rationale_274"
     },
@@ -26360,7 +26459,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L384",
-      "community": 12,
+      "community": 297,
       "norm_label": "obtiene (dimensions, origin, spacing) de un volumen vtk.",
       "id": "slicerdosimlib_mcnp_generator_rationale_384"
     },
@@ -26396,7 +26495,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L623",
-      "community": 12,
+      "community": 186,
       "norm_label": "escribe cabecera del archivo.",
       "id": "slicerdosimlib_mcnp_generator_rationale_623"
     },
@@ -26423,7 +26522,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L686",
-      "community": 12,
+      "community": 190,
       "norm_label": "escribe lattice wrapper + fill data con rle.         cell lattice_wrapper = fil",
       "id": "slicerdosimlib_mcnp_generator_rationale_686"
     },
@@ -26432,7 +26531,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L718",
-      "community": 12,
+      "community": 190,
       "norm_label": "escribe fill de voxeles con rle estilo matlab.         nota: flips ya aplicados",
       "id": "slicerdosimlib_mcnp_generator_rationale_718"
     },
@@ -26441,7 +26540,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L777",
-      "community": 12,
+      "community": 186,
       "norm_label": "escribe superficies: rpp bounding box + rpp voxel + so 650 sphere.",
       "id": "slicerdosimlib_mcnp_generator_rationale_777"
     },
@@ -26450,7 +26549,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L809",
-      "community": 12,
+      "community": 300,
       "norm_label": "escribe tarjetas de modo, phys y cut.",
       "id": "slicerdosimlib_mcnp_generator_rationale_809"
     },
@@ -26459,7 +26558,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L820",
-      "community": 12,
+      "community": 190,
       "norm_label": "escribe fuente mcnp.         sdef con read file y90cel3d.src + distribucion vox",
       "id": "slicerdosimlib_mcnp_generator_rationale_820"
     },
@@ -26468,7 +26567,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L913",
-      "community": 12,
+      "community": 302,
       "norm_label": "escribe talles tmesh.                  importante: las dimensiones del mesh ta",
       "id": "slicerdosimlib_mcnp_generator_rationale_913"
     },
@@ -26477,7 +26576,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L956",
-      "community": 12,
+      "community": 301,
       "norm_label": "genera *f8 point detectors aleatorios en higado y tumor.          replica f_ge",
       "id": "slicerdosimlib_mcnp_generator_rationale_956"
     },
@@ -26486,7 +26585,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L1045",
-      "community": 12,
+      "community": 299,
       "norm_label": "escribe tarjetas de materiales mcnp desde tissueconfig.          formato matla",
       "id": "slicerdosimlib_mcnp_generator_rationale_1045"
     },
@@ -26495,7 +26594,7 @@
       "file_type": "rationale",
       "source_file": "slicer_modules/SlicerDosim/SlicerDosimLib/mcnp_generator.py",
       "source_location": "L1113",
-      "community": 12,
+      "community": 298,
       "norm_label": "escribe rand, dbcn, print, prdmp, nps.",
       "id": "slicerdosimlib_mcnp_generator_rationale_1113"
     },
@@ -26504,7 +26603,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L831",
-      "community": 28,
+      "community": 276,
       "norm_label": "guarda la escena 3dosim.mrb.          args:             tag: identificador op",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_831"
     },
@@ -26531,7 +26630,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1088",
-      "community": 270,
+      "community": 82,
       "norm_label": "lee el patientid real desde los archivos dicom con pydicom.          prueba pr",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_1088"
     },
@@ -26594,7 +26693,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L483",
-      "community": 18,
+      "community": 284,
       "norm_label": "envia un mensaje de exito a la consola.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_483"
     },
@@ -26684,7 +26783,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L852",
-      "community": 183,
+      "community": 279,
       "norm_label": "entry point cli para pipelinemod2.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_852"
     },
@@ -26873,7 +26972,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L812",
-      "community": 28,
+      "community": 276,
       "norm_label": "guarda la escena 3dosim.mrb.          args:             tag: identificador op",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_812"
     },
@@ -26900,7 +26999,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1069",
-      "community": 270,
+      "community": 82,
       "norm_label": "lee el patientid real desde los archivos dicom con pydicom.          prueba pr",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_1069"
     },
@@ -26945,7 +27044,7 @@
       "file_type": "rationale",
       "source_file": "launcher/app.py",
       "source_location": "L100",
-      "community": 77,
+      "community": 256,
       "norm_label": "guarda config.jsonc (hace backup primero).",
       "id": "launcher_app_rationale_100"
     },
@@ -27008,7 +27107,7 @@
       "file_type": "rationale",
       "source_file": "launcher/app.py",
       "source_location": "L752",
-      "community": 92,
+      "community": 216,
       "norm_label": "panel de registro de eventos.",
       "id": "launcher_app_rationale_752"
     },
@@ -27089,7 +27188,7 @@
       "file_type": "rationale",
       "source_file": "launcher/app.py",
       "source_location": "L1201",
-      "community": 54,
+      "community": 216,
       "norm_label": "mata cualquier proceso slicer existente para evitar single-instance conflict.",
       "id": "launcher_app_rationale_1201"
     },
@@ -27107,7 +27206,7 @@
       "file_type": "rationale",
       "source_file": "launcher/app.py",
       "source_location": "L1422",
-      "community": 54,
+      "community": 92,
       "norm_label": "callback cuando slicer termina.",
       "id": "launcher_app_rationale_1422"
     },
@@ -27116,7 +27215,7 @@
       "file_type": "rationale",
       "source_file": "launcher/app.py",
       "source_location": "L1444",
-      "community": 54,
+      "community": 256,
       "norm_label": "escribe la config del usuario en config.jsonc antes de lanzar slicer.",
       "id": "launcher_app_rationale_1444"
     },
@@ -27134,7 +27233,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod1.py",
       "source_location": "L1039",
-      "community": 270,
+      "community": 82,
       "norm_label": "lee el patientid real desde los archivos dicom con pydicom.          prueba pr",
       "id": "pipelineorchestrator_pipeline_mod1_rationale_1039"
     },
@@ -27233,7 +27332,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L92",
-      "community": 18,
+      "community": 242,
       "norm_label": "pipeline modulo 2: carga escena .mrb (generada por mod1),     escanea nodos y g",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_92"
     },
@@ -27251,7 +27350,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L197",
-      "community": 183,
+      "community": 18,
       "norm_label": "ejecuta el pipeline mod2 completo.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_197"
     },
@@ -27269,7 +27368,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L384",
-      "community": 18,
+      "community": 242,
       "norm_label": "restaura estado desde checkpoint data.          soporta dos formatos:",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_384"
     },
@@ -27278,7 +27377,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L424",
-      "community": 28,
+      "community": 88,
       "norm_label": "guarda escena .mrb actual.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_424"
     },
@@ -27305,7 +27404,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L546",
-      "community": 18,
+      "community": 284,
       "norm_label": "envia un mensaje de exito a la consola.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_546"
     },
@@ -27395,7 +27494,7 @@
       "file_type": "rationale",
       "source_file": "PipelineOrchestrator/pipeline_mod2.py",
       "source_location": "L934",
-      "community": 183,
+      "community": 279,
       "norm_label": "entry point cli para pipelinemod2.",
       "id": "pipelineorchestrator_pipeline_mod2_rationale_934"
     },
@@ -39960,9 +40059,9 @@
       "source_file": "PipelineOrchestrator/pipeline_mod3.py",
       "source_location": "L1362",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_pipeline_mod3_rationale_1362",
-      "target": "pipelineorchestrator_pipeline_mod3_main",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_pipeline_mod3_main"
     },
     {
       "relation": "rationale_for",
@@ -40290,9 +40389,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2903",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_py",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync"
     },
     {
       "relation": "contains",
@@ -40300,9 +40399,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2984",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_py",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart"
     },
     {
       "relation": "rationale_for",
@@ -40527,9 +40626,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2916",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_info",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_info"
     },
     {
       "relation": "calls",
@@ -40538,9 +40637,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2997",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_info",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_info"
     },
     {
       "relation": "calls",
@@ -40659,9 +40758,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2963",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_warning",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_warning"
     },
     {
       "relation": "calls",
@@ -40670,9 +40769,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2999",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_warning",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_warning"
     },
     {
       "relation": "calls",
@@ -40747,9 +40846,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2934",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_debug",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_debug"
     },
     {
       "relation": "references",
@@ -41178,9 +41277,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2949",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_py_float",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_py_float"
     },
     {
       "relation": "calls",
@@ -41189,9 +41288,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L3020",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_py_float",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_py_float"
     },
     {
       "relation": "uses",
@@ -41523,11 +41622,21 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L942",
+      "source_location": "L946",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_942",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_946",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_export_dvh_png",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L942",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_942",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_export_dvh_png"
     },
     {
       "relation": "rationale_for",
@@ -41563,11 +41672,21 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L982",
+      "source_location": "L987",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_982",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_987",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_add_page_number",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L982",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_982",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_add_page_number"
     },
     {
       "relation": "rationale_for",
@@ -41625,9 +41744,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L992",
+      "source_location": "L997",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_992",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_997",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_generate_pdf_report",
       "confidence_score": 1.0
     },
@@ -41640,6 +41759,16 @@
       "source_location": "L767",
       "weight": 1.0,
       "source": "slicerdosimmod3_slicerdosimmod3_slicerdosimmod3widget_on_export_report",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_generate_pdf_report"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L992",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_992",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_generate_pdf_report"
     },
     {
@@ -41676,11 +41805,21 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1598",
+      "source_location": "L1603",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1598",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1603",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_generate_pdf_matplotlib_fallback",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1598",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1598",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_generate_pdf_matplotlib_fallback"
     },
     {
       "relation": "rationale_for",
@@ -41727,11 +41866,21 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1653",
+      "source_location": "L1658",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1653",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1658",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_slicer_paths",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1653",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1653",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_slicer_paths"
     },
     {
       "relation": "rationale_for",
@@ -41778,11 +41927,21 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1680",
+      "source_location": "L1685",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1680",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1685",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_get_labelmap_array",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1680",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1680",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_get_labelmap_array"
     },
     {
       "relation": "rationale_for",
@@ -41829,11 +41988,21 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1689",
+      "source_location": "L1694",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1689",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1694",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_load_kernel",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1689",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1689",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_load_kernel"
     },
     {
       "relation": "rationale_for",
@@ -41880,9 +42049,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1718",
+      "source_location": "L1723",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1718",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1723",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_show_popup",
       "confidence_score": 1.0
     },
@@ -41896,6 +42065,16 @@
       "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_show_popup",
       "target": "pipelineorchestrator_utils_show_popup"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1718",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1718",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_show_popup"
     },
     {
       "relation": "rationale_for",
@@ -41942,9 +42121,9 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
-      "source_location": "L1724",
+      "source_location": "L1729",
       "weight": 1.0,
-      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1724",
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1729",
       "target": "pipelineorchestrator_run_dosimetry_from_scene_close_popup",
       "confidence_score": 1.0
     },
@@ -41958,6 +42137,16 @@
       "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_close_popup",
       "target": "pipelineorchestrator_utils_close_popup"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L1724",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_1724",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_close_popup"
     },
     {
       "relation": "rationale_for",
@@ -42006,9 +42195,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2879",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_main",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync"
     },
     {
       "relation": "calls",
@@ -42017,9 +42206,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2883",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_main",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart"
     },
     {
       "relation": "calls",
@@ -42091,10 +42280,30 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L2909",
+      "weight": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2909",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2904",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2904",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_setup_display_sync"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
+      "source_location": "L2990",
+      "weight": 1.0,
+      "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2990",
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
       "confidence_score": 1.0
     },
     {
@@ -42103,9 +42312,9 @@
       "source_file": "PipelineOrchestrator/run_dosimetry_from_scene.py",
       "source_location": "L2985",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_run_dosimetry_from_scene_rationale_2985",
-      "target": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_run_dosimetry_from_scene_reassign_dvh_chart"
     },
     {
       "relation": "contains",
@@ -43832,9 +44041,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L51",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_py",
-      "target": "pipelineorchestrator_ver_dosis_set_plot_layout",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_set_plot_layout"
     },
     {
       "relation": "contains",
@@ -43903,9 +44112,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L60",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_set_plot_layout",
-      "target": "pipelineorchestrator_ver_dosis_log",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_log"
     },
     {
       "relation": "calls",
@@ -43968,9 +44177,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L285",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_recreate_dvh",
-      "target": "pipelineorchestrator_ver_dosis_set_plot_layout",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_set_plot_layout"
     },
     {
       "relation": "calls",
@@ -43979,9 +44188,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L378",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_show_dvh_in_plots",
-      "target": "pipelineorchestrator_ver_dosis_set_plot_layout",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_set_plot_layout"
     },
     {
       "relation": "rationale_for",
@@ -43989,9 +44198,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_rationale_52",
-      "target": "pipelineorchestrator_ver_dosis_set_plot_layout",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_set_plot_layout"
     },
     {
       "relation": "calls",
@@ -44021,9 +44230,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L80",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_rationale_80",
-      "target": "pipelineorchestrator_ver_dosis_find_node_by_name",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_find_node_by_name"
     },
     {
       "relation": "rationale_for",
@@ -44052,9 +44261,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L98",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_rationale_98",
-      "target": "pipelineorchestrator_ver_dosis_print_all_nodes",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_print_all_nodes"
     },
     {
       "relation": "rationale_for",
@@ -44083,9 +44292,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L145",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_rationale_145",
-      "target": "pipelineorchestrator_ver_dosis_recreate_dvh",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_recreate_dvh"
     },
     {
       "relation": "rationale_for",
@@ -44114,9 +44323,9 @@
       "source_file": "PipelineOrchestrator/ver_dosis.py",
       "source_location": "L329",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pipelineorchestrator_ver_dosis_rationale_329",
-      "target": "pipelineorchestrator_ver_dosis_show_dvh_in_plots",
-      "confidence_score": 1.0
+      "target": "pipelineorchestrator_ver_dosis_show_dvh_in_plots"
     },
     {
       "relation": "rationale_for",
@@ -68295,5 +68504,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "08e23adf30c191f052e92fe8a6b99b2de5bda3d6"
+  "built_at_commit": "411d4ba61302c2a95180d110489974d86cd6c3c4"
 }
