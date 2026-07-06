@@ -155,6 +155,11 @@ DosisK = DosisK .* IND_liver_tumor;      % enmascarar
 % NO hay DosisK * t   (τ ya incluido en kernel.mat)
 ```
 
+> **Nota:** La implementación en Python (`fft_dose.py`) **no aplica** la normalización
+> de la línea~1. El kernel se usa tal cual de `kernel.mat` (parámetro
+> `normalize=False` en `get_kernel()`). Esto preserva la escala absoluta de dosis,
+> ya que `kernel.mat` ya incluye el factor $$\tau \times 10^9$$.
+
 donde:
 
 - $$A$$ = actividad **en GBq** por voxel (`PET .* 1e-9`)
@@ -163,12 +168,12 @@ donde:
 
 ### 3.3 Fórmula
 
-$$D_{\text{Gy}} = \text{FFT}^{-1}\big[\text{FFT}(A_{\text{GBq}}) \cdot \text{FFT}(K_{\text{norm}})\big] \times \text{mask}$$
+$$D_{\text{Gy}} = \text{FFT}^{-1}\big[\text{FFT}(A_{\text{GBq}}) \cdot \text{FFT}(K)\big] \times \text{mask}$$
 
 | Variable | Descripción | Unidad |
 |----------|-------------|--------|
 | $$A_{\text{GBq}}$$ | Actividad por voxel | GBq |
-| $$K_{\text{norm}}$$ | Kernel normalizado (suma = 1) | 1/cm³ |
+| $$K$$ | Kernel de dosis (sin normalizar a suma~1) | — |
 | $$\text{mask}$$ | Máscara binaria hígado+tumor+peritumoral | — |
 
 ### 3.4 Implementación
@@ -185,7 +190,7 @@ def convolve_kernel(activity_gbq: np.ndarray,
     activity_gbq : np.ndarray
         Actividad en GBq por voxel.
     kernel : np.ndarray
-        Kernel de dosis normalizado (suma = 1).
+        Kernel de dosis (sin normalizar).
     mask : np.ndarray
         Máscara binaria de hígado+tumor+peritumoral.
 

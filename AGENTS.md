@@ -1,4 +1,19 @@
-# 3Dosim v3.14 - Dosimetria 3D para Medicina Nuclear
+# 3Dosim v4 - Dosimetria 3D para Medicina Nuclear
+
+## Repositorio contenedor
+
+Este repo (`3Dosim_v4/`) es el repositorio activo de desarrollo, contenido dentro de `C:\programas\3Dosim/`.
+
+| Contexto | Valor |
+|----------|-------|
+| **Repo raíz** | `C:\programas\3Dosim/` — contenedor sin ramas propias |
+| **Repo activo** | `C:\programas\3Dosim/3Dosim_v4/` — rama `mod3` |
+| **Rama activa** | `mod3` (recién creada desde `carteles`, contiene todas las features) |
+| **Ramas legado** | `carteles` (features previas), `main` (estable) |
+| **Entry point real** | `launcher/app.py` (NO los módulos Slicer del dropdown) |
+| **Legacy** | `3Dosim_v_3.14/` — NO modificar |
+
+Para comandos coordinados entre ambos repos, ver `CLAUDE.md` en la raíz.
 
 ## Stack
 - MATLAB (.m) - modulos principales

@@ -1,0 +1,110 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{Resumen}{2}{Doc-Start}%
+\contentsline {section}{Glosario de Acronimos}{2}{Doc-Start}%
+\contentsline {section}{\numberline {1}Pipeline Completo --- Los 16 Pasos}{8}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Vision General}{8}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Diagrama de Flujo General}{8}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Secuencia de Pasos}{9}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Modos de Ejecución}{10}{subsection.1.4}%
+\contentsline {subsection}{\numberline {1.5}Estructura de Archivos de Salida}{10}{subsection.1.5}%
+\contentsline {section}{\numberline {2}Verificación de Entorno (Check Slicer)}{11}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Verificaciones}{11}{subsection.2.1}%
+\contentsline {section}{\numberline {3}Carga DICOM CT+PET}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Algoritmo Detallado}{12}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Parametros Tipicos de las Imagenes}{13}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Notación de Variables}{13}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Formato DICOM}{13}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Calibración PET a Bq/mL}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Algoritmo de Calibración}{14}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Conversion a Becquerels por Voxel}{15}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Actividad Total}{15}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Parametros Tipicos}{16}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Conservación de la Actividad Post-Registro}{16}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Advertencia Critica: Slicer Pierde la Calibración por Slice}{16}{subsection.4.6}%
+\contentsline {section}{\numberline {5}Eliminación de Camilla y Aire}{17}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Algoritmo Detallado}{17}{subsection.5.1}%
+\contentsline {subsubsection}{\numberline {5.1.1}Paso 1: Umbralización}{17}{subsubsection.5.1.1}%
+\contentsline {subsubsection}{\numberline {5.1.2}Paso 2: Cierre Morfologico}{18}{subsubsection.5.1.2}%
+\contentsline {subsubsection}{\numberline {5.1.3}Paso 3: Componente Conexa Mayoritaria}{18}{subsubsection.5.1.3}%
+\contentsline {subsubsection}{\numberline {5.1.4}Paso 4: Eliminación de Camilla}{18}{subsubsection.5.1.4}%
+\contentsline {subsubsection}{\numberline {5.1.5}Paso 5: Aplicación de Mascara}{18}{subsubsection.5.1.5}%
+\contentsline {subsection}{\numberline {5.2}Parametros}{19}{subsection.5.2}%
+\contentsline {section}{\numberline {6}Registro y Re-muestreo PET/CT}{19}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Problema Geometrico}{19}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Notación General}{20}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Metodo A --- BRAINSResample (Pipeline por Defecto)}{20}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}Opciones de Interpolación}{20}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}Algoritmo}{20}{subsubsection.6.3.2}%
+\contentsline {subsection}{\numberline {6.4}Metodo B --- NumPy map\_coordinates}{21}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}Metodo C --- Elastix (Registro Espacial)}{21}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Métricas de Similitud}{21}{subsection.6.6}%
+\contentsline {section}{\numberline {7}Fusion CT+PET y Dialogo de Actividad}{22}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Layout de Visualización 4-up}{23}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Parametros de Visualización}{23}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Window/Level}{23}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Dialogo de Fusion (Fusion Dialog)}{23}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Verificaciones de Calidad}{24}{subsection.7.5}%
+\contentsline {section}{\numberline {8}Anonimización DICOM}{24}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Campos Eliminados}{25}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Algoritmo}{25}{subsection.8.2}%
+\contentsline {section}{\numberline {9}TotalSegmentator --- Segmentación Anatómica}{26}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Ejecución}{26}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Tasks Disponibles}{26}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Clases Anatomicas Producidas}{27}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}Tiempos de Ejecución}{27}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.5}Compatibilidad Python 3.9}{27}{subsection.9.5}%
+\contentsline {section}{\numberline {10}Mapeo TS $\to $ Phantom 3Dosim}{28}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Tabla de Indices del Phantom}{28}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Estructura de tissue\_config.json}{28}{subsection.10.2}%
+\contentsline {subsubsection}{\numberline {10.2.1}ts\_label\_to\_phantom}{28}{subsubsection.10.2.1}%
+\contentsline {subsubsection}{\numberline {10.2.2}ts\_body\_labels}{29}{subsubsection.10.2.2}%
+\contentsline {subsubsection}{\numberline {10.2.3}tissues}{29}{subsubsection.10.2.3}%
+\contentsline {subsection}{\numberline {10.3}Ejemplo de Composición MCNP}{29}{subsection.10.3}%
+\contentsline {subsection}{\numberline {10.4}Algoritmo de Mapeo}{29}{subsection.10.4}%
+\contentsline {subsection}{\numberline {10.5}Correcciones de Bugs (Julio 2026)}{29}{subsection.10.5}%
+\contentsline {subsection}{\numberline {10.6}Clase TissueConfig}{30}{subsection.10.6}%
+\contentsline {section}{\numberline {11}Creación de Tumor (4 modos)}{30}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Configuración}{31}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Modo 1: Synthetic (esfera sintetica)}{31}{subsection.11.2}%
+\contentsline {subsubsection}{\numberline {11.2.1}Algoritmo}{31}{subsubsection.11.2.1}%
+\contentsline {subsection}{\numberline {11.3}Modo 2: Load File (cargar NIfTI)}{32}{subsection.11.3}%
+\contentsline {subsection}{\numberline {11.4}Modo 3: Manual (Segment Editor)}{32}{subsection.11.4}%
+\contentsline {subsection}{\numberline {11.5}Modo 4: TS Liver Lesions (automático con IA)}{33}{subsection.11.5}%
+\contentsline {subsection}{\numberline {11.6}Higado Sano}{33}{subsection.11.6}%
+\contentsline {section}{\numberline {12}Validación Medica}{33}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Validación de Segmentación}{34}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Validación de Tumor}{34}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Caracteristicas del Dialogo}{34}{subsection.12.3}%
+\contentsline {section}{\numberline {13}Segmentación Corporal (Body)}{35}{section.13}%
+\contentsline {subsection}{\numberline {13.1}Algoritmo}{35}{subsection.13.1}%
+\contentsline {subsection}{\numberline {13.2}Integración con la Labelmap}{35}{subsection.13.2}%
+\contentsline {section}{\numberline {14}Exportación de Labelmap Dosimétrica}{36}{section.14}%
+\contentsline {subsection}{\numberline {14.1}Algoritmo Detallado}{36}{subsection.14.1}%
+\contentsline {subsubsection}{\numberline {14.1.1}Paso 1: Cargar tissue\_config.json}{36}{subsubsection.14.1.1}%
+\contentsline {subsubsection}{\numberline {14.1.2}Paso 2: Construir mapping nombre $\to $ índice}{36}{subsubsection.14.1.2}%
+\contentsline {subsubsection}{\numberline {14.1.3}Paso 3: Acumular en labelmap 3D}{37}{subsubsection.14.1.3}%
+\contentsline {subsubsection}{\numberline {14.1.4}Paso 4: Incorporar body segmentation}{37}{subsubsection.14.1.4}%
+\contentsline {subsubsection}{\numberline {14.1.5}Paso 5: Verificar integridad}{37}{subsubsection.14.1.5}%
+\contentsline {subsubsection}{\numberline {14.1.6}Paso 6: Exportar}{37}{subsubsection.14.1.6}%
+\contentsline {section}{\numberline {15}Checkpoint System --- Persistencia y Reanudación}{38}{section.15}%
+\contentsline {subsection}{\numberline {15.1}Estructura del Archivo de Checkpoint}{38}{subsection.15.1}%
+\contentsline {subsection}{\numberline {15.2}Propiedades Completas del Checkpoint}{39}{subsection.15.2}%
+\contentsline {subsection}{\numberline {15.3}Estados de los Pasos}{39}{subsection.15.3}%
+\contentsline {subsection}{\numberline {15.4}Flujo de Restauración}{39}{subsection.15.4}%
+\contentsline {subsection}{\numberline {15.5}Restauración de Estado}{40}{subsection.15.5}%
+\contentsline {subsection}{\numberline {15.6}Guardado de Escena}{40}{subsection.15.6}%
+\contentsline {section}{\numberline {16}AI Supervisor --- Verificación Automática Post-Paso}{40}{section.16}%
+\contentsline {subsection}{\numberline {16.1}Verificaciones por Paso --- Tabla Completa}{41}{subsection.16.1}%
+\contentsline {subsection}{\numberline {16.2}Flujo de Operación}{41}{subsection.16.2}%
+\contentsline {subsection}{\numberline {16.3}Configuración}{41}{subsection.16.3}%
+\contentsline {subsection}{\numberline {16.4}Pre-verificación Inmediata (Reglas Duras)}{42}{subsection.16.4}%
+\contentsline {section}{\numberline {17}Visualización 3D Automática}{42}{section.17}%
+\contentsline {subsection}{\numberline {17.1}Momentos de Activación}{43}{subsection.17.1}%
+\contentsline {subsection}{\numberline {17.2}Función setup\_medical\_views()}{43}{subsection.17.2}%
+\contentsline {section}{\numberline {A}Fundamentos Físicos del $^{90}$Y}{44}{section.A}%
+\contentsline {subsection}{\numberline {A.1}Propiedades del Isotopo}{44}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Dosis Absorbida}{44}{subsection.A.2}%
+\contentsline {subsection}{\numberline {A.3}Modelo MIRD (Partition Model)}{44}{subsection.A.3}%
+\contentsline {subsection}{\numberline {A.4}Variables del Modelo MIRD --- Tabla Completa}{45}{subsection.A.4}%
+\contentsline {subsection}{\numberline {A.5}Constantes Fisicas}{45}{subsection.A.5}%
+\contentsline {section}{\numberline {B}Referencias}{46}{section.B}%

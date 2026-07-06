@@ -1,0 +1,103 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{Resumen}{2}{Doc-Start}%
+\contentsline {section}{Glosario de Acrónimos}{2}{Doc-Start}%
+\contentsline {section}{\numberline {1}Visión General --- Dosimetría Interna 3D}{8}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Contexto Clínico}{8}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Pipeline de 10 Pasos}{9}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Dos Rutas de Cálculo de Dosis}{9}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Entradas y Salidas}{10}{subsection.1.4}%
+\contentsline {section}{\numberline {2}Lectura de Actividad PET desde DICOM Raw}{12}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Contexto Clínico}{12}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Fórmula de Conversión por Voxel}{12}{subsection.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.1}Verificación de Unidades}{13}{subsubsection.2.2.1}%
+\contentsline {subsubsection}{\numberline {2.2.2}Conversión mm$^3$ $\to $ cm$^3$}{13}{subsubsection.2.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.3}Actividad Total}{13}{subsubsection.2.2.3}%
+\contentsline {subsection}{\numberline {2.3}Algoritmo de Implementación}{13}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Rangos Normales de Actividad}{14}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Fallback: Actividad por CLI}{14}{subsection.2.5}%
+\contentsline {section}{\numberline {3}Parsing de Archivo MCTAL de MCNP}{16}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Contexto}{16}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Estructura del Archivo MCTAL}{16}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Formato de Datos}{17}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}Reshape Column-Major (Fortran)}{17}{subsubsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.4}Filtros de Calidad Post-Parsing}{17}{subsection.3.4}%
+\contentsline {subsubsection}{\numberline {3.4.1}Error Relativo $\geq $ 1.5}{17}{subsubsection.3.4.1}%
+\contentsline {subsubsection}{\numberline {3.4.2}Dosis Negativa}{18}{subsubsection.3.4.2}%
+\contentsline {subsubsection}{\numberline {3.4.3}Voxeles de Aire}{18}{subsubsection.3.4.3}%
+\contentsline {subsubsection}{\numberline {3.4.4}Validación contra MATLAB}{18}{subsubsection.3.4.4}%
+\contentsline {section}{\numberline {4}Conversión de MeV/cm$^3$ a Gray}{20}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Contexto Físico}{20}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Ruta MCTAL (Monte Carlo)}{20}{subsection.4.2}%
+\contentsline {subsubsection}{\numberline {4.2.1}Fórmula Completa}{20}{subsubsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.2}Constantes del $^{90}$Y}{21}{subsubsection.4.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.3}Derivación Paso a Paso}{21}{subsubsection.4.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.4}Densidades por Tejido}{21}{subsubsection.4.2.4}%
+\contentsline {subsection}{\numberline {4.3}Ruta Kernel (Convolución FFT)}{22}{subsection.4.3}%
+\contentsline {subsubsection}{\numberline {4.3.1}Diferencia Crítica}{22}{subsubsection.4.3.1}%
+\contentsline {subsubsection}{\numberline {4.3.2}Flujo Exacto MATLAB}{22}{subsubsection.4.3.2}%
+\contentsline {subsubsection}{\numberline {4.3.3}Fórmula}{22}{subsubsection.4.3.3}%
+\contentsline {subsection}{\numberline {4.4}Comparación de Rutas}{22}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Dose-Volume Histogram (DVH)}{24}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Definición del DVH Acumulativo}{24}{subsection.5.1}%
+\contentsline {subsubsection}{\numberline {5.1.1}Propiedades}{24}{subsubsection.5.1.1}%
+\contentsline {subsection}{\numberline {5.2}Algoritmo de Cálculo}{25}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Métricas Clínicas}{25}{subsection.5.3}%
+\contentsline {subsubsection}{\numberline {5.3.1}Percentiles de Dosis}{25}{subsubsection.5.3.1}%
+\contentsline {subsubsection}{\numberline {5.3.2}Volúmenes de Dosis}{26}{subsubsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.4}Visualización del DVH}{26}{subsection.5.4}%
+\contentsline {subsubsection}{\numberline {5.4.1}Colores por ROI}{26}{subsubsection.5.4.1}%
+\contentsline {subsubsection}{\numberline {5.4.2}Escala Logarítmica}{26}{subsubsection.5.4.2}%
+\contentsline {subsection}{\numberline {5.5}Validación contra MATLAB}{26}{subsection.5.5}%
+\contentsline {section}{\numberline {6}Radiobiología: BED, EUD y EQD2}{28}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Biologically Effective Dose (BED)}{28}{subsection.6.1}%
+\contentsline {subsubsection}{\numberline {6.1.1}Contexto}{28}{subsubsection.6.1.1}%
+\contentsline {subsubsection}{\numberline {6.1.2}Fórmula para BED en Terapia con Radionúclidos}{28}{subsubsection.6.1.2}%
+\contentsline {subsubsection}{\numberline {6.1.3}Valores de $\alpha /\beta $}{29}{subsubsection.6.1.3}%
+\contentsline {subsubsection}{\numberline {6.1.4}Factor de Tasa de Dosis (DRF)}{29}{subsubsection.6.1.4}%
+\contentsline {subsubsection}{\numberline {6.1.5}Ejemplo Numérico}{29}{subsubsection.6.1.5}%
+\contentsline {subsection}{\numberline {6.2}Equivalent Uniform Dose (EUD)}{29}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}Contexto}{30}{subsubsection.6.2.1}%
+\contentsline {subsubsection}{\numberline {6.2.2}Parámetro $a$}{30}{subsubsection.6.2.2}%
+\contentsline {subsubsection}{\numberline {6.2.3}Interpretación}{30}{subsubsection.6.2.3}%
+\contentsline {subsection}{\numberline {6.3}Equivalent Dose in 2 Gy fractions (EQD2)}{30}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}Contexto}{30}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}Derivación}{31}{subsubsection.6.3.2}%
+\contentsline {subsubsection}{\numberline {6.3.3}Ejemplos Numéricos}{31}{subsubsection.6.3.3}%
+\contentsline {section}{\numberline {7}Modelo MIRD de Partición}{33}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Contexto Clínico}{33}{subsection.7.1}%
+\contentsline {subsubsection}{\numberline {7.1.1}Limitaciones}{33}{subsubsection.7.1.1}%
+\contentsline {subsubsection}{\numberline {7.1.2}Uso en 3Dosim}{33}{subsubsection.7.1.2}%
+\contentsline {subsection}{\numberline {7.2}Ecuaciones del Modelo}{34}{subsection.7.2}%
+\contentsline {subsubsection}{\numberline {7.2.1}Relación T/N}{34}{subsubsection.7.2.1}%
+\contentsline {subsubsection}{\numberline {7.2.2}Fracción de Captación (FU)}{34}{subsubsection.7.2.2}%
+\contentsline {subsubsection}{\numberline {7.2.3}Dosis Absorbida}{34}{subsubsection.7.2.3}%
+\contentsline {subsubsection}{\numberline {7.2.4}Constante MIRD $k$}{35}{subsubsection.7.2.4}%
+\contentsline {subsection}{\numberline {7.3}Algoritmo de Implementación}{35}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Ejemplo Numérico}{35}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Verificación contra el Mapa 3D}{36}{subsection.7.5}%
+\contentsline {section}{\numberline {8}Isodosis y Visualización en 3D Slicer}{37}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Nodo de Dosis 3D en Slicer}{37}{subsection.8.1}%
+\contentsline {subsubsection}{\numberline {8.1.1}Overlay Rainbow Invertido}{37}{subsubsection.8.1.1}%
+\contentsline {subsection}{\numberline {8.2}Isodosis}{38}{subsection.8.2}%
+\contentsline {subsubsection}{\numberline {8.2.1}Niveles}{38}{subsubsection.8.2.1}%
+\contentsline {subsubsection}{\numberline {8.2.2}Smoothing}{38}{subsubsection.8.2.2}%
+\contentsline {subsubsection}{\numberline {8.2.3}Colormap Jet (10 muestras)}{38}{subsubsection.8.2.3}%
+\contentsline {subsubsection}{\numberline {8.2.4}Generación de Contornos (VTK Marching Cubes)}{38}{subsubsection.8.2.4}%
+\contentsline {subsubsection}{\numberline {8.2.5}Fallback: SlicerRT Isodose Module}{38}{subsubsection.8.2.5}%
+\contentsline {subsection}{\numberline {8.3}DVH Interactivo en Slicer}{38}{subsection.8.3}%
+\contentsline {subsubsection}{\numberline {8.3.1}Módulo Plots}{38}{subsubsection.8.3.1}%
+\contentsline {subsection}{\numberline {8.4}Layout de Visualización}{39}{subsection.8.4}%
+\contentsline {subsection}{\numberline {8.5}Guardado de Escena Final}{39}{subsection.8.5}%
+\contentsline {section}{\numberline {9}Pipeline Completo --- Módulo 3: Dosimetría}{41}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Integración Mod1 $\to $ Mod3}{41}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Los 10 Pasos del Pipeline}{42}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Archivos de Entrada y Salida}{42}{subsection.9.3}%
+\contentsline {subsubsection}{\numberline {9.3.1}Entradas}{43}{subsubsection.9.3.1}%
+\contentsline {subsubsection}{\numberline {9.3.2}Salidas}{43}{subsubsection.9.3.2}%
+\contentsline {subsubsection}{\numberline {9.3.3}Checkpoints}{43}{subsubsection.9.3.3}%
+\contentsline {subsection}{\numberline {9.4}Modos de Ejecución}{43}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.5}Integración con SlicerDosimMod3}{44}{subsection.9.5}%
+\contentsline {section}{Apéndice A: Constantes Físicas del Y-90}{45}{table.3}%
+\contentsline {section}{Apéndice A: Constantes Físicas del Y-90}{47}{table.5}%
+\contentsline {section}{Apéndice B: Densidades y Parámetros $\alpha /\beta $}{48}{table.6}%
+\contentsline {section}{Referencias}{49}{table.6}%

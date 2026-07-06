@@ -1,16 +1,16 @@
-# Graph Report - 3Dosim_v4  (2026-07-04)
+# Graph Report - 3Dosim_v4  (2026-07-06)
 
 ## Corpus Check
-- 95 files · ~134,346 words
+- 103 files · ~140,977 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2808 nodes · 3658 edges · 266 communities (238 shown, 28 thin omitted)
+- 2974 nodes · 3834 edges · 295 communities (261 shown, 34 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 128 edges (avg confidence: 0.59)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5317f333`
+- Built from commit: `0be6304f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -280,6 +280,28 @@
 - [[_COMMUNITY_Community 263|Community 263]]
 - [[_COMMUNITY_Community 264|Community 264]]
 - [[_COMMUNITY_Community 265|Community 265]]
+- [[_COMMUNITY_Community 266|Community 266]]
+- [[_COMMUNITY_Community 267|Community 267]]
+- [[_COMMUNITY_Community 268|Community 268]]
+- [[_COMMUNITY_Community 269|Community 269]]
+- [[_COMMUNITY_Community 270|Community 270]]
+- [[_COMMUNITY_Community 271|Community 271]]
+- [[_COMMUNITY_Community 272|Community 272]]
+- [[_COMMUNITY_Community 273|Community 273]]
+- [[_COMMUNITY_Community 274|Community 274]]
+- [[_COMMUNITY_Community 275|Community 275]]
+- [[_COMMUNITY_Community 276|Community 276]]
+- [[_COMMUNITY_Community 277|Community 277]]
+- [[_COMMUNITY_Community 278|Community 278]]
+- [[_COMMUNITY_Community 279|Community 279]]
+- [[_COMMUNITY_Community 280|Community 280]]
+- [[_COMMUNITY_Community 281|Community 281]]
+- [[_COMMUNITY_Community 282|Community 282]]
+- [[_COMMUNITY_Community 283|Community 283]]
+- [[_COMMUNITY_Community 284|Community 284]]
+- [[_COMMUNITY_Community 292|Community 292]]
+- [[_COMMUNITY_Community 293|Community 293]]
+- [[_COMMUNITY_Community 294|Community 294]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `ts_label_to_phantom` - 101 edges
@@ -287,7 +309,7 @@
 3. `PipelineMod1` - 48 edges
 4. `TissueConfig` - 47 edges
 5. `PipelineMod3` - 32 edges
-6. `main()` - 31 edges
+6. `main()` - 32 edges
 7. `DoseCalculator` - 31 edges
 8. `CheckpointManager` - 28 edges
 9. `show_progress()` - 28 edges
@@ -305,15 +327,15 @@
 - `_Logger` --uses--> `MCTALParser`  [INFERRED]
   PipelineOrchestrator/run_dosimetry_from_scene.py → slicer_modules/SlicerDosim/SlicerDosimLib/mctal_parser.py
 
-## Communities (266 total, 28 thin omitted)
+## Communities (295 total, 34 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.12
-Nodes (30): compute_activity_from_pet(), _create_dvh_plots_slicer(), error(), _export_dvh_png(), find_nodes(), _generate_pdf_matplotlib_fallback(), generate_pdf_report(), _get_pet_units() (+22 more)
+Nodes (30): compute_activity_from_pet(), error(), find_nodes(), _generate_pdf_matplotlib_fallback(), generate_pdf_report(), _get_pet_units(), info(), load_kernel() (+22 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.09
-Nodes (23): _get_labelmap_array(), main(), PipelineMod3, str, Crea nodo de dosis 3D en Slicer y activa overlay., Crea nodo de dosis 3D en Slicer y activa overlay., Crea graficos DVH en Slicer y guarda escena final., Crea graficos DVH en Slicer y guarda escena final. (+15 more)
+Cohesion: 0.23
+Nodes (8): PipelineMod3, str, Ejecuta el pipeline Mod3 completo., Restaura estado desde checkpoint data., Guarda la escena 3Dosim.mrb (una sola, se sobrescribe).          Args:, Toma screenshot de toda la ventana de Slicer., Toma screenshot de toda la ventana de Slicer., Pipeline Modulo 3: Analisis Dosimetrico desde escena + MCTAL.      Pasos:
 
 ### Community 2 - "Community 2"
 Cohesion: 0.04
@@ -348,16 +370,16 @@ Cohesion: 0.10
 Nodes (32): Environment, _commas(), _compile_latex(), _copy_screenshots(), _demo_data(), _demo_dvh(), _find_latexmk(), _fmt1() (+24 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.06
-Nodes (31): 1. Persistencia de escenas en JSONC, 2. Visualizacion 3D automatica de cortes, 3. Activar Link Slice View automaticamente, 4. Restaurar validacion luego de TS, 5. NO avanzar con modulo MCNP, Cambios requeridos, code:md (## Sesion 22-May — Visualizacion 3D + escenas + validacion), code:txt (C:\MAT\3Dosim\ai-pipe\imagenes) (+23 more)
+Cohesion: 0.17
+Nodes (11): 5. NO avanzar con modulo MCNP, code:md (## Sesion 22-May — Visualizacion 3D + escenas + validacion), code:python (setup_medical_views()), Crear helper centralizado, Decision arquitectonica, Decision temporal, IMPORTANTE, Objetivo (+3 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.06
 Nodes (31): Acrónimos, AI Supervisor, Archivo .mrb, Carga de Escena 3D Slicer, Carga desde pipeline_mod2.py, code:block1 (escena.mrb/), code:block10 (VolumeNode), code:python (# Pseudocódigo del flujo real) (+23 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.08
-Nodes (24): bool, int, ndarray, str, MCNPInputGenerator, Escribe tarjetas de materiales MCNP desde TissueConfig.          Formato MATLA, Escribe RAND, DBCN, PRINT, PRDMP, NPS., Generador de entrada MCNP siguiendo el formato MATLAB de 3Dosim.      Produce (+16 more)
+Cohesion: 0.18
+Nodes (8): ndarray, Procesa eventos Qt para mantener la UI responsiva durante operaciones largas., Extrae labelmap 3D numpy del phantom.          Mapea cada segmento de TotalSeg, Extrae labelmap 3D numpy del phantom.          Mapea cada segmento de TotalSeg, Extrae mascara binaria del body (primer segmento de la segmentacion body)., Extrae mascara binaria del body (primer segmento de la segmentacion body)., Extrae array 3D del PET., Extrae array 3D del PET.
 
 ### Community 13 - "Community 13"
 Cohesion: 0.06
@@ -380,12 +402,12 @@ Cohesion: 0.07
 Nodes (29): 1.1 Creación del Nodo, 1.2 Overlay Rainbow Invertido, 1. Nodo de Dosis 3D en Slicer, 2.1 Niveles, 2.2 Smoothing, 2.3 Colormap Jet (10 muestras), 2.4 Generación de Contornos (VTK Marching Cubes), 2.5 Fallback: SlicerRT Isodose Module (+21 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.24
-Nodes (7): PipelineMod2, Pipeline Modulo 2: carga escena .mrb (generada por Mod1),     escanea nodos y g, Envia el paso completado al AI supervisor para revision., Restaura estado desde checkpoint data.          Soporta dos formatos:, Envia el paso completado al AI supervisor para revision., Restaura estado desde checkpoint data.          Soporta dos formatos:, Pipeline Modulo 2: carga escena .mrb (generada por Mod1),     escanea nodos y g
+Cohesion: 0.13
+Nodes (14): PipelineMod2, str, Pipeline Modulo 2: carga escena .mrb (generada por Mod1),     escanea nodos y g, Envia el paso completado al AI supervisor para revision., Restaura estado desde checkpoint data.          Soporta dos formatos:, Envia el paso completado al AI supervisor para revision., Restaura estado desde checkpoint data.          Soporta dos formatos:, Envia un mensaje de exito a la consola. (+6 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.11
-Nodes (13): CheckpointManager, bool, str, CheckpointManager - Estado persistente del pipeline.  Guarda el progreso en un, Gestiona checkpoints del pipeline.      Uso:         cp = CheckpointManager(", Carga el estado desde el archivo JSON., Verifica si un paso ya fue completado., Marca un paso como completado y guarda el checkpoint. (+5 more)
+Cohesion: 0.08
+Nodes (19): CheckpointManager, bool, str, CheckpointManager - Estado persistente del pipeline.  Guarda el progreso en un, Gestiona checkpoints del pipeline.      Uso:         cp = CheckpointManager(", Carga el estado desde el archivo JSON., Verifica si un paso ya fue completado., Marca un paso como completado y guarda el checkpoint. (+11 more)
 
 ### Community 20 - "Community 20"
 Cohesion: 0.07
@@ -407,6 +429,10 @@ Nodes (15): _Logger, Logger que escribe a stderr (visible en shell) y archivo., 
 Cohesion: 0.07
 Nodes (26): 1.1 Contexto, 1.2 Fórmula para BED en Terapia con Radionúclidos, 1.3 Valores de $$\alpha/\beta$$, 1.4 Factor de Tasa de Dosis (DRF), 1.5 Implementación, 1.6 Ejemplo, 1. Biologically Effective Dose (BED), 2.1 Contexto (+18 more)
 
+### Community 25 - "Community 25"
+Cohesion: 0.13
+Nodes (6): PipelineMod1, Pipeline Modulo 1: carga PET/CT, segmentacion anatomica (TotalSegmentator),, Guarda la escena 3Dosim.mrb.          Args:             tag: Identificador op, Guarda la escena 3Dosim.mrb.          Args:             tag: Identificador op, Guarda la escena 3Dosim.mrb.          Args:             tag: Identificador op, Guarda la escena 3Dosim.mrb.          Args:             tag: Identificador op
+
 ### Community 26 - "Community 26"
 Cohesion: 0.14
 Nodes (27): _add_healthy_liver_segment(), _add_mask_as_segment(), _compute_centroid(), _create_sphere_mask(), create_tumor(), _do_load_file(), _do_manual(), _do_synthetic() (+19 more)
@@ -416,8 +442,8 @@ Cohesion: 0.08
 Nodes (24): Acrónimos, code:block1 (Módulo 1          Módulo 2           Módulo 3), code:python (# Pseudocódigo del flujo de integración), code:bash (python pipeline_mod2.py --scene paciente.mrb \), code:block4 (┌─────────────┐), code:block5 (Superficies (RPP) ──────────► Celdas (usan números de superf), code:block6 (┌──────────────────────┐), code:block7 (Módulo 1 → Módulo 2:) (+16 more)
 
 ### Community 28 - "Community 28"
-Cohesion: 0.18
-Nodes (13): Logger, add_module_path(), bool, str, Utilidades compartidas del PipelineOrchestrator. Logger, paths, helpers sin dep, Configura y retorna el logger global., Muestra QDialog no-modal con indicador de progreso mientras corre un proceso., Muestra QDialog no-modal con mensaje de proceso completado. (+5 more)
+Cohesion: 0.11
+Nodes (15): Logger, add_module_path(), bool, str, Utilidades compartidas del PipelineOrchestrator. Logger, paths, helpers sin dep, Context manager para procesos que pueden demorar.      Muestra un cartel QDial, Configura y retorna el logger global., Muestra QDialog no-modal con indicador de progreso mientras corre un proceso. (+7 more)
 
 ### Community 29 - "Community 29"
 Cohesion: 0.08
@@ -473,7 +499,7 @@ Nodes (19): 1. Contexto Clínico, 2.1 Verificación de Unidades, 2.2 Conversión
 
 ### Community 42 - "Community 42"
 Cohesion: 0.12
-Nodes (12): MCP, mcp_helper - Conexion MCP con 3D Slicer para tu pipeline.  QUE HACE:   - Ejec, Toma screenshot de Slicer.          Args:             vista: "3D", "Red", "Ye, Lista los nodos cargados en Slicer.          Returns:             Lista de di, Llama JSON-RPC al server MCP., Extrae texto de la respuesta MCP., Cliente MCP minimo para 3D Slicer.      Conecta al server MCP que corre DENTRO, Conecta al MCP server de Slicer.          Returns: True si conecto, False si n (+4 more)
+Nodes (11): Exception, MCP, mcp_helper - Conexion MCP con 3D Slicer para tu pipeline.  QUE HACE:   - Ejec, Toma screenshot de Slicer.          Args:             vista: "3D", "Red", "Ye, Lista los nodos cargados en Slicer.          Returns:             Lista de di, Llama JSON-RPC al server MCP., Extrae texto de la respuesta MCP., Cliente MCP minimo para 3D Slicer.      Conecta al server MCP que corre DENTRO (+3 more)
 
 ### Community 43 - "Community 43"
 Cohesion: 0.16
@@ -520,16 +546,16 @@ Cohesion: 0.14
 Nodes (16): anonymize(), str, Anonimizacion de nodos en la escena de Slicer.  Sin archivos temporales ni pyd, Anonimiza los nodos CT y PET ya cargados en la escena de Slicer      renombrndo, compare_registration(), str, Registro y re-muestreo de PET a la grilla del CT.  Dos metodos implementados:, Metodo B: interp3 manual como MATLAB register_v7.m, con conservacion de activida (+8 more)
 
 ### Community 54 - "Community 54"
-Cohesion: 0.18
-Nodes (9): bool, float, int, str, fusion_dialog.py - Dialogo informativo post-fusion CT+PET.  Muestra en un QDialo, Muestra un dialogo NO MODAL con toda la informacion de la fusion.      Args:, show_fusion_info_dialog(), Guarda la escena 3Dosim.mrb (una sola, se sobrescribe).          Args: (+1 more)
+Cohesion: 0.12
+Nodes (16): LauncherWindow, int, Manejador: ejecuta modulo.         Todos los modulos muestran dialogo de config, Manejador: ejecuta modulo.         Todos los modulos muestran dialogo de config, Extrae defaults de config.jsonc para el modulo.         Todos los campos se pre-, Extrae defaults de config.jsonc para el modulo.         Todos los campos se pre-, Mata cualquier proceso Slicer existente para evitar single-instance conflict., Mata cualquier proceso Slicer existente para evitar single-instance conflict. (+8 more)
 
 ### Community 55 - "Community 55"
 Cohesion: 0.20
 Nodes (11): int, ndarray, str, MCNPSourceBuilder, Definicion de fuente MCNP desde PET/SPECT.  Lee el volumen PET, normaliza la a, SDEF con distribucion espacial desde PET.          Usa SI SP para definir la d, SDEF uniforme en todo el volumen (fallback si no hay PET)., Tarjeta de espectro de energia.          Para Y-90 usa espectro simplificado d (+3 more)
 
 ### Community 56 - "Community 56"
-Cohesion: 0.13
-Nodes (17): ConfigDialog, float, str, Manejador: ejecuta modulo.         Todos los modulos muestran dialogo de config, Manejador: ejecuta modulo.         Todos los modulos muestran dialogo de config, Dialogo de configuracion pre-ejecucion para cada modulo., Dialogo de configuracion pre-ejecucion para cada modulo., Escribe a trace.log con timestamp. No falla si no puede. (+9 more)
+Cohesion: 0.15
+Nodes (15): ConfigDialog, float, str, Dialogo de configuracion pre-ejecucion para cada modulo., Dialogo de configuracion pre-ejecucion para cada modulo., Escribe a trace.log con timestamp. No falla si no puede., Conecta el combo 'method' para mostrar/ocultar MCTAL vs Kernel., Conecta el combo 'method' para mostrar/ocultar MCTAL vs Kernel. (+7 more)
 
 ### Community 57 - "Community 57"
 Cohesion: 0.12
@@ -544,8 +570,8 @@ Cohesion: 0.12
 Nodes (16): 1. Cargar tissue_config.json, 2. Construir mapping nombre → índice, 3. Acumular en labelmap 3D, 4. Incorporar body segmentation, 5. Verificar integridad, 6. Exportar, Algoritmo, code:python (tissue_config = _load_tissue_config(config_path)) (+8 more)
 
 ### Community 60 - "Community 60"
-Cohesion: 0.20
-Nodes (16): apply_liver_tumor_peritumoral_mask(), convolve_imfilter_symmetric(), create_peritumoral_mask(), _ellipsoid_structure(), _fft_conv_impl(), _kernel_cache_key(), float, int (+8 more)
+Cohesion: 0.13
+Nodes (22): apply_liver_tumor_peritumoral_mask(), convolve_imfilter_symmetric(), create_peritumoral_mask(), _ellipsoid_structure(), _fft_conv_impl(), _kernel_cache_key(), float, int (+14 more)
 
 ### Community 61 - "Community 61"
 Cohesion: 0.15
@@ -600,12 +626,12 @@ Cohesion: 0.18
 Nodes (7): ScriptedLoadableModule, SlicerDosimMod3 - Analisis dosimetrico (Modulo 3) para V4., _array_from_labelmap(), SlicerDosimMod3 - Analisis dosimetrico V4 (kernel convolution).  NO requiere MCT, Busca CT, PET, labelmap en la escena actual., Carga escena manualmente., SlicerDosimMod3
 
 ### Community 74 - "Community 74"
-Cohesion: 0.18
-Nodes (11): 3Dosim v3.14 - Dosimetria 3D para Medicina Nuclear, Cambios realizados, code:block1 (Modules/Scripted/SlicerDosim/), Comandos utiles, Estado actual, Modulos, Modulos de Slicer (entradas separadas en dropdown 3Dosim), Reglas importantes (+3 more)
+Cohesion: 0.23
+Nodes (13): 3Dosim v3.14 - Dosimetria 3D para Medicina Nuclear, 3Dosim v4 - Dosimetria 3D para Medicina Nuclear, Cambios realizados, code:block1 (Modules/Scripted/SlicerDosim/), Comandos utiles, Estado actual, Modulos, Modulos de Slicer (entradas separadas en dropdown 3Dosim) (+5 more)
 
 ### Community 75 - "Community 75"
-Cohesion: 0.18
-Nodes (11): Archivos modificados, Archivos nuevos, code:block22 (1. check_slicer), code:jsonc ({), Contexto técnico, Flujo actual del pipeline Mod1 (con actividad PET), Instalación TS v2.13.0 + parches, Objetivo (+3 more)
+Cohesion: 0.17
+Nodes (12): Archivos modificados, Archivos nuevos, code:block22 (1. check_slicer), code:jsonc ({), Contexto técnico, Flujo actual del pipeline Mod1 (con actividad PET), Instalación TS v2.13.0 + parches, Objetivo (+4 more)
 
 ### Community 76 - "Community 76"
 Cohesion: 0.18
@@ -628,24 +654,24 @@ Cohesion: 0.29
 Nodes (10): _center_kernel_max(), get_kernel(), load_kernel_mat(), bool, ndarray, str, dose_kernel.py — Carga el kernel de dosis desde kernel.mat (MCNP precalculado)., Carga kernel con cache. (+2 more)
 
 ### Community 81 - "Community 81"
-Cohesion: 0.18
-Nodes (8): Actualiza progreso (pct: 0-100)., Carga escena .mrb con barra de progreso., Carga escena .mrb con barra de progreso., Carga escena .mrb con barra de progreso., Cierra el dialogo de progreso., Genera archivo de entrada MCNP usando MCNPInputGenerator., Genera archivo de entrada MCNP usando MCNPInputGenerator., Genera archivo de entrada MCNP usando MCNPInputGenerator.
+Cohesion: 0.17
+Nodes (10): QProgressHelper, Barra de progreso Qt visible dentro de 3D Slicer.      Muestra un QProgressDia, Actualiza progreso (pct: 0-100)., Carga escena .mrb con barra de progreso., Carga escena .mrb con barra de progreso., Carga escena .mrb con barra de progreso., Cierra el dialogo de progreso., Genera archivo de entrada MCNP usando MCNPInputGenerator. (+2 more)
 
 ### Community 82 - "Community 82"
 Cohesion: 0.25
 Nodes (10): create_calibrated_pet_node(), _create_node_from_dicom_geometry(), ndarray, object, str, pet_dicom_reader.py - Lectura de DICOM PET raw con rescale por slice.  Replica l, Crea nodo Slicer con Bq/mL calibrados y geometria compatible con CT.      Si se, Crea un nodo PET calibrado en Bq/mL con geometria DICOM nativa.      Lee los DIC (+2 more)
 
 ### Community 83 - "Community 83"
-Cohesion: 0.27
-Nodes (10): _check_slicerrt(), create_isodose_contours(), _create_via_slicerrt(), _create_via_vtk(), _get_jet_colors(), isodose_contours.py - Generacion de curvas/superficies de isodosis.  Usa el modu, Genera isodosis via SlicerRT Isodose module.      SlicerRT ya aplica su propio s, Genera isodosis usando vtkImageMarchingCubes (siempre disponible).      Usa el d (+2 more)
+Cohesion: 0.17
+Nodes (15): _check_slicerrt(), _create_fallback_legend(), create_isodose_contours(), _create_via_slicerrt(), _create_via_vtk(), _get_jet_colors(), isodose_contours.py - Generacion de curvas/superficies de isodosis.  Usa el modu, Genera isodosis via SlicerRT Isodose module.      SlicerRT ya aplica su propio s (+7 more)
 
 ### Community 84 - "Community 84"
 Cohesion: 0.20
 Nodes (10): code:block2 (1. check_slicer       → Verifica Slicer + paths de modulos), code:block3 (Testing/PipelineOrchestrator/), code:block4 (SlicerDosimLib/orchestrator/    ← parte oficial de la herram), Estado actual de trabajo, Flujo actual del pipeline, Pendiente, Pipeline Orchestrator + Features (COMPLETADO - May 2026), PipelineOrchestrator - Estructura modular (NUEVA) (+2 more)
 
 ### Community 85 - "Community 85"
-Cohesion: 0.20
-Nodes (10): Archivos generados/fsdfsdfsdf, Archivos modificados en esta sesion, code:python (from TotalSegmentator import TotalSegmentatorLogic), code:bash (# Via batch (cierra Slicer automaticamente)), Comandos, Directorios de salida, Lecciones aprendidas, Log (sesiones acumuladas) (+2 more)
+Cohesion: 0.18
+Nodes (11): Archivos generados/fsdfsdfsdf, Archivos modificados en esta sesion, code:python (from TotalSegmentator import TotalSegmentatorLogic), code:bash (# Via batch (cierra Slicer automaticamente)), Comandos, Directorios de salida, Lecciones aprendidas, Log (sesiones acumuladas) (+3 more)
 
 ### Community 86 - "Community 86"
 Cohesion: 0.12
@@ -656,8 +682,8 @@ Cohesion: 0.22
 Nodes (8): agent, completed_items, files_modified, scope, status, task_id, timestamp, verify_command
 
 ### Community 88 - "Community 88"
-Cohesion: 0.17
-Nodes (9): PipelineMod1 - Modulo 1: Carga, segmentacion y tumor. Flujo completo hasta expo, _auto_detect_scene(), QProgressHelper, PipelineMod2 - Modulo 2: Generacion de entrada MCNP desde escena Mod1. Flujo: c, Args:             scene_path: Ruta al archivo .mrb (de Mod1). Si None, auto-det, Barra de progreso Qt visible dentro de 3D Slicer.      Muestra un QProgressDia, Args:             scene_path: Ruta al archivo .mrb (de Mod1). Si None, auto-det, load_pipeline_config() (+1 more)
+Cohesion: 0.20
+Nodes (7): bool, Genera archivo de entrada MCNP completo.          Args:             ct_volume, Genera archivo de entrada MCNP completo.          Args:             ct_volume, Escribe superficies: RPP bounding box + RPP voxel + SO 650 sphere., Escribe superficies: RPP bounding box + RPP voxel + SO 650 sphere., Escribe tarjetas de modo, phys y cut., Escribe tarjetas de modo, phys y cut.
 
 ### Community 89 - "Community 89"
 Cohesion: 0.33
@@ -665,39 +691,39 @@ Nodes (8): _ask_for_commit(), find_git_repo(), prompt_git_commit(), str, Prompt 
 
 ### Community 90 - "Community 90"
 Cohesion: 0.22
-Nodes (5): bool, Carga escena .mrb en Slicer., Configura overlay de dosis en slices: colormap, opacidad 0.4, foreground., Guarda escena actual como .mrb., Guarda escena actual.
+Nodes (5): bool, Carga escena .mrb en Slicer., Configura overlay de dosis en slices: colormap, opacidad 0.4, foreground., Crea isodosis contours en Slicer., Crea isodosis contours.
 
 ### Community 91 - "Community 91"
-Cohesion: 0.25
-Nodes (8): Bug conocido, Cambios realizados, code:json (GET http://127.0.0.1:8000/info/), Pendiente, Problema, Server MONAI Label funcional, Sesion 19-May 12:00 — MONAI Label server auto-start + simplificacion, Solucion
+Cohesion: 0.20
+Nodes (10): Bug conocido, Cambios realizados, Cambios realizados, code:json (GET http://127.0.0.1:8000/info/), Pendiente, Pendiente, Problema, Server MONAI Label funcional (+2 more)
 
 ### Community 92 - "Community 92"
-Cohesion: 0.24
-Nodes (6): LogPanel, Panel de registro de eventos., Panel de registro de eventos., Muestra (o crea) la consola como ventana flotante., QPushButton, QTextEdit
+Cohesion: 0.21
+Nodes (7): LogPanel, Panel de registro de eventos., Panel de registro de eventos., Muestra (o crea) la consola como ventana flotante., QDialog, QPushButton, QTextEdit
 
 ### Community 93 - "Community 93"
 Cohesion: 0.32
 Nodes (7): _flood_fill(), _label_connected_components_2d(), Eliminacion de camilla (mesa de exploracion) y aire exterior del CT.  Algoritm, Etiqueta componentes conectadas 2D (4-conectado)., Flood fill iterativo., Elimina la camilla y el aire exterior del volumen CT.     NO modifica el nodo C, remove_couch_and_air()
 
 ### Community 94 - "Community 94"
-Cohesion: 0.29
-Nodes (7): Archivos del sistema de config, Cambios realizados, code:block18 (1. check_slicer), Flujo actual con visualizacion medica, Persistencia, Sesion 22-May — Visualizacion 3D + escenas + validacion, Volumen rendering 3D
+Cohesion: 0.25
+Nodes (8): Archivos del sistema de config, Cambios realizados, Cambios realizados, code:block18 (1. check_slicer), Flujo actual con visualizacion medica, Persistencia, Sesion 22-May — Visualizacion 3D + escenas + validacion, Volumen rendering 3D
 
 ### Community 95 - "Community 95"
-Cohesion: 0.29
-Nodes (7): Archivos modificados en esta sesion, Cambios realizados, code:block20 (1. check_slicer), Detalles de implementacion, Flujo actual del pipeline (12 pasos), Pendiente, Sesion 26-May 17:00 — Pipeline completo: validacion tumor + body TS + labelmap
+Cohesion: 0.20
+Nodes (10): Archivos modificados en esta sesion, Archivos modificados en esta sesion, Cambios realizados, Cambios realizados, code:block20 (1. check_slicer), Detalles de implementacion, Flujo actual del pipeline (12 pasos), Pendiente (+2 more)
 
 ### Community 96 - "Community 96"
 Cohesion: 0.22
 Nodes (9): code:block25 (Slicer.exe --python-script PipelineOrchestrator/run_dosimetr), code:block26 (AttributeError: 'NoneType' object has no attribute 'GetDimen), Comportamiento observado (trace.log), ⚠️ CORRECCION CRITICA — Sesion 03-Jul — El usuario NO usa el modulo Slicer, usa el launcher, Error grave de AGENTS.md y del agente, Implicaciones, Launcher: modos de ejecucion, Mod3: crash por labelmap sin datos de imagen (+1 more)
 
 ### Community 97 - "Community 97"
-Cohesion: 0.29
-Nodes (7): Bug conocido, Cambios realizados, code:jsonc ("tumor": {), Configuracion ejemplo, Modo manual: flujo, Modos de tumor, Sesion 20-Jun — Tumor configurable: synthetic / load_file / manual
+Cohesion: 0.22
+Nodes (9): Bug conocido, Bug conocido, Cambios realizados, Cambios realizados, code:jsonc ("tumor": {), Configuracion ejemplo, Modo manual: flujo, Modos de tumor (+1 more)
 
 ### Community 98 - "Community 98"
-Cohesion: 0.29
-Nodes (7): Archivos nuevos, Configuracion para usuario, Pendiente, Problema, Que hace el nuevo Modulo 3, Sesion 29-Jun (3) — Fix SlicerDosimMod3: modulo no cargaba escena, Solucion
+Cohesion: 0.18
+Nodes (11): Archivos nuevos, Archivos nuevos, Configuracion para usuario, Pendiente, Pendiente, Problema, Problema, Que hace el nuevo Modulo 3 (+3 more)
 
 ### Community 99 - "Community 99"
 Cohesion: 0.33
@@ -708,16 +734,16 @@ Cohesion: 0.33
 Nodes (6): bool, Validacion medica de la segmentacion tumoral (PET).  Muestra un dialogo Qt NO, VALIDACION MEDICA OBLIGATORIA de la segmentacion tumoral.      Dialogo NO moda, Muestra dialogo NO MODAL para validar segmentacion tumoral.     Slicer COMPLETA, _show_tumor_validation_dialog(), validate_tumor_segmentation()
 
 ### Community 101 - "Community 101"
-Cohesion: 0.12
-Nodes (12): float, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Guarda fusion_summary.txt en el directorio de exportacion., Guarda fusion_summary.txt en el directorio de exportacion., Guarda fusion_summary.txt en el directorio de exportacion. (+4 more)
+Cohesion: 0.14
+Nodes (11): float, Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz, Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz, Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz, Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz, Guarda fusion_summary.txt en el directorio de exportacion., Guarda fusion_summary.txt en el directorio de exportacion., Guarda fusion_summary.txt en el directorio de exportacion. (+3 more)
 
 ### Community 102 - "Community 102"
 Cohesion: 0.33
-Nodes (6): Algoritmo del tumor sintetico, Cambios realizados, code:block19 (1. check_slicer), Flujo actual del pipeline, Resultado esperado, Sesion 26-May — Tumor sintetico esferico + higado sano
+Nodes (7): Algoritmo del tumor sintetico, Cambios realizados, Cambios realizados, code:block19 (1. check_slicer), Flujo actual del pipeline, Flujo actual del pipeline, Sesion 26-May — Tumor sintetico esferico + higado sano
 
 ### Community 103 - "Community 103"
-Cohesion: 0.33
-Nodes (6): Cambios, code:matlab (Kernel = Kernel / sum(Kernel(:));        % normalizar), Correccion critica, Flujo exacto MATLAB, Indices de segmentacion, Sesion 29-Jun — Fix kernel dosis: A en GBq + sin T_mean
+Cohesion: 0.29
+Nodes (7): Cambios, code:matlab (Kernel = Kernel / sum(Kernel(:));        % normalizar), Correccion critica, Flujo exacto MATLAB, Indices de segmentacion, Resultado esperado, Sesion 29-Jun — Fix kernel dosis: A en GBq + sin T_mean
 
 ### Community 104 - "Community 104"
 Cohesion: 0.40
@@ -732,12 +758,12 @@ Cohesion: 0.40
 Nodes (5): code:bash (& "C:\Users\Sebastian\AppData\Local\slicer.org\Slicer 5.8.1\), code:bash (& "C:\Users\Sebastian\AppData\Local\slicer.org\Slicer 5.8.1\), Comando para ejecutar el pipeline, Datos de ejecucion (guardados para no repetir), Para reiniciar checkpoints
 
 ### Community 107 - "Community 107"
-Cohesion: 0.40
-Nodes (5): code:block9 (1. check_slicer), Flujo actual del pipeline, Pendiente, Resumen de cambios, Sesion 19-May 15:00 — Cambios realizados
+Cohesion: 0.33
+Nodes (7): code:block9 (1. check_slicer), Flujo actual del pipeline, Flujo actual del pipeline, Pendiente, Pendiente, Resumen de cambios, Sesion 19-May 15:00 — Cambios realizados
 
 ### Community 108 - "Community 108"
-Cohesion: 0.40
-Nodes (5): Archivos modificados, DVH Slicer, Isodosis (identico MATLAB), Percentiles DVH corregidos, Sesion 29-Jun (2) — Fix isodosis + DVH
+Cohesion: 0.33
+Nodes (6): Archivos modificados, Archivos modificados, DVH Slicer, Isodosis (identico MATLAB), Percentiles DVH corregidos, Sesion 29-Jun (2) — Fix isodosis + DVH
 
 ### Community 109 - "Community 109"
 Cohesion: 0.40
@@ -1012,8 +1038,8 @@ Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 82
 
 ### Community 177 - "Community 177"
-Cohesion: 0.40
-Nodes (5): index, material_en, material_es, segment, 83
+Cohesion: 0.09
+Nodes (21): 1.1 Ruta SlicerRT (`_create_via_slicerrt`, líneas ~188-196 y ~218-221), 1.2 Ruta VTK fallback (`_create_via_vtk` y `_create_fallback_legend`, líneas ~232-280 y ~383-439), 1. Causa raíz, 2. API correcta (oficial, del repositorio Slicer/Slicer), 3.1 En `_create_via_slicerrt` — eliminar el bloque erróneo, 3.2 En `_create_via_vtk` — reemplazar el bloque manual, 3.3 En `_create_fallback_legend` — mismo fix, 3. Cambios concretos a aplicar (+13 more)
 
 ### Community 178 - "Community 178"
 Cohesion: 0.40
@@ -1047,10 +1073,6 @@ Nodes (5): index, material_en, material_es, segment, 92
 Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 93
 
-### Community 186 - "Community 186"
-Cohesion: 0.40
-Nodes (5): index, material_en, material_es, segment, 94
-
 ### Community 187 - "Community 187"
 Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 96
@@ -1064,8 +1086,8 @@ Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 99
 
 ### Community 190 - "Community 190"
-Cohesion: 0.18
-Nodes (8): PipelineMod3 - Modulo 3: Analisis Dosimetrico desde escena + MCTAL. Flujo: carga, parse_mctal(), Parsea MCTAL usando SlicerDosimLib MCTALParser., bool, float, str, Configura automaticamente las vistas medicas de Slicer.      Activa layout med, setup_medical_views()
+Cohesion: 0.11
+Nodes (17): PipelineMod1 - Modulo 1: Carga, segmentacion y tumor. Flujo completo hasta expo, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, Lee el PatientID real desde los archivos DICOM con pydicom.          Prueba pr, _enable_volume_rendering(), ensure_inverted_rainbow() (+9 more)
 
 ### Community 191 - "Community 191"
 Cohesion: 0.40
@@ -1076,8 +1098,8 @@ Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 35
 
 ### Community 193 - "Community 193"
-Cohesion: 0.40
-Nodes (5): index, material_en, material_es, segment, 37
+Cohesion: 0.33
+Nodes (6): Pendiente (no resuelto), Pendiente (no resuelto), Pendiente (no resuelto), Resumen de cambios, Resumen de cambios, Sesion 21-May 12:00 — Limpieza general del proyecto
 
 ### Community 194 - "Community 194"
 Cohesion: 0.40
@@ -1132,143 +1154,207 @@ Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 90
 
 ### Community 207 - "Community 207"
-Cohesion: 0.20
-Nodes (7): Ejecuta el pipeline Mod2 completo., Ejecuta el pipeline Mod2 completo., Guarda la escena 3Dosim.mrb (una sola, se sobrescribe).          Args:, Guarda escena .mrb actual., Envia un mensaje a la consola interactiva (si existe)., Envia un mensaje a la consola interactiva (si existe)., Envia un mensaje a la consola interactiva (si existe).
+Cohesion: 0.11
+Nodes (14): main(), Ejecuta el pipeline Mod2 completo., Ejecuta el pipeline Mod2 completo., Guarda la escena 3Dosim.mrb (una sola, se sobrescribe).          Args:, Guarda escena .mrb actual., Muestra dialogo NO modal con resumen MCNP y comando de ejecucion., Muestra dialogo NO modal con resumen MCNP y comando de ejecucion., Muestra dialogo NO modal con resumen MCNP y comando de ejecucion. (+6 more)
 
 ### Community 208 - "Community 208"
 Cohesion: 0.50
 Nodes (3): Verifica que estamos dentro de 3D Slicer., Verifica que estamos dentro de 3D Slicer., Verifica que estamos dentro de 3D Slicer.
 
 ### Community 209 - "Community 209"
-Cohesion: 0.25
-Nodes (6): Guarda resultados en JSON (historial acumulado)., Genera reporte final., Guarda resultados en JSON (historial acumulado)., Guarda resultados en JSON (historial acumulado)., Genera reporte final., Genera reporte final.
+Cohesion: 0.22
+Nodes (7): bool, Guarda resultados en JSON (historial acumulado)., Genera reporte final., Guarda resultados en JSON (historial acumulado)., Guarda resultados en JSON (historial acumulado)., Genera reporte final., Genera reporte final.
 
 ### Community 210 - "Community 210"
-Cohesion: 0.40
-Nodes (4): Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz, Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz, Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz, Lee actividad PET desde DICOM raw para logging y dialogo.          NO reemplaz
+Cohesion: 0.33
+Nodes (5): str, MCNPInputGenerator, Generador de entrada MCNP siguiendo el formato MATLAB de 3Dosim.      Produce, Construye mapas de materiales desde TissueConfig.          Crea:           se, Construye mapas de materiales desde TissueConfig.          Crea:           se
 
-### Community 212 - "Community 212"
-Cohesion: 0.50
-Nodes (4): Pendiente (no resuelto), Pendiente (no resuelto), Resumen de cambios, Sesion 21-May 12:00 — Limpieza general del proyecto
+### Community 211 - "Community 211"
+Cohesion: 0.40
+Nodes (5): index, material_en, material_es, segment, 83
 
 ### Community 213 - "Community 213"
-Cohesion: 0.14
-Nodes (12): LauncherWindow, Mata cualquier proceso Slicer existente para evitar single-instance conflict., Mata cualquier proceso Slicer existente para evitar single-instance conflict., Lanza Slicer con el pipeline correspondiente., Lanza Slicer con el pipeline correspondiente., Escribe la config del usuario en config.jsonc antes de lanzar Slicer., Escribe la config del usuario en config.jsonc antes de lanzar Slicer., Ventana principal con 3 botones, log y dialogo de config. (+4 more)
+Cohesion: 0.50
+Nodes (3): _excepthook(), main(), Captura cualquier excepcion no manejada y la guarda a error.log + messagebox.
 
 ### Community 214 - "Community 214"
 Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 55
 
+### Community 215 - "Community 215"
+Cohesion: 0.33
+Nodes (4): Escribe universos MCNP.         Cada indice phantom tiene su propio universo co, Escribe universos MCNP.         Cada indice phantom tiene su propio universo co, Retorna el nombre del segmento para un indice phantom., Retorna el nombre del segmento para un indice phantom.
+
+### Community 216 - "Community 216"
+Cohesion: 0.22
+Nodes (7): int, Escribe cabecera del archivo., Escribe cabecera del archivo., Escribe lattice wrapper + fill data con RLE.         Cell LATTICE_WRAPPER = fil, Escribe lattice wrapper + fill data con RLE.         Cell LATTICE_WRAPPER = fil, Escribe fill de voxeles con RLE estilo MATLAB.         NOTA: flips ya aplicados, Escribe fill de voxeles con RLE estilo MATLAB.         NOTA: flips ya aplicados
+
 ### Community 219 - "Community 219"
-Cohesion: 0.20
-Nodes (7): _auto_detect_scene(), bool, Args:             scene_path: Ruta a escena .mrb. Si None, auto-detecta., Guarda resultados en JSON (historial acumulado)., Genera reporte final., Guarda resultados en JSON (historial acumulado)., Genera reporte final.
+Cohesion: 0.40
+Nodes (5): index, material_en, material_es, segment, 14
 
 ### Community 224 - "Community 224"
-Cohesion: 0.50
-Nodes (3): Calcula MIRD partition model., Calcula MIRD partition model., Calcula MIRD partition model.
+Cohesion: 0.40
+Nodes (4): _get_labelmap_array(), Busca CT, PET, Labelmap en la escena cargada., Busca CT, PET, Labelmap en la escena cargada., Busca CT, PET, Labelmap en la escena cargada.
 
 ### Community 232 - "Community 232"
-Cohesion: 0.50
-Nodes (3): Busca nodos CT, PET y Segmentacion en la escena cargada., Busca nodos CT, PET y Segmentacion en la escena cargada., Busca nodos CT, PET y Segmentacion en la escena cargada.
+Cohesion: 0.14
+Nodes (13): 1. Contexto: cómo se maneja la geometría en el resto del pipeline, 2. Causa raíz probable, 3. Verificación (hacer esto ANTES de tocar código), 4. Fix recomendado, 5. Qué reportar tras aplicar el fix, code:python (ref_ijk = ref_node.GetIJKToRASMatrix()), code:python (sort_idx = np.argsort(slice_positions)   # ascendente: slice), code:python (import slicer, vtk) (+5 more)
 
 ### Community 233 - "Community 233"
-Cohesion: 0.14
-Nodes (16): Exception, float, int, ndarray, str, Modulo de calculo dosimetrico para SlicerDosim.  Procesa el output MCNP (archi, compute_dose_gy(), MCTALParseError (+8 more)
-
-### Community 234 - "Community 234"
-Cohesion: 0.13
-Nodes (11): float, Exporta reporte JSON + TXT + PDF., Exporta reporte JSON + TXT + PDF., Exporta reporte JSON + TXT + PDF., Revisa el paso via AI supervisor (DeepSeek/OpenRouter)., Computa actividad total desde PET o usa valor ingresado., Computa actividad total desde PET o usa valor ingresado., Computa actividad total desde PET o usa valor ingresado. (+3 more)
+Cohesion: 0.16
+Nodes (14): float, int, ndarray, str, Modulo de calculo dosimetrico para SlicerDosim.  Procesa el output MCNP (archi, compute_dose_gy(), MCTALParser, Parser de archivos MCTAL (output MCNP) — version MATLAB-compatible.  Lee archi (+6 more)
 
 ### Community 235 - "Community 235"
-Cohesion: 0.67
-Nodes (3): _add_page_number(), Agrega numero de pagina y footer al pie de la figura (matplotlib fallback)., Agrega numero de pagina y footer al pie de la figura (matplotlib fallback).
+Cohesion: 0.50
+Nodes (4): _add_page_number(), Agrega numero de pagina y footer al pie de la figura (matplotlib fallback)., Agrega numero de pagina y footer al pie de la figura (matplotlib fallback)., Agrega numero de pagina y footer al pie de la figura (matplotlib fallback).
 
 ### Community 237 - "Community 237"
+Cohesion: 0.17
+Nodes (11): 1. Resumen ejecutivo, 2.1 Estética / maquetación, 2.2 Contenido, 2. Hallazgos detallados, 3.1 Prioridad alta (impacto grande, esfuerzo moderado), 3.2 Prioridad media, 3.3 Prioridad baja (pulido), 3. Plan de mejora propuesto (+3 more)
+
+### Community 238 - "Community 238"
+Cohesion: 0.50
+Nodes (4): _close_popup(), Cierra dialogo no-modal si existe., Cierra dialogo no-modal si existe., Cierra dialogo no-modal si existe.
+
+### Community 240 - "Community 240"
 Cohesion: 0.40
-Nodes (4): Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard, Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard, Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard, Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard
+Nodes (4): Calcula MIRD partition model., Calcula MIRD partition model., Calcula MIRD partition model., Calcula MIRD partition model.
+
+### Community 242 - "Community 242"
+Cohesion: 0.40
+Nodes (4): Crea graficos DVH en Slicer y guarda escena final., Crea graficos DVH en Slicer y guarda escena final., Crea graficos DVH en Slicer y guarda escena final., Crea graficos DVH en Slicer y guarda escena final.
 
 ### Community 244 - "Community 244"
-Cohesion: 0.19
-Nodes (8): ModuleButton, int, Extrae defaults de config.jsonc para el modulo.         Todos los campos se pre-, Extrae defaults de config.jsonc para el modulo.         Todos los campos se pre-, Callback cuando Slicer termina., Callback cuando Slicer termina. NUNCA cierra el launcher., Boton estilizado para cada modulo., Boton estilizado para cada modulo.
+Cohesion: 0.47
+Nodes (3): ModuleButton, Boton estilizado para cada modulo., Boton estilizado para cada modulo.
 
 ### Community 245 - "Community 245"
 Cohesion: 0.40
 Nodes (5): index, material_en, material_es, segment, 76
 
 ### Community 246 - "Community 246"
-Cohesion: 0.33
-Nodes (4): Muestra QDialog modal con resumen del labelmap exportado.                  Blo, Muestra QDialog modal con resumen del labelmap exportado.                  Blo, Muestra QDialog modal con resumen del labelmap exportado.                  Blo, Muestra QDialog modal con resumen del labelmap exportado.                  Blo
+Cohesion: 0.50
+Nodes (4): get_labelmap_array(), Extrae array 3D del labelmap, transpone a (nx, ny, nz)., Extrae array 3D del labelmap, transpone a (nx, ny, nz)., Extrae array 3D del labelmap, transpone a (nx, ny, nz).
 
 ### Community 247 - "Community 247"
-Cohesion: 0.33
-Nodes (6): compute_biophysical(), bool, Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)., Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)., Computa BED, EUD, EQD2.      BED = D + (lamda/((alpha/beta)*(lamda+mu))) * D², _show_popup()
-
-### Community 248 - "Community 248"
-Cohesion: 0.40
-Nodes (3): Verifica que al menos un DICOM en el directorio tenga la modalidad esperada., Verifica que al menos un DICOM en el directorio tenga la modalidad esperada., Verifica que al menos un DICOM en el directorio tenga la modalidad esperada.
+Cohesion: 0.50
+Nodes (4): Configura sys.path para importar SlicerDosimLib. Retorna path o None., Configura sys.path para importar SlicerDosimLib. Retorna path o None., Configura sys.path para importar SlicerDosimLib. Retorna path o None., setup_slicer_paths()
 
 ### Community 249 - "Community 249"
-Cohesion: 0.15
-Nodes (19): _close_popup(), compute_dvh(), compute_mird(), convert_to_gy(), get_labelmap_array(), main(), float, int (+11 more)
+Cohesion: 0.20
+Nodes (13): PipelineMod3 - Modulo 3: Analisis Dosimetrico desde escena + MCTAL. Flujo: carga, compute_dvh(), compute_mird(), convert_to_gy(), debug(), main(), float, int (+5 more)
 
 ### Community 250 - "Community 250"
-Cohesion: 0.50
-Nodes (3): Guarda la escena 3Dosim.mrb.          Args:             tag: Identificador op, Guarda la escena 3Dosim.mrb.          Args:             tag: Identificador op, Guarda la escena 3Dosim.mrb.          Args:             tag: Identificador op
-
-### Community 251 - "Community 251"
-Cohesion: 0.50
-Nodes (4): main(), Entry point CLI para PipelineMod2., Entry point CLI para PipelineMod2., Entry point CLI para PipelineMod2.
+Cohesion: 0.17
+Nodes (9): float, Exporta reporte JSON + TXT + PDF., Exporta reporte JSON + TXT + PDF., Exporta reporte JSON + TXT + PDF., Exporta reporte JSON + TXT + PDF., Revisa el paso via AI supervisor (DeepSeek/OpenRouter)., Computa actividad total desde PET o usa valor ingresado., Computa actividad total desde PET o usa valor ingresado. (+1 more)
 
 ### Community 252 - "Community 252"
-Cohesion: 0.50
-Nodes (3): Envia un mensaje de error a la consola., Envia un mensaje de error a la consola., Envia un mensaje de error a la consola.
+Cohesion: 0.18
+Nodes (10): 1.1 `mod1.tex` — sección "Resumen" duplicada íntegramente, 1.2 `mod2.tex` — sección "Apéndice: Constantes Físicas" repetida 4 veces, con contenido equivocado en las primeras 3, 1.3 Desbalance de entornos `tcolorbox` — el más grave, 1. 🔴 Bugs estructurales reales (no solo estética — pueden romper la compilación o duplicar contenido en el PDF), 2. 🟡 Inconsistencia de idioma entre documentos, 3. 🟡 Contenido de checklist/QA clonado sin adaptar (dilución del valor del contenido), 4. 🔴 Hallazgo de contenido técnico — la documentación describe el comportamiento que ya identificamos como bug, 5. Resumen de prioridades (+2 more)
 
 ### Community 253 - "Community 253"
-Cohesion: 0.50
-Nodes (3): Envia un mensaje de exito a la consola., Envia un mensaje de exito a la consola., Envia un mensaje de exito a la consola.
+Cohesion: 0.20
+Nodes (7): _auto_detect_scene(), bool, Args:             scene_path: Ruta a escena .mrb. Si None, auto-detecta., Guarda resultados en JSON (historial acumulado)., Genera reporte final., Guarda resultados en JSON (historial acumulado)., Genera reporte final.
 
 ### Community 254 - "Community 254"
-Cohesion: 0.50
-Nodes (3): Muestra dialogo NO modal con resumen MCNP y comando de ejecucion., Muestra dialogo NO modal con resumen MCNP y comando de ejecucion., Muestra dialogo NO modal con resumen MCNP y comando de ejecucion.
+Cohesion: 0.22
+Nodes (8): 1. El diagnóstico, en términos del marco Diátaxis, 2. Estructura obligatoria de cada sección (`\section`), 3. Regla específica para fórmulas — "nunca una fórmula sola", 4. Reglas de redacción (voz, tono, formato), 5. Checklist de revisión (para aplicar antes de cerrar cada sección o cada PDF), 6. Nota sobre "manual de estilo" vs. correcciones puntuales, 7. Siguiente paso: convertir este manual en un Skill de Claude, Manual de Estilo — Documentación Técnica 3Dosim-app
 
 ### Community 255 - "Community 255"
-Cohesion: 0.50
-Nodes (3): Valida que el archivo MCNP generado sea correcto., Valida que el archivo MCNP generado sea correcto., Valida que el archivo MCNP generado sea correcto.
+Cohesion: 0.21
+Nodes (6): Valida que todos los prerrequisitos para generar MCNP esten OK., Valida que todos los prerrequisitos para generar MCNP esten OK., Valida que todos los prerrequisitos para generar MCNP esten OK., Valida que el archivo MCNP generado sea correcto., Valida que el archivo MCNP generado sea correcto., Valida que el archivo MCNP generado sea correcto.
 
 ### Community 256 - "Community 256"
-Cohesion: 0.50
-Nodes (3): Valida que todos los prerrequisitos para generar MCNP esten OK., Valida que todos los prerrequisitos para generar MCNP esten OK., Valida que todos los prerrequisitos para generar MCNP esten OK.
+Cohesion: 0.25
+Nodes (7): _auto_detect_scene(), PipelineMod2 - Modulo 2: Generacion de entrada MCNP desde escena Mod1. Flujo: c, Args:             scene_path: Ruta al archivo .mrb (de Mod1). Si None, auto-det, Args:             scene_path: Ruta al archivo .mrb (de Mod1). Si None, auto-det, load_pipeline_config(), Carga la configuracion global del pipeline desde pipeline_config.jsonc.      A, Carga la configuracion global del pipeline desde pipeline_config.jsonc.      A
 
 ### Community 257 - "Community 257"
-Cohesion: 0.50
-Nodes (3): Convierte results_data['mird'] al formato esperado por generate_latex_report., Convierte results_data['mird'] al formato esperado por generate_latex_report., Convierte results_data['mird'] al formato esperado por generate_latex_report.
+Cohesion: 0.40
+Nodes (4): Convierte results_data['mird'] al formato esperado por generate_latex_report., Convierte results_data['mird'] al formato esperado por generate_latex_report., Convierte results_data['mird'] al formato esperado por generate_latex_report., Convierte results_data['mird'] al formato esperado por generate_latex_report.
 
 ### Community 258 - "Community 258"
-Cohesion: 0.50
-Nodes (3): Convierte results_data['structures'] al formato esperado por generate_latex_repo, Convierte results_data['structures'] al formato esperado por generate_latex_repo, Convierte results_data['structures'] al formato esperado por generate_latex_repo
-
-### Community 259 - "Community 259"
-Cohesion: 0.50
-Nodes (3): Convierte MeV/cm3/particula a Gy., Extrae array 3D del labelmap, transpone a (nx, ny, nz)., Convierte MeV/cm3/particula a Gy.
+Cohesion: 0.40
+Nodes (4): Convierte results_data['structures'] al formato esperado por generate_latex_repo, Convierte results_data['structures'] al formato esperado por generate_latex_repo, Convierte results_data['structures'] al formato esperado por generate_latex_repo, Convierte results_data['structures'] al formato esperado por generate_latex_repo
 
 ### Community 260 - "Community 260"
 Cohesion: 0.50
 Nodes (3): Parsea archivo MCTAL usando MCTALParser., Parsea archivo MCTAL usando MCTALParser., Parsea archivo MCTAL usando MCTALParser.
 
+### Community 261 - "Community 261"
+Cohesion: 0.25
+Nodes (7): bool, float, int, str, fusion_dialog.py - Dialogo informativo post-fusion CT+PET.  Muestra en un QDialo, Muestra un dialogo NO MODAL con toda la informacion de la fusion.      Args:, show_fusion_info_dialog()
+
+### Community 266 - "Community 266"
+Cohesion: 0.25
+Nodes (8): compute_biophysical(), bool, Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)., Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)., Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)., Computa BED, EUD, EQD2.      BED = D + (lamda/((alpha/beta)*(lamda+mu))) * D², Computa BED, EUD, EQD2.      BED = D + (lamda/((alpha/beta)*(lamda+mu))) * D², _show_popup()
+
+### Community 268 - "Community 268"
+Cohesion: 0.29
+Nodes (7): _create_dvh_plots_slicer(), _export_dvh_png(), Crea graficos DVH acumulativos en Slicer usando algoritmo MATLAB f_HDV.m., Crea graficos DVH acumulativos en Slicer usando algoritmo MATLAB f_HDV.m., Exporta DVH como PNG usando matplotlib (si disponible).      dvh_curves: list, Exporta DVH como PNG usando matplotlib (si disponible).      dvh_curves: list, Exporta DVH como PNG usando matplotlib (si disponible).      dvh_curves: list
+
+### Community 269 - "Community 269"
+Cohesion: 0.33
+Nodes (7): 1. Persistencia de escenas en JSONC, Cambios requeridos, code:txt (C:\MAT\3Dosim\ai-pipe\imagenes), code:jsonc ({), Objetivo, Objetivo, Requerimiento tecnico
+
+### Community 270 - "Community 270"
+Cohesion: 0.33
+Nodes (5): Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard, Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard, Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard, Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard, Extrae metadata DICOM de CT y PET (nombre, ID, fechas, etc.)         y la guard
+
+### Community 271 - "Community 271"
+Cohesion: 0.33
+Nodes (4): Verifica que al menos un DICOM en el directorio tenga la modalidad esperada., Verifica que al menos un DICOM en el directorio tenga la modalidad esperada., Verifica que al menos un DICOM en el directorio tenga la modalidad esperada., Verifica que al menos un DICOM en el directorio tenga la modalidad esperada.
+
+### Community 272 - "Community 272"
+Cohesion: 0.33
+Nodes (6): 2. Visualizacion 3D automatica de cortes, code:python (threeDView.resetFocalPoint()), Comportamiento esperado, Objetivo, Objetivo, Requerimientos
+
+### Community 273 - "Community 273"
+Cohesion: 0.29
+Nodes (7): 4. Restaurar validacion luego de TS, code:txt (segment_phantom (TS)), Flujo correcto, IMPORTANTE, IMPORTANTE, Objetivo, Objetivo
+
+### Community 274 - "Community 274"
+Cohesion: 0.40
+Nodes (5): index, material_en, material_es, segment, 94
+
+### Community 275 - "Community 275"
+Cohesion: 0.40
+Nodes (5): main(), Entry point CLI para PipelineMod3., Entry point CLI para PipelineMod3., Entry point CLI para PipelineMod3., Entry point CLI para PipelineMod3.
+
+### Community 276 - "Community 276"
+Cohesion: 0.40
+Nodes (4): Crea nodo de dosis 3D en Slicer y activa overlay., Crea nodo de dosis 3D en Slicer y activa overlay., Crea nodo de dosis 3D en Slicer y activa overlay., Crea nodo de dosis 3D en Slicer y activa overlay.
+
+### Community 278 - "Community 278"
+Cohesion: 0.40
+Nodes (6): 3. Activar Link Slice View automaticamente, code:python (sliceCompositeNodes = slicer.util.getNodesByClass("vtkMRMLSl), Objetivo, Objetivo, Requerimiento tecnico, Requerimiento tecnico
+
+### Community 279 - "Community 279"
+Cohesion: 0.50
+Nodes (3): Envia un mensaje a la consola interactiva (si existe)., Envia un mensaje a la consola interactiva (si existe)., Envia un mensaje a la consola interactiva (si existe).
+
+### Community 280 - "Community 280"
+Cohesion: 0.50
+Nodes (3): Computa DVH y radiobiologia para higado, tumor, pretumor., Computa DVH y radiobiologia para higado, tumor, pretumor., Computa DVH y radiobiologia para higado, tumor, pretumor.
+
+### Community 281 - "Community 281"
+Cohesion: 0.50
+Nodes (3): Convierte MeV/cm3/particula a Gy., Extrae array 3D del labelmap, transpone a (nx, ny, nz)., Convierte MeV/cm3/particula a Gy.
+
 ## Knowledge Gaps
-- **1076 isolated node(s):** `timestamp`, `task_id`, `agent`, `scope`, `status` (+1071 more)
+- **1132 isolated node(s):** `timestamp`, `task_id`, `agent`, `scope`, `status` (+1127 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **28 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `DoseCalculator` connect `Community 23` to `Community 0`, `Community 1`, `Community 233`, `Community 234`, `Community 73`, `Community 47`, `Community 48`, `Community 211`, `Community 247`, `Community 249`, `Community 90`, `Community 219`, `Community 62`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
-- **Why does `ts_label_to_phantom` connect `Community 76` to `Community 109`, `Community 110`, `Community 111`, `Community 112`, `Community 113`, `Community 114`, `Community 115`, `Community 116`, `Community 117`, `Community 118`, `Community 119`, `Community 120`, `Community 121`, `Community 122`, `Community 123`, `Community 124`, `Community 125`, `Community 126`, `Community 127`, `Community 129`, `Community 130`, `Community 131`, `Community 132`, `Community 133`, `Community 134`, `Community 135`, `Community 136`, `Community 137`, `Community 138`, `Community 139`, `Community 140`, `Community 141`, `Community 142`, `Community 143`, `Community 144`, `Community 145`, `Community 146`, `Community 147`, `Community 148`, `Community 149`, `Community 150`, `Community 151`, `Community 152`, `Community 153`, `Community 154`, `Community 155`, `Community 156`, `Community 157`, `Community 158`, `Community 159`, `Community 160`, `Community 161`, `Community 162`, `Community 163`, `Community 164`, `Community 165`, `Community 166`, `Community 167`, `Community 168`, `Community 169`, `Community 170`, `Community 171`, `Community 172`, `Community 173`, `Community 174`, `Community 175`, `Community 176`, `Community 177`, `Community 178`, `Community 179`, `Community 180`, `Community 181`, `Community 182`, `Community 183`, `Community 184`, `Community 185`, `Community 186`, `Community 187`, `Community 188`, `Community 189`, `Community 191`, `Community 192`, `Community 193`, `Community 194`, `Community 195`, `Community 196`, `Community 197`, `Community 198`, `Community 199`, `Community 200`, `Community 201`, `Community 202`, `Community 203`, `Community 204`, `Community 205`, `Community 206`, `Community 214`, `Community 245`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `show_progress()` connect `Community 53` to `Community 64`, `Community 65`, `Community 1`, `Community 99`, `Community 100`, `Community 238`, `Community 18`, `Community 88`, `Community 25`, `Community 26`, `Community 28`, `Community 93`, `Community 190`?**
+- **Why does `DoseCalculator` connect `Community 23` to `Community 0`, `Community 1`, `Community 90`, `Community 233`, `Community 266`, `Community 73`, `Community 47`, `Community 48`, `Community 276`, `Community 277`, `Community 249`, `Community 250`, `Community 253`, `Community 62`?**
+  _High betweenness centrality (0.049) - this node is a cross-community bridge._
+- **Why does `ts_label_to_phantom` connect `Community 76` to `Community 109`, `Community 110`, `Community 111`, `Community 112`, `Community 113`, `Community 114`, `Community 115`, `Community 116`, `Community 117`, `Community 118`, `Community 119`, `Community 120`, `Community 121`, `Community 122`, `Community 123`, `Community 124`, `Community 125`, `Community 126`, `Community 127`, `Community 129`, `Community 130`, `Community 131`, `Community 132`, `Community 133`, `Community 134`, `Community 135`, `Community 136`, `Community 137`, `Community 138`, `Community 139`, `Community 140`, `Community 141`, `Community 142`, `Community 143`, `Community 144`, `Community 145`, `Community 146`, `Community 147`, `Community 148`, `Community 149`, `Community 150`, `Community 151`, `Community 152`, `Community 153`, `Community 154`, `Community 155`, `Community 156`, `Community 157`, `Community 158`, `Community 159`, `Community 160`, `Community 161`, `Community 162`, `Community 163`, `Community 164`, `Community 165`, `Community 166`, `Community 167`, `Community 168`, `Community 169`, `Community 170`, `Community 171`, `Community 172`, `Community 173`, `Community 174`, `Community 175`, `Community 176`, `Community 178`, `Community 179`, `Community 180`, `Community 181`, `Community 182`, `Community 183`, `Community 184`, `Community 185`, `Community 187`, `Community 188`, `Community 189`, `Community 191`, `Community 192`, `Community 194`, `Community 195`, `Community 196`, `Community 197`, `Community 198`, `Community 199`, `Community 200`, `Community 201`, `Community 202`, `Community 203`, `Community 204`, `Community 205`, `Community 206`, `Community 211`, `Community 214`, `Community 219`, `Community 245`, `Community 274`?**
   _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `show_progress()` connect `Community 53` to `Community 64`, `Community 256`, `Community 65`, `Community 99`, `Community 100`, `Community 1`, `Community 18`, `Community 25`, `Community 249`, `Community 26`, `Community 28`, `Community 93`, `Community 190`?**
+  _High betweenness centrality (0.031) - this node is a cross-community bridge._
 - **Are the 19 inferred relationships involving `ConsolaComandos` (e.g. with `PipelineMod1` and `str`) actually correct?**
   _`ConsolaComandos` has 19 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 3 inferred relationships involving `PipelineMod1` (e.g. with `CheckpointManager` and `MCP`) actually correct?**
