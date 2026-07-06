@@ -840,27 +840,8 @@ class PipelineMod1:
                 return None
 
         # ── Mostrar cartel no-modal "Guardando escena..." ──
-        dialog = None
-        try:
-            from qt import QDialog, QVBoxLayout, QLabel, QApplication
-            main_w = slicer.util.mainWindow()
-            dialog = QDialog(main_w)
-            dialog.setWindowTitle("3Dosim — Guardando escena")
-            dialog.setModal(False)
-            dialog.setMinimumWidth(320)
-            layout = QVBoxLayout(dialog)
-            msg = QLabel(
-                "<b>Guardando escena...</b><br>"
-                "Puede tomar hasta 2 minutos si la escena es grande.<br>"
-                "No cerrar Slicer."
-            )
-            msg.setWordWrap(True)
-            msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
-            layout.addWidget(msg)
-            dialog.show()
-            QApplication.processEvents()
-        except Exception:
-            dialog = None  # Qt no disponible, seguir sin cartel
+        from PipelineOrchestrator.utils import show_save_scene_dialog, close_save_scene_dialog
+        dialog = show_save_scene_dialog()
 
         try:
             # Una sola escena — se sobrescribe acumulando cada paso
@@ -871,37 +852,15 @@ class PipelineMod1:
             filepath = os.path.join(scene_dir, filename)
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             t0 = time.time()
-            logger.info(f"  Escena{' ['+tag+']' if tag else ''} -> {filepath}")
+            logger.info(f"  Escena{" ["+tag+"]" if tag else ''} -> {filepath}")
             logger.info(f"  Guardando escena (puede tomar hasta 2 min si la escena es grande)...")
-            old_tmp = os.environ.get("TMP", "")
-            old_temp = os.environ.get("TEMP", "")
-            try:
-                short_tmp = r"C:\tmp"
-                os.makedirs(short_tmp, exist_ok=True)
-                os.environ["TMP"] = short_tmp
-                os.environ["TEMP"] = short_tmp
-                success = slicer.util.saveScene(filepath)
-            finally:
-                os.environ["TMP"] = old_tmp
-                os.environ["TEMP"] = old_temp
-            elapsed = time.time() - t0
-            if success:
-                new_size = os.path.getsize(filepath)
-                logger.info(f"  Escena guardada ({elapsed:.0f}s): {os.path.basename(filepath)} ({new_size/1024/1024:.0f} MB)")
-                return filepath
-            else:
-                logger.warning(f"  saveScene devolvio False ({elapsed:.0f}s)")
-                return None
+            slicer.util.saveScene(filepath)
+            dt = time.time() - t0
+            logger.info(f"    Escena guardada en {dt:.1f}s")
         except Exception as e:
-            logger.warning(f"No se pudo guardar escena '{tag}': {e}")
-            return None
+            logger.warning(f"  No se pudo guardar escena: {e}")
         finally:
-            if dialog is not None:
-                try:
-                    dialog.close()
-                    dialog.deleteLater()
-                except Exception:
-                    pass
+            close_save_scene_dialog(dialog)
 
     def _stop_after_fusion_handler(self):
         logger.info("")

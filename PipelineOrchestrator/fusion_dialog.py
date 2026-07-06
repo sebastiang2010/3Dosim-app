@@ -11,7 +11,7 @@ Muestra en un QDialog NO MODAL:
 NO bloquea el pipeline. El usuario puede cerrarlo cuando quiera.
 """
 
-    import logging
+import logging
 
 logger = logging.getLogger(__name__)
 

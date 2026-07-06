@@ -1717,37 +1717,15 @@ def load_kernel(kernel_path: str) -> np.ndarray:
 
 
 def _show_popup(title: str, text: str, no_slicer: bool = False):
-    """Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)."""
-    if no_slicer:
-        return None
-    try:
-        import slicer
-        from qt import QDialog, QVBoxLayout, QLabel, Qt
-        dlg = QDialog(slicer.util.mainWindow())
-        dlg.setWindowTitle(title)
-        dlg.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint |
-                           Qt.CustomizeWindowHint | Qt.WindowTitleHint)
-        dlg.setModal(False)
-        layout = QVBoxLayout(dlg)
-        layout.addWidget(QLabel(text))
-        dlg.show()
-        dlg.raise_()
-        dlg.activateWindow()
-        slicer.app.processEvents()
-        return dlg
-    except Exception as e:
-        logger.warning(f"  Popup no disponible: {e}")
-        return None
+    """Wrapper para compatibilidad — usa la funcion compartida en utils."""
+    from PipelineOrchestrator.utils import show_popup
+    return show_popup(title, text, no_slicer)
 
 
 def _close_popup(dlg):
-    """Cierra dialogo no-modal si existe."""
-    if dlg is not None:
-        try:
-            dlg.close()
-            dlg.deleteLater()
-        except Exception:
-            pass
+    """Wrapper para compatibilidad — usa la funcion compartida en utils."""
+    from PipelineOrchestrator.utils import close_popup
+    close_popup(dlg)
 
 
 def main():
@@ -2872,6 +2850,18 @@ def main():
                 # Layout SIN vista 3D: ConventionalView = axial/sagital/coronal + plot
                 slicer.app.layoutManager().setLayout(
                     slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
+                # ── Reset 3D view: equivale a click "Reset Field of View" ──
+                # El layout change reinicia la cámara 3D, restaurarla automáticamente
+                try:
+                    _lm = slicer.app.layoutManager()
+                    _tw = _lm.threeDWidget(0) if _lm else None
+                    if _tw:
+                        _tw.threeDView().resetFocalPoint()
+                        logger.info("  3D view: Reset Field of View automatico")
+                        print("[3Dosim] Vista 3D ajustada automaticamente", flush=True)
+                except Exception as _e:
+                    logger.debug(f"  3D view reset fallo: {_e}")
+
                 # Re-saltar al voxel de maxima dosis DESPUÉS del layout (evita reset de vistas)
                 if dose_node is not None:
                     import vtk as _vtk

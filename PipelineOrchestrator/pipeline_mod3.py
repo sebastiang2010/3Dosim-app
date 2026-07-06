@@ -591,27 +591,8 @@ class PipelineMod3:
                 return None
 
         # ── Mostrar cartel no-modal "Guardando escena..." ──
-        dialog = None
-        try:
-            from qt import QDialog, QVBoxLayout, QLabel, QApplication
-            main_w = slicer.util.mainWindow()
-            dialog = QDialog(main_w)
-            dialog.setWindowTitle("3Dosim — Guardando escena")
-            dialog.setModal(False)
-            dialog.setMinimumWidth(320)
-            layout = QVBoxLayout(dialog)
-            msg = QLabel(
-                "<b>Guardando escena...</b><br>"
-                "Puede tomar hasta 2 minutos si la escena es grande.<br>"
-                "No cerrar Slicer."
-            )
-            msg.setWordWrap(True)
-            msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
-            layout.addWidget(msg)
-            dialog.show()
-            QApplication.processEvents()
-        except Exception:
-            dialog = None  # Qt no disponible, seguir sin cartel
+        from PipelineOrchestrator.utils import show_save_scene_dialog, close_save_scene_dialog
+        dialog = show_save_scene_dialog()
 
         try:
             # Una sola escena — se sobrescribe acumulando cada paso
@@ -647,14 +628,7 @@ class PipelineMod3:
             logger.warning(f"No se pudo guardar escena '{tag}': {e}")
             return None
         finally:
-            if dialog is not None:
-                try:
-                    dialog.close()
-                    dialog.deleteLater()
-                    from qt import QApplication
-                    QApplication.processEvents()
-                except Exception:
-                    pass
+            close_save_scene_dialog(dialog)
 
     def _tomar_screenshot(self, nombre):
         """Toma screenshot de toda la ventana de Slicer."""
