@@ -2558,16 +2558,9 @@ def main():
                                     except Exception:
                                         pass
                                     logger.info("  Slices restaurados post-isodosis (CT + Dosis)")
-                                    # Reset views post-isodosis: centra field of view correctamente
-                                    # (equivale a click "Actualizar vistas" manual)
-                                    # ⚠️ resetSliceViews resetea POSICION (slice offset) + FOV (zoom).
-                                    # Por eso PRIMERO reseteamos FOV, y LUEGO saltamos a maxima dosis.
-                                    try:
-                                        slicer.util.resetSliceViews()
-                                        logger.info("  Slice views reseteados post-isodosis")
-                                    except Exception as _e_r:
-                                        logger.warning(f"  resetSliceViews fallo: {_e_r}")
-                                    # AHORA saltar a maxima dosis (se conserva el FOV del reset)
+                                    # Reset FOV sin tocar posicion (no usar resetSliceViews que resetea TAMBIEN el offset)
+                                    _reset_slice_fov(fov_mm=300.0, label="[ISODOSE]")
+                                    # Saltar a maxima dosis (ahora con SetSliceOffset directo, NO JumpSlice)
                                     _ras_post = _jump_to_max_dose(dose_node, dose_gy, label="[ISODOSE]")
                                     # Re-activar crosshair
                                     _enable_crosshair(label="[ISODOSE]")
@@ -2900,7 +2893,8 @@ def main():
 
 
 def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
-    """Helper: lleva slices 2D al voxel de maxima dosis usando MULTIPLES metodos.
+    """Helper: lleva slices 2D al voxel de maxima dosis.
+    Usa SetSliceOffset DIRECTO (bypass de JumpSlice que falla con slices linkeados).
     Retorna RAS [x,y,z] o None si fallo."""
     if dose_node is None or dose_gy is None:
         logger.warning(f"{label} No dose data")
@@ -2916,32 +2910,36 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
         _mat_j.MultiplyPoint(_ijk_j, _r_j)
         ras = list(_r_j[:3])
         logger.info(f"{label} Max dose RAS: {ras}")
-        # ── Metodo 1: SliceNode.JumpSlice (API mas directa) ──
-        _jumped = False
-        _sns = slicer.util.getNodesByClass("vtkMRMLSliceNode")
-        for _sn in _sns:
+        # ── Metodo 1: SetSliceOffset DIRECTO en cada slice node ──
+        _ok = 0
+        for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
             try:
-                _sn.JumpSlice(ras[0], ras[1], ras[2])
-                _jumped = True
+                # Calcular offset: producto punto entre RAS target y el normal del slice
+                _stor = _vtk_j.vtkMatrix4x4()
+                _sn.GetSliceToRAS(_stor)
+                _n0 = _stor.GetElement(0, 2)
+                _n1 = _stor.GetElement(1, 2)
+                _n2 = _stor.GetElement(2, 2)
+                _off = _n0 * ras[0] + _n1 * ras[1] + _n2 * ras[2]
+                _sn.SetSliceOffset(_off)
+                _ok += 1
             except Exception as _ej:
-                logger.warning(f"{label} JumpSlice fallo en {_sn.GetName()}: {_ej}")
-        if _jumped:
-            logger.info(f"{label} OK via SliceNode.JumpSlice ({len(_sns)} slices)")
-        # ── Metodo 2: markups logic (fallback) ──
+                logger.warning(f"{label} SetSliceOffset fallo en {_sn.GetName()}: {_ej}")
+        logger.info(f"{label} OK SetSliceOffset directo en {_ok} slice nodes")
+        # ── Metodo 2: markups (fallback, por si el directo no basto) ──
         try:
             _ml = slicer.modules.markups.logic()
             _ml.JumpSlicesToLocation(ras[0], ras[1], ras[2], True)
-            logger.info(f"{label} OK via markups.JumpSlicesToLocation")
-            _jumped = True
+            logger.info(f"{label} OK markups.JumpSlicesToLocation (adicional)")
         except Exception as _e2:
-            logger.warning(f"{label} markups.JumpSlicesToLocation fallo: {_e2}")
-        if not _jumped:
-            logger.warning(f"{label} AMBOS metodos fallaron!")
-        # ── Metodo 3: forzar refresco visual ──
+            logger.debug(f"{label} markups fallo: {_e2}")
+        # ── Forzar render ──
         try:
             _lm_j = slicer.app.layoutManager()
             for _i_j in range(_lm_j.sliceViewCount()):
                 _lm_j.sliceWidget(_i_j).sliceView().scheduleRender()
+            # fuerza render inmediato
+            slicer.app.processEvents()
         except Exception:
             pass
         return ras
@@ -2950,6 +2948,21 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
         import traceback
         logger.warning(traceback.format_exc())
         return None
+
+
+def _reset_slice_fov(fov_mm=300.0, label="[FOV]"):
+    """Helper: fija FieldOfView de TODOS los slice nodes a un valor fijo
+    SIN mover la posicion (a diferencia de resetSliceViews que resetea todo).
+    fov_mm: tamano en mm del FOV cuadrado (default 300mm)."""
+    _ok = 0
+    for _sn_fov in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+        try:
+            _sn_fov.SetFieldOfView(fov_mm, fov_mm, fov_mm)
+            _ok += 1
+        except Exception as _ef:
+            logger.debug(f"{label} FOV fallo en {_sn_fov.GetName()}: {_ef}")
+    if _ok:
+        logger.info(f"{label} FOV={fov_mm}mm fijado en {_ok} slice nodes")
 
 
 def _enable_crosshair(label="[CROSSHAIR]"):
