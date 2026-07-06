@@ -2953,26 +2953,34 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
 
 
 def _enable_crosshair(label="[CROSSHAIR]"):
-    """Activa lineas de interseccion del crosshair."""
+    """Activa lineas de interseccion del crosshair.
+    Usa slicer.vtkMRMLCrosshairNode.ShowIntersectionLines
+    (constante de clase, NO atributo de instancia).
+    """
+    # Obtener el valor del modo (2 = ShowIntersectionLines)
+    try:
+        _crosshair_mode = slicer.vtkMRMLCrosshairNode.ShowIntersectionLines
+    except AttributeError:
+        _crosshair_mode = 2  # fallback numerico
     # Metodo 1: via crosshair logic
     try:
         _cl = slicer.modules.crosshair.logic()
         _cn = _cl.GetCrosshairNode()
         if _cn:
-            _cn.SetCrosshairMode(_cn.ShowIntersectionLines)
-            logger.info(f"{label} ShowIntersectionLines (via crosshair logic)")
+            _cn.SetCrosshairMode(_crosshair_mode)
+            logger.info(f"{label} ShowIntersectionLines (via crosshair logic, mode={_crosshair_mode})")
             return
-    except Exception:
-        pass
+    except Exception as _e1:
+        logger.debug(f"{label} crosshair logic fallo: {_e1}")
     # Metodo 2: via getNode
     try:
         _cn2 = slicer.util.getNode(pattern="Crosshair")
         if _cn2:
-            _cn2.SetCrosshairMode(_cn2.ShowIntersectionLines)
-            logger.info(f"{label} ShowIntersectionLines (via getNode)")
+            _cn2.SetCrosshairMode(_crosshair_mode)
+            logger.info(f"{label} ShowIntersectionLines (via getNode, mode={_crosshair_mode})")
             return
-    except Exception as _e:
-        logger.warning(f"{label} fallo: {_e}")
+    except Exception as _e2:
+        logger.warning(f"{label} getNode fallo: {_e2}")
 
 
 def _setup_display_sync(dose_node, dose_gy):
