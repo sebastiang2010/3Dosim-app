@@ -1681,6 +1681,28 @@ def setup_slicer_paths():
     return None
 
 
+def _get_unique_values(arr, label="labelmap"):
+    """Obtiene valores unicos de un array 3D sin explotar memoria.
+    Prefiere pd.unique() que es O(n) sin copia de sorting.
+    Fallback: muestreo aleatorio de bloques si hasta eso falla."""
+    try:
+        import pandas as _pd
+        return _pd.unique(arr.ravel())
+    except (ImportError, MemoryError):
+        try:
+            return np.unique(arr)
+        except MemoryError as _me:
+            logger.warning(f"  MemoryError en np.unique({label}): {_me}. Muestreando...")
+            _seen = set()
+            _flat = arr.ravel()
+            for _ in range(10):
+                _idx = np.random.randint(0, _flat.size, min(50000, _flat.size))
+                for _v in _flat[_idx]:
+                    _seen.add(int(_v))
+            logger.info(f"  Valores unicos (muestra): {sorted(_seen)}")
+            return np.array(sorted(_seen))
+
+
 def get_labelmap_array(labelmap_node):
     """Extrae array 3D del labelmap, transpone a (nx, ny, nz)."""
     import slicer
@@ -2060,12 +2082,12 @@ def main():
 
         logger.info(f"  Labelmap shape: {dims}")
         logger.info(f"  Spacing: {spacing}")
-        logger.info(f"  Indices unicos: {np.unique(labelmap)}")
+        logger.info(f"  Indices unicos: {_get_unique_values(labelmap, label='labelmap')}")
 
         # Generar zona peritumoral (1 cm alrededor del tumor)
         t_peri = time.time()
         try:
-            if TUMOR_INDEX in labelmap and PRETUMOR_INDEX not in np.unique(labelmap):
+            if TUMOR_INDEX in labelmap and PRETUMOR_INDEX not in labelmap:
                 logger.info("\n--- Generando zona peritumoral (1 cm alrededor del tumor) ---")
                 _log_consola("Generando zona peritumoral (1 cm alrededor del tumor)...")
                 sys.stdout.flush()
@@ -2199,7 +2221,7 @@ def main():
         _ai_review("Carga + Labelmap + Actividad", True, {
             "activity_gbq": activity_gbq,
             "labelmap_shape": list(dims),
-            "labelmap_indices": [int(x) for x in np.unique(labelmap)],
+            "labelmap_indices": [int(x) for x in _get_unique_values(labelmap, label="indices")],
         })
 
     else:
