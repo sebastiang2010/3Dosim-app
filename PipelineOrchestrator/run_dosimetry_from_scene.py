@@ -1923,15 +1923,20 @@ def main():
 
         logger.info("\n--- Paso 1: Cargar escena ---")
         _log_consola("Paso 1/10: Cargando escena (puede tardar ~2 min)...")
-        print("[3Dosim] ============================================", flush=True)
-        print("[3Dosim] CARGANDO ESCENA... (puede tardar hasta 2 minutos)", flush=True)
-        print("[3Dosim] NO CIERRE SLICER, ESPERE...", flush=True)
-        print("[3Dosim] ============================================", flush=True)
+        from PipelineOrchestrator.utils import show_popup, close_popup
+        scene_popup = show_popup(
+            "3Dosim — Cargando escena",
+            "<b>Cargando escena en 3D Slicer...</b><br><br>"
+            "Esto puede tardar hasta 2 minutos si la escena es grande.<br>"
+            "NO cierre Slicer, espere a que termine."
+        )
         if not load_scene(scene_path):
+            close_popup(scene_popup)
             logger.error("Abortando: no se pudo cargar la escena")
             _log_consola_error("Error cargando escena")
             _wait_slicer("La escena no pudo cargarse. Revise el archivo y cierre Slicer.", timeout_s=30)
             return 1
+        close_popup(scene_popup)
 
         logger.info("\n--- Paso 2: Buscar nodos ---")
         _log_consola("Paso 2/10: Buscando nodos (CT, PET, Labelmap)...")
