@@ -835,11 +835,11 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
     chart_node.SetTitle("Cumulative Dose Volume Histogram")
     chart_node.SetXAxisTitle("Dose (Gy)")
     chart_node.SetYAxisTitle("Volume (%)")
-    # Escala Y log — Slicer 5.8 usa SetYAxisLogScale(int)
+    # Escala Y lineal (explicita: Slicer 5.8 default es lineal, pero forzamos)
     if hasattr(chart_node, "SetYAxisLogScale"):
-        chart_node.SetYAxisLogScale(1)
+        chart_node.SetYAxisLogScale(0)
     elif hasattr(chart_node, "SetYAxisLog"):
-        chart_node.SetYAxisLog(True)
+        chart_node.SetYAxisLog(False)
 
     series_nodes = []
     dvh_curves = []  # para exportar PNG
@@ -907,10 +907,14 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
 
         logger.info(f"  DVH creado: {name} ({n} voxels, Dmax={Dmax:.1f} Gy)")
 
-    # Escalar eje X al maximo real (bug: Slicer default es 0-1000)
-    if global_dmax > 0 and hasattr(chart_node, "SetXAxisRange"):
-        chart_node.SetXAxisRange(0, global_dmax * 1.05)
-        logger.info(f"  DVH X-axis range: 0 - {global_dmax * 1.05:.1f} Gy")
+    # Escalar ejes (Slicer default no es correcto)
+    if global_dmax > 0:
+        if hasattr(chart_node, "SetXAxisRange"):
+            chart_node.SetXAxisRange(0, global_dmax * 1.05)
+            logger.info(f"  DVH X-axis range: 0 - {global_dmax * 1.05:.1f} Gy")
+        if hasattr(chart_node, "SetYAxisRange"):
+            chart_node.SetYAxisRange(0, 105)
+            logger.info("  DVH Y-axis range: 0 - 105 (lineal)")
 
     # Asignar chart al PlotViewNode (API correcta Slicer 5.8:
     # plotWidget.plotView() devuelve qMRMLPlotView (Qt), NO vtkMRMLPlotViewNode.
@@ -961,9 +965,10 @@ def _export_dvh_png(dvh_curves, filepath):
         ax.set_xlabel("Dose (Gy)", fontweight="bold")
         ax.set_ylabel("Volume (%)", fontweight="bold")
         ax.set_title("Cumulative Dose Volume Histogram", fontweight="bold")
-        ax.set_yscale("log")
+        # Escala Y lineal (sin log)
+        ax.set_yscale("linear")
         ax.set_xlim(0, x_max * 1.05 if x_max > 0 else 100)
-        ax.set_ylim(0.1, 110)
+        ax.set_ylim(0, 105)
         ax.grid(True, which="both", alpha=0.3)
         ax.legend()
         fig.tight_layout()
