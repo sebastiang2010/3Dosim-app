@@ -912,21 +912,19 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         chart_node.SetXAxisRange(0, global_dmax * 1.05)
         logger.info(f"  DVH X-axis range: 0 - {global_dmax * 1.05:.1f} Gy")
 
-    # Activar modulo Plots
+    # Asignar chart al PlotViewNode (API correcta Slicer 5.8:
+    # plotWidget.plotView() devuelve qMRMLPlotView (Qt), NO vtkMRMLPlotViewNode.
+    # El metodo SetPlotChartNodeID esta en el MRML node, no en el Qt widget.
     if series_nodes and show_gui:
-        slicer.util.selectModule("Plots")
-        # Asignar chart al PlotView
-        plotWidget = slicer.app.layoutManager().plotWidget(0)
-        if plotWidget:
-            plotView = plotWidget.plotView()
-            if plotView:
-                # Slicer 5.8 usa SetPlotChartNodeID (no SetChartNodeID)
-                if hasattr(plotView, "SetPlotChartNodeID"):
-                    plotView.SetPlotChartNodeID(chart_node.GetID())
-                elif hasattr(plotView, "SetChartNodeID"):
-                    plotView.SetChartNodeID(chart_node.GetID())
-                else:
-                    logger.warning("  No se pudo asignar chart al PlotView: metodo no encontrado")
+        try:
+            _pv_nodes = slicer.util.getNodesByClass("vtkMRMLPlotViewNode")
+            if _pv_nodes:
+                _pv_nodes[0].SetPlotChartNodeID(chart_node.GetID())
+                logger.info("[DVH] Chart asignado al PlotViewNode via MRML node")
+            else:
+                logger.warning("[DVH] No se encontraron PlotViewNodes en la escena")
+        except Exception as _e_dvh:
+            logger.warning(f"[DVH] Error asignando chart: {_e_dvh}")
         slicer.app.processEvents()
 
     # Exportar imagen PNG
@@ -2562,6 +2560,33 @@ def main():
                                         logger.info("  Slice views reseteados post-isodosis")
                                     except Exception:
                                         pass
+                                    # ⚠️ resetSliceViews UNDOEA el jump a maxima dosis.
+                                    # Re-aplicar jump + reset 3D FOV (usando dose_node/dose_gy del closure)
+                                    try:
+                                        import vtk as _vtk_is
+                                        import numpy as _np_is
+                                        _max_flat_is = _np_is.argmax(dose_gy)
+                                        _max_idx_is = _np_is.unravel_index(_max_flat_is, dose_gy.shape)
+                                        _ijk_is = [float(_max_idx_is[2]), float(_max_idx_is[1]), float(_max_idx_is[0]), 1.0]
+                                        _mat_is = _vtk_is.vtkMatrix4x4()
+                                        dose_node.GetIJKToRASMatrix(_mat_is)
+                                        _ras_is = [0.0, 0.0, 0.0, 0.0]
+                                        _mat_is.MultiplyPoint(_ijk_is, _ras_is)
+                                        _ras_max_is = list(_ras_is[:3])
+                                        slicer.modules.markups.logic().JumpSlicesToLocation(
+                                            _ras_max_is[0], _ras_max_is[1], _ras_max_is[2], True)
+                                        logger.info("[ISODOSE] Re-jump a maxima dosis post-resetSliceViews")
+                                    except Exception as _e_is:
+                                        logger.warning(f"[ISODOSE] Re-jump fallo: {_e_is}")
+                                    # Re-reset 3D FOV
+                                    try:
+                                        _lm_is = slicer.app.layoutManager()
+                                        _tw_is = _lm_is.threeDWidget(0) if _lm_is else None
+                                        if _tw_is:
+                                            _tw_is.threeDView().resetFocalPoint()
+                                            logger.info("[ISODOSE] Re-reset 3D FOV post-resetSliceViews")
+                                    except Exception as _e_fov:
+                                        logger.warning(f"[ISODOSE] Re-reset FOV fallo: {_e_fov}")
                                 except Exception as e:
                                     logger.warning(f"  No se pudieron restaurar slices post-isodosis: {e}")
                             else:
@@ -2848,39 +2873,15 @@ def main():
     # Mantener Slicer abierto si --show O si hay consola interactiva
     keep_alive = args.show or (consola is not None)
     if keep_alive:
+        logger.info("[INIT] Configurando display final...")
         if args.show:
-            try:
-                slicer.util.selectModule("Plots")
-                slicer.app.processEvents()
-                # Layout SIN vista 3D: ConventionalView = axial/sagital/coronal + plot
-                slicer.app.layoutManager().setLayout(
-                    slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
-                # ── Reset 3D view: equivale a click "Reset Field of View" ──
-                # El layout change reinicia la cámara 3D, restaurarla automáticamente
-                try:
-                    _lm = slicer.app.layoutManager()
-                    _tw = _lm.threeDWidget(0) if _lm else None
-                    if _tw:
-                        _tw.threeDView().resetFocalPoint()
-                        logger.info("  3D view: Reset Field of View automatico")
-                        print("[3Dosim] Vista 3D ajustada automaticamente", flush=True)
-                except Exception as _e:
-                    logger.debug(f"  3D view reset fallo: {_e}")
-
-                # Re-saltar al voxel de maxima dosis DESPUÉS del layout (evita reset de vistas)
-                if dose_node is not None:
-                    import vtk as _vtk
-                    max_idx = np.unravel_index(np.argmax(dose_gy), dose_gy.shape)
-                    ijk = [float(max_idx[2]), float(max_idx[1]), float(max_idx[0]), 1.0]
-                    mat_ras = _vtk.vtkMatrix4x4()
-                    dose_node.GetIJKToRASMatrix(mat_ras)
-                    ras = [0.0, 0.0, 0.0, 0.0]
-                    mat_ras.MultiplyPoint(ijk, ras)
-                    from qt import QTimer
-                    QTimer.singleShot(300,
-                        lambda r=ras[:3]: slicer.modules.markups.logic().JumpSlicesToLocation(r[0], r[1], r[2], True))
-            except Exception:
-                pass
+            # --- Layout + Crosshair + Translate + Jump + Reset 3D (TODO sincrónico) ---
+            _ras_max = _setup_display_sync(dose_node, dose_gy)
+            # Timer solo para re-asignar DVH chart (2000ms post-DVH para asegurar)
+            QTimer.singleShot(2200,
+                lambda r=_ras_max, dn=dose_node, dg=dose_gy:
+                    _reassign_dvh_chart(r, dn, dg))
+            logger.info("[INIT] Display sincronico OK + timer reassign DVH@2200ms")
 
         if consola:
             _log_consola("Consola activa. Escribi 'ayuda' para comandos, 'salir' para cerrar.")
@@ -2897,6 +2898,143 @@ def main():
             pass
 
     return 0
+
+
+def _setup_display_sync(dose_node, dose_gy):
+    """Configura el display COMPLETO de forma sincrónica:
+    layout, crosshair, translate, JumpSlicesToLocation, reset 3D FOV.
+    Retorna _ras_max para uso posterior (re-asignar DVH chart).
+    """
+    _ras_max = None
+    try:
+        from slicer import vtkMRMLLayoutNode as _LayoutNode
+        _lm = slicer.app.layoutManager()
+        # ── 1. Layout: ConventionalPlotView = 3D arriba izq + DVH plot arriba der + 3 slices abajo ──
+        _layout_plot = getattr(_LayoutNode, "SlicerLayoutConventionalPlotView", None)
+        if _layout_plot is not None:
+            _lm.setLayout(_layout_plot)
+            logger.info("[LAYOUT] ConventionalPlotView: 3D+plot / 3 slices")
+        else:
+            _layout_4up = getattr(_LayoutNode, "SlicerLayoutFourUpPlotView", None)
+            if _layout_4up is not None:
+                _lm.setLayout(_layout_4up)
+                logger.info("[LAYOUT] FourUpPlotView (fallback)")
+            else:
+                _lm.setLayout(_LayoutNode.SlicerLayoutConventionalView)
+                logger.info("[LAYOUT] ConventionalView (sin plot)")
+        slicer.app.processEvents()
+
+        # ── 2. Crosshair ──
+        try:
+            _ch = slicer.util.getNode(pattern="Crosshair")
+            if _ch:
+                _ch.SetCrosshairMode(_ch.ShowIntersectionLines)
+                logger.info("[CROSSHAIR] ShowIntersectionLines activado")
+        except Exception as _e:
+            logger.debug(f"[CROSSHAIR] fallo: {_e}")
+
+        # ── 3. Translate-only interaction ──
+        try:
+            for _sn in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
+                _sn.SetInteractionMode(_sn.TranslateSlice)
+            logger.info("[TRANSLATE] Modo solo trasladar activado")
+        except Exception as _e:
+            logger.debug(f"[TRANSLATE] fallo: {_e}")
+
+        # ── 4. Calcular voxel de maxima dosis ──
+        if dose_node is not None and dose_gy is not None:
+            import vtk as _vtk
+            _max_flat = np.argmax(dose_gy)
+            max_idx = np.unravel_index(_max_flat, dose_gy.shape)
+            ijk = [float(max_idx[2]), float(max_idx[1]), float(max_idx[0]), 1.0]
+            mat_ras = _vtk.vtkMatrix4x4()
+            dose_node.GetIJKToRASMatrix(mat_ras)
+            ras = [0.0, 0.0, 0.0, 0.0]
+            mat_ras.MultiplyPoint(ijk, ras)
+            _ras_max = list(ras[:3])
+            logger.info(f"[JUMP] Max dose RAS: {_ras_max}")
+
+            # ── 5. Saltar slices al maximo (SINCRONICO) ──
+            try:
+                slicer.modules.markups.logic().JumpSlicesToLocation(
+                    _ras_max[0], _ras_max[1], _ras_max[2], True)
+                logger.info("[JUMP] Slices saltaron a maxima dosis")
+            except Exception as _e:
+                logger.warning(f"[JUMP] JumpSlicesToLocation fallo: {_e}")
+
+            # ── 6. Reset 3D FOV (SINCRONICO) ──
+            try:
+                _tw = _lm.threeDWidget(0) if _lm else None
+                if _tw:
+                    _tw.threeDView().resetFocalPoint()
+                    logger.info("[3DFOV] Reset FOV ejecutado")
+                else:
+                    logger.debug("[3DFOV] No hay threeDWidget(0) en este layout")
+            except Exception as _e:
+                logger.debug(f"[3DFOV] Reset FOV fallo: {_e}")
+
+        logger.info("[DISPLAY] Setup sincronico completado exitosamente")
+    except Exception as _e:
+        logger.warning(f"[DISPLAY] Error en setup sincronico: {_e}")
+        import traceback
+        logger.warning(traceback.format_exc())
+    return _ras_max
+
+
+def _reassign_dvh_chart(ras_max=None, dose_node=None, dose_gy=None):
+    """Timer postergado (~2200ms): re-asigna chart DVH + re-aplica jump/FOV/crosshair.
+    Se ejecuta DESPUES de que la isodosis (100ms) y DVH (200ms) terminaron,
+    para asegurar que todo quede en su estado final.
+    Usa getNodesByClass (API correcta), NO plotWidget.plotView() (Qt widget).
+    """
+    # ── A) Re-asignar DVH chart ──
+    try:
+        chart_node = slicer.util.getNode("DVH_Chart")
+        if chart_node:
+            _pv_nodes = slicer.util.getNodesByClass("vtkMRMLPlotViewNode")
+            if _pv_nodes:
+                _pv_nodes[0].SetPlotChartNodeID(chart_node.GetID())
+                logger.info("[DVH] Chart re-asignado al PlotViewNode correctamente")
+            else:
+                logger.warning("[DVH] No se encontraron PlotViewNodes en la escena")
+        else:
+            logger.warning("[DVH] No se encontro 'DVH_Chart' en la escena")
+    except Exception as e:
+        logger.warning(f"[DVH] Error re-asignando chart: {e}")
+
+    # ── B) Re-aplicar crosshair (por si se perdio) ──
+    try:
+        _ch = slicer.util.getNode(pattern="Crosshair")
+        if _ch:
+            _ch.SetCrosshairMode(_ch.ShowIntersectionLines)
+            logger.info("[FINAL] Crosshair re-activado")
+    except Exception:
+        pass
+
+    # ── C) Re-aplicar jump + FOV ──
+    if dose_node is not None and dose_gy is not None:
+        try:
+            import vtk as _vtk2
+            _m2 = np.argmax(dose_gy)
+            _i2 = np.unravel_index(_m2, dose_gy.shape)
+            _j2 = [float(_i2[2]), float(_i2[1]), float(_i2[0]), 1.0]
+            _m4 = _vtk2.vtkMatrix4x4()
+            dose_node.GetIJKToRASMatrix(_m4)
+            _r2 = [0.0, 0.0, 0.0, 0.0]
+            _m4.MultiplyPoint(_j2, _r2)
+            slicer.modules.markups.logic().JumpSlicesToLocation(_r2[0], _r2[1], _r2[2], True)
+            logger.info("[FINAL] Re-jump a maxima dosis (timer 2200ms)")
+        except Exception as _e2:
+            logger.warning(f"[FINAL] Re-jump fallo: {_e2}")
+
+        try:
+            _lm2 = slicer.app.layoutManager()
+            _tw2 = _lm2.threeDWidget(0) if _lm2 else None
+            if _tw2:
+                _tw2.threeDView().resetFocalPoint()
+                logger.info("[FINAL] Re-reset 3D FOV (timer 2200ms)")
+        except Exception as _e3:
+            logger.warning(f"[FINAL] Re-reset FOV fallo: {_e3}")
 
 
 if __name__ == "__main__":

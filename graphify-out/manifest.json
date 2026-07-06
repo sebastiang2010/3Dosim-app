@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\fusion_dialog.py": {
-    "mtime": 1783099071.6223242,
-    "ast_hash": "7e83674dbaba18b5d0ed7d8f7ce147fd",
+    "mtime": 1783335172.9551919,
+    "ast_hash": "dbd3535d881a1d8aae8e866115c2f8f3",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\git_commit.py": {
@@ -115,23 +115,23 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\pipeline_mod1.py": {
-    "mtime": 1783177669.7802784,
-    "ast_hash": "e89ac594bd9f6f36279e7c1943eb7d21",
+    "mtime": 1783335172.958268,
+    "ast_hash": "cdc1cbc9213e9f9f3f5e76ccdb14e26f",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\pipeline_mod2.py": {
-    "mtime": 1783176357.3400216,
-    "ast_hash": "aa9c7b15a2b7d00549e3803016e76a94",
+    "mtime": 1783335172.959375,
+    "ast_hash": "c0500eb7021c855a31bb8c4587e3e7f5",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\pipeline_mod3.py": {
-    "mtime": 1783199120.5797782,
-    "ast_hash": "0eee7ee9dbf21cb74bfe5d3b8ccefdd8",
+    "mtime": 1783335172.9623733,
+    "ast_hash": "8c1f72493e2360fbcf3f7c25814f83eb",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\run_dosimetry_from_scene.py": {
-    "mtime": 1783199085.423869,
-    "ast_hash": "13009e8712932837bec7bda7423d7450",
+    "mtime": 1783335172.9653935,
+    "ast_hash": "324d1c0e5f534bdbd70200c235b411dd",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\segmentation.py": {
@@ -160,8 +160,8 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\utils.py": {
-    "mtime": 1783176173.12832,
-    "ast_hash": "f6c32c35b6a320ea4860a6aa862a901b",
+    "mtime": 1783335172.9675531,
+    "ast_hash": "b8acdf57106c12c31f59ea32b95084f4",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\PipelineOrchestrator\\validate_mcnp_input.py": {
@@ -275,7 +275,7 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\AGENTS.md": {
-    "mtime": 1783332805.7418551,
+    "mtime": 1783335172.9532802,
     "ast_hash": "6bf9eb1bd3771eb415d8edc369c9f3cc",
     "semantic_hash": ""
   },
@@ -420,8 +420,8 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_3\\conversion_dosis.md": {
-    "mtime": 1783202536.8934827,
-    "ast_hash": "134352313661cb57b7bdb6623190a5be",
+    "mtime": 1783335173.0050373,
+    "ast_hash": "fedac5cd32d7405c01edaf106de9bb08",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_3\\dvh.md": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_3\\vision_general.md": {
-    "mtime": 1783202540.5942104,
-    "ast_hash": "9a43ba6b551f719fa24483e4cbf294cf",
+    "mtime": 1783335173.018982,
+    "ast_hash": "14cfd70ff0269684de556970ba84cc9c",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_3\\visualizacion_slicer.md": {
@@ -485,48 +485,48 @@
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_1\\mod1_temp.toc": {
-    "mtime": 1783213527.6108057,
-    "ast_hash": "d98df785d01e28c7fa2c9ca9ce6c2afd",
+    "mtime": 1783335172.9763148,
+    "ast_hash": "504af72521ca2389127a5aaaa20df36c",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_1\\modulo_1_completo_backup.toc": {
-    "mtime": 1783201175.6681795,
-    "ast_hash": "e9652e2c48d818dd5cff0e9366fcf343",
+    "mtime": 1783335172.9853284,
+    "ast_hash": "3c4048b3f4b775a7de947a478010a209",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_2\\mod2_temp.toc": {
-    "mtime": 1783213516.2266767,
-    "ast_hash": "988f9e56cb743898363208ca2a884fcc",
+    "mtime": 1783335172.990332,
+    "ast_hash": "43ef14628c1275f876ae9da520cf255c",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_2\\modulo_2_completo_backup.toc": {
-    "mtime": 1783201173.253251,
-    "ast_hash": "8ff48e3f1772eeabe1c2909cd308229d",
+    "mtime": 1783335172.9963267,
+    "ast_hash": "61a197c3a25daff25e10ce2131e47cf5",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_3\\calculo_dosis_mctall_kernel.toc": {
-    "mtime": 1783201171.6635404,
-    "ast_hash": "3223a3fab006472dd86ae01f46d4a8b1",
+    "mtime": 1783335173.00393,
+    "ast_hash": "21fd2866426e04cd05d4846c861c538c",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_3\\mod3_temp.toc": {
-    "mtime": 1783213514.4962373,
-    "ast_hash": "64465d530761e1f02bdf8b3fcff46be0",
+    "mtime": 1783335173.011283,
+    "ast_hash": "f18ac50c95eeebc3552c89b04750eb2b",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\docs\\modulo_3\\modulo_3_completo_backup.toc": {
-    "mtime": 1783201172.709528,
-    "ast_hash": "f4a99193df9174d31092e3a8c0b3be22",
+    "mtime": 1783335173.0172813,
+    "ast_hash": "f6b99b1b8909328df665316179af5726",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\manual_estilo_documentacion.md": {
-    "mtime": 1783212414.65999,
-    "ast_hash": "8460c7bf00dab2a9ab53d6d07cb073bc",
+    "mtime": 1783335173.105914,
+    "ast_hash": "3431f6cf2e4fe4ddb49090c461a330ba",
     "semantic_hash": ""
   },
   "C:\\programas\\3Dosim\\3Dosim_v4\\revision_texto_documentacion.md": {
-    "mtime": 1783202107.3656526,
-    "ast_hash": "6c61ae61b1628d52ea70ba31a72ddc08",
+    "mtime": 1783335173.1069105,
+    "ast_hash": "d10cc7ba4b16eb7ec55272256d825b99",
     "semantic_hash": ""
   }
 }

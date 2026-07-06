@@ -48,6 +48,27 @@ def log(msg):
         _LOG_FILE.flush()
 
 
+def _set_plot_layout():
+    """Configura layout con plot view sin usar selectModule (evita pisar el layout)."""
+    import slicer as _s
+    try:
+        from slicer import vtkMRMLLayoutNode as _LN
+        _lm = _s.app.layoutManager()
+        _lp = getattr(_LN, "SlicerLayoutConventionalPlotView", None)
+        if _lp is not None:
+            _lm.setLayout(_lp)
+            log("[LAYOUT] ConventionalPlotView (3D+plot / 3 slices)")
+        else:
+            _lp4 = getattr(_LN, "SlicerLayoutFourUpPlotView", None)
+            if _lp4 is not None:
+                _lm.setLayout(_lp4)
+            else:
+                _lm.setLayout(_LN.SlicerLayoutConventionalView)
+        _s.app.processEvents()
+    except Exception as _e:
+        log(f"[LAYOUT] fallo: {_e}")
+
+
 # ======================================================================
 # Paths por defecto
 # ======================================================================
@@ -260,9 +281,8 @@ def recreate_dvh(dose_node=None, labelmap_node=None):
         
         log(f"DVH recreado: {series_created} series")
         
-        # Asignar al PlotViewNode (Slicer 5.8 API)
-        slicer.util.selectModule("Plots")
-        slicer.app.processEvents()
+        # Layout con plot view (sin selectModule para no pisar layout)
+        _set_plot_layout()
         
         # Usar vtkMRMLPlotViewNode para asignar chart (no plot_view.SetChartNodeID)
         pv_nodes = slicer.util.getNodesByClass("vtkMRMLPlotViewNode")
@@ -354,9 +374,8 @@ def show_dvh_in_plots():
                 else:
                     log(f"      ERROR: TableNode no encontrado por ID")
     
-    # 2. Activar modulo Plots
-    slicer.util.selectModule("Plots")
-    slicer.app.processEvents()
+    # 2. Layout con plot view (sin selectModule para no pisar layout)
+    _set_plot_layout()
     
     # 3. Asignar chart al PlotViewNode (Slicer 5.8 API)
     pv_nodes = slicer.util.getNodesByClass("vtkMRMLPlotViewNode")

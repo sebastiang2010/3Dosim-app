@@ -1296,12 +1296,23 @@ class PipelineMod3:
         except Exception as e:
             logger.warning(f"  No se pudo guardar escena final: {e}")
 
-        # Mostrar Plots module
+        # Mostrar layout con DVH (sin selectModule para no pisar layout)
         try:
-            slicer.util.selectModule("Plots")
+            from slicer import vtkMRMLLayoutNode as _LayoutNode
+            _lm = slicer.app.layoutManager()
+            _layout_plot = getattr(_LayoutNode, "SlicerLayoutConventionalPlotView", None)
+            if _layout_plot is not None:
+                _lm.setLayout(_layout_plot)
+                logger.info("[LAYOUT] ConventionalPlotView (3D+plot / 3 slices)")
+            else:
+                _layout_4up = getattr(_LayoutNode, "SlicerLayoutFourUpPlotView", None)
+                if _layout_4up is not None:
+                    _lm.setLayout(_layout_4up)
+                else:
+                    _lm.setLayout(_LayoutNode.SlicerLayoutConventionalView)
             slicer.app.processEvents()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[LAYOUT] fallo layout: {e}")
 
         # Resumen en consola
         self._log_consola("=" * 50)
