@@ -3019,6 +3019,13 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
                     _sv_j.fitToBackground()
                 except Exception:
                     pass
+            # ResetFieldOfView: replica el boton 'Reset Field of View' de Slicer 2D
+            # Ajusta el FOV al volumen de fondo (no solo encuadra, sino que ajusta tamano)
+            try:
+                for _sn_rfov in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                    _sn_rfov.ResetFieldOfView()
+            except Exception:
+                pass
             # fuerza render inmediato
             slicer.app.processEvents()
         except Exception:
@@ -3046,10 +3053,39 @@ def _reset_slice_fov(fov_mm=300.0, label="[FOV]"):
         logger.info(f"{label} FOV={fov_mm}mm fijado en {_ok} slice nodes")
 
 
+def _reset_slice_field_of_view(label="[RESET-FOV]"):
+    """Replica el boton 'Reset Field of View' de Slicer 2D.
+    Usa vtkMRMLSliceNode.ResetFieldOfView() que ajusta el FOV al volumen
+    de fondo Y fuerza el render visual.
+    Esto es lo que hace el boton 2D 'Reset Field of View' en la GUI.
+    """
+    _ok = 0
+    try:
+        for _sn_rfov in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+            try:
+                # ResetFieldOfView() ajusta FOV al volumen de fondo
+                # (equivalente al boton 'Reset Field of View' de Slicer)
+                _sn_rfov.ResetFieldOfView()
+                _ok += 1
+            except Exception as _erf:
+                logger.debug(f"{label} ResetFieldOfView fallo en {_sn_rfov.GetName()}: {_erf}")
+        # Forzar render visual de todos los slices
+        _lm_rfov = slicer.app.layoutManager()
+        for _i_rfov in range(_lm_rfov.sliceViewCount()):
+            _sv_rfov = _lm_rfov.sliceWidget(_i_rfov).sliceView()
+            _sv_rfov.scheduleRender()
+        slicer.app.processEvents()
+        if _ok:
+            logger.info(f"{label} ResetFieldOfView aplicado en {_ok} slice nodes + render forzado")
+    except Exception as _e_rfov:
+        logger.warning(f"{label} ResetFieldOfView fallo: {_e_rfov}")
+
+
 def _enable_crosshair(label="[CROSSHAIR]"):
     """Activa lineas de interseccion del crosshair.
     Usa slicer.vtkMRMLCrosshairNode.ShowIntersectionLines
     (constante de clase, NO atributo de instancia).
+    Fuerza render visual despues de activar.
     """
     # Obtener el valor del modo (2 = ShowIntersectionLines)
     try:
@@ -3063,6 +3099,15 @@ def _enable_crosshair(label="[CROSSHAIR]"):
         if _cn:
             _cn.SetCrosshairMode(_crosshair_mode)
             logger.info(f"{label} ShowIntersectionLines (via crosshair logic, mode={_crosshair_mode})")
+            # Forzar render visual del crosshair
+            try:
+                _lm = slicer.app.layoutManager()
+                for _i in range(_lm.sliceViewCount()):
+                    _sv = _lm.sliceWidget(_i).sliceView()
+                    _sv.scheduleRender()
+                slicer.app.processEvents()
+            except Exception:
+                pass
             return
     except Exception as _e1:
         logger.debug(f"{label} crosshair logic fallo: {_e1}")
@@ -3072,6 +3117,15 @@ def _enable_crosshair(label="[CROSSHAIR]"):
         if _cn2:
             _cn2.SetCrosshairMode(_crosshair_mode)
             logger.info(f"{label} ShowIntersectionLines (via getNode, mode={_crosshair_mode})")
+            # Forzar render visual del crosshair
+            try:
+                _lm = slicer.app.layoutManager()
+                for _i in range(_lm.sliceViewCount()):
+                    _sv = _lm.sliceWidget(_i).sliceView()
+                    _sv.scheduleRender()
+                slicer.app.processEvents()
+            except Exception:
+                pass
             return
     except Exception as _e2:
         logger.warning(f"{label} getNode fallo: {_e2}")
@@ -3123,6 +3177,8 @@ def _setup_display_sync(dose_node, dose_gy):
                 logger.info("[3DFOV] Reset FOV ejecutado (focalPoint + camera)")
         except Exception as _e:
             logger.debug(f"[3DFOV] fallo: {_e}")
+        # ── 6. Reset 2D FOV (boton 'Reset Field of View' de Slicer) ──
+        _reset_slice_field_of_view(label="[DISPLAY-SYNC]")
         logger.info("[DISPLAY] Setup sincronico completado exitosamente")
     except Exception as _e:
         logger.warning(f"[DISPLAY] Error en setup sincronico: {_e}")
@@ -3154,6 +3210,8 @@ def _reassign_dvh_chart(ras_max=None, dose_node=None, dose_gy=None):
     _enable_crosshair(label="[FINAL]")
     # ── C) Re-aplicar jump + 3D FOV ──
     _jump_to_max_dose(dose_node, dose_gy, label="[FINAL]")
+    # ── D) Re-aplicar Reset 2D FOV (boton 'Reset Field of View') ──
+    _reset_slice_field_of_view(label="[FINAL]")
     try:
         _lm2 = slicer.app.layoutManager()
         _tw2 = _lm2.threeDWidget(0) if _lm2 else None
