@@ -55,6 +55,16 @@ from scipy.ndimage import binary_dilation
 
 print(f"[3Dosim SCRIPT INICIADO] argv={sys.argv}", flush=True)
 
+# ── Fix PATH para que from PipelineOrchestrator.xxx funcione ──
+# Slicer ejecuta --python-script como <string>, no desde el directorio del paquete
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_parent_dir = os.path.dirname(_script_dir)  # 3Dosim_v4/
+for _p in (_script_dir, _parent_dir):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+        print(f"[3Dosim PATH] Agregado: {_p}")
+# ────────────────────────────────────────────────────────────────
+
 # AI Supervisor (opcional)
 try:
     from PipelineOrchestrator import ai_supervisor
@@ -652,9 +662,12 @@ def compute_dvh(
     v70_pct = float((doses >= 70).sum() / n_total * 100) if n_total > 0 else 0.0
 
     # DVH histograma
-    dose_max_hist = float(np.percentile(doses, 99.5))  # evitar outliers
+    # Usar Dmax real (no percentil 99.5) para capturar TODA la curva DVH
+    # El percentil 99.5 cortaba hasta 57% del rango en higado (excluyendo voxeles
+    # de alta dosis cerca del tumor que son clinicamente importantes)
+    dose_max_hist = max_dose
     if dose_max_hist <= 0:
-        dose_max_hist = max_dose
+        dose_max_hist = 1.0  # evitar division por cero
 
     hist, edges = np.histogram(
         doses, bins=bins, range=(0, dose_max_hist * 1.05)
@@ -1754,6 +1767,11 @@ def _close_popup(dlg):
 
 
 def main():
+    # ── Limpieza inicial de memoria (importante para multiples ejecuciones) ──
+    import gc
+    gc.collect()
+    logger.info("Memoria inicial liberada (gc.collect)")
+
     # ── Logging global: captura TODO a archivo ──
     try:
         from PipelineOrchestrator.logging_setup import setup_global_logging
@@ -2260,23 +2278,30 @@ def main():
         if pet_node is not None and labelmap is not None:
             logger.info(f"  Usando volumen PET_CT para kernel: {pet_node.GetName()}")
             pet_arr = slicer.util.arrayFromVolume(pet_node)  # (nz, ny, nx)
-            pet_arr = pet_arr.transpose(2, 1, 0).astype(np.float64)  # (nx, ny, nz)
+            # Convertir a float32 INMEDIATAMENTE para ahorrar 50% memoria
+            pet_arr = pet_arr.transpose(2, 1, 0).astype(np.float32)  # (nx, ny, nz)
             pet_arr = np.maximum(pet_arr, 0)  # sin negativos
-            if pet_arr.sum() > 0:
-                A = pet_arr / pet_arr.sum() * activity_gbq  # GBq/voxel (MATLAB: A = PET * 1e-9)
+            pet_sum = float(pet_arr.sum())
+            if pet_sum > 0:
+                # Crear A directamente en float32 (no float64) para ahorrar memoria
+                A = (pet_arr / pet_sum * activity_gbq).astype(np.float32)
             else:
-                A = np.ones(dims, dtype=np.float64) * activity_gbq / np.prod(dims)
+                A = np.ones(dims, dtype=np.float32) * (activity_gbq / np.prod(dims))
+            # Liberar pet_arr INMEDIATAMENTE - ya no se necesita
+            del pet_arr
+            import gc
+            gc.collect()
         elif labelmap is not None:
             # Sin PET: distribucion uniforme en higado+tumor
-            A = np.zeros(dims, dtype=np.float64)
+            A = np.zeros(dims, dtype=np.float32)
             liver_tumor = (labelmap == LIVER_INDEX) | (labelmap == TUMOR_INDEX)
             n_lt = np.sum(liver_tumor)
             if n_lt > 0:
-                A[liver_tumor] = activity_gbq / n_lt  # GBq/voxel
+                A[liver_tumor] = activity_gbq / n_lt
             else:
                 A[:] = activity_gbq / np.prod(dims)
         else:
-            A = np.ones(dims, dtype=np.float64) * activity_gbq / np.prod(dims)
+            A = np.ones(dims, dtype=np.float32) * (activity_gbq / np.prod(dims))
 
         logger.info(f"  Actividad total en A: {A.sum():.4f} GBq (MATLAB: A = PET * 1e-9)")
 
@@ -2301,6 +2326,8 @@ def main():
                 A_crop = np.asarray(A_crop, dtype=np.float32)
                 # Liberar A (float64 original) — ya no se necesita en esta rama
                 del A
+                import gc
+                gc.collect()
                 logger.info(f"  ROI actividad: {A_crop.shape} (full: {dims})")
                 _log_consola(f"Convolucion FFT sobre ROI {A_crop.shape}...")
                 sys.stdout.flush()
@@ -2314,9 +2341,16 @@ def main():
                 t_conv = time.time()
                 dose_crop = convolve_imfilter_symmetric(A_crop, kernel)
                 dt_conv = time.time() - t_conv
+                # Liberar A_crop - ya no se necesita despues de la convolucion
+                del A_crop
+                import gc
+                gc.collect()
                 # Reconstruir volumen completo
                 dose_gy = np.zeros(dims, dtype=np.float64)
                 dose_gy[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]] = dose_crop
+                # Liberar dose_crop - ya esta copiado en dose_gy
+                del dose_crop
+                gc.collect()
                 logger.info(f"  Convolucion FFT (ROI) completada en {dt_conv:.1f}s")
                 _log_consola(f"Convolucion FFT: {dt_conv:.1f}s (MATLAB: ~22s)")
             else:
@@ -2591,8 +2625,10 @@ def main():
                                         _lm_is = slicer.app.layoutManager()
                                         _tw_is = _lm_is.threeDWidget(0) if _lm_is else None
                                         if _tw_is:
-                                            _tw_is.threeDView().resetFocalPoint()
-                                            logger.info("[ISODOSE] 3D FOV reseteado post-isodosis")
+                                            _3dv_is = _tw_is.threeDView()
+                                            _3dv_is.resetFocalPoint()
+                                            _3dv_is.resetCamera()
+                                            logger.info("[ISODOSE] 3D FOV reseteado post-isodosis (focalPoint + camera)")
                                     except Exception as _e_fov:
                                         logger.warning(f"[ISODOSE] 3D FOV fallo: {_e_fov}")
                                 except Exception as e:
@@ -2831,6 +2867,17 @@ def main():
     else:
         _log_consola("  PDF omitido (--no-pdf)")
 
+    # Liberar labelmap y dose_gy - ya no se necesitan despues del PDF (~540 MB total)
+    if labelmap is not None:
+        del labelmap
+        logger.info("  Labelmap liberado de memoria (~180 MB)")
+    if dose_gy is not None:
+        del dose_gy
+        logger.info("  dose_gy liberado de memoria (~360 MB)")
+    import gc
+    gc.collect()
+    logger.info("  Memoria liberada post-reporte")
+
     if not args.no_slicer:
         # Guardar escena NO BLOQUEANTE (en background, no demora la vista)
         try:
@@ -2937,8 +2984,13 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
         for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
             try:
                 # Calcular offset: producto punto entre RAS target y el normal del slice
-                _stor = _vtk_j.vtkMatrix4x4()
-                _sn.GetSliceToRAS(_stor)
+                # Slicer 5.x: GetSliceToRAS() retorna la matriz directamente (0 args)
+                # Slicer 4.x: GetSliceToRAS(matrix) llena la matriz pasada (1 arg)
+                try:
+                    _stor = _sn.GetSliceToRAS()
+                except TypeError:
+                    _stor = _vtk_j.vtkMatrix4x4()
+                    _sn.GetSliceToRAS(_stor)
                 _n0 = _stor.GetElement(0, 2)
                 _n1 = _stor.GetElement(1, 2)
                 _n2 = _stor.GetElement(2, 2)
@@ -2959,7 +3011,14 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
         try:
             _lm_j = slicer.app.layoutManager()
             for _i_j in range(_lm_j.sliceViewCount()):
-                _lm_j.sliceWidget(_i_j).sliceView().scheduleRender()
+                _sv_j = _lm_j.sliceWidget(_i_j).sliceView()
+                _sv_j.scheduleRender()
+                # FitSliceToBackground: encuadra el slice al volumen de fondo
+                # para que el voxel de maxima dosis sea visible
+                try:
+                    _sv_j.fitToBackground()
+                except Exception:
+                    pass
             # fuerza render inmediato
             slicer.app.processEvents()
         except Exception:
@@ -3056,8 +3115,12 @@ def _setup_display_sync(dose_node, dose_gy):
         try:
             _tw = _lm.threeDWidget(0) if _lm else None
             if _tw:
-                _tw.threeDView().resetFocalPoint()
-                logger.info("[3DFOV] Reset FOV ejecutado")
+                _3dv = _tw.threeDView()
+                # resetFocalPoint() solo resetea el punto focal; resetCamera() ajusta
+                # la camara para encuadrar toda la escena (FOV real).
+                _3dv.resetFocalPoint()
+                _3dv.resetCamera()
+                logger.info("[3DFOV] Reset FOV ejecutado (focalPoint + camera)")
         except Exception as _e:
             logger.debug(f"[3DFOV] fallo: {_e}")
         logger.info("[DISPLAY] Setup sincronico completado exitosamente")
@@ -3095,8 +3158,10 @@ def _reassign_dvh_chart(ras_max=None, dose_node=None, dose_gy=None):
         _lm2 = slicer.app.layoutManager()
         _tw2 = _lm2.threeDWidget(0) if _lm2 else None
         if _tw2:
-            _tw2.threeDView().resetFocalPoint()
-            logger.info("[FINAL] 3D FOV reseteado")
+            _3dv2 = _tw2.threeDView()
+            _3dv2.resetFocalPoint()
+            _3dv2.resetCamera()
+            logger.info("[FINAL] 3D FOV reseteado (focalPoint + camera)")
     except Exception as _e3:
         logger.warning(f"[FINAL] 3D FOV fallo: {_e3}")
 
