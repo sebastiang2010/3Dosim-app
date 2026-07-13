@@ -2601,9 +2601,7 @@ def main():
                                         _sn_iso.Modified()
                                     slicer.app.processEvents()
                                     logger.info("  Slices restaurados post-isodosis (CT + Dosis)")
-                                    # Reset FOV sin tocar posicion (no usar resetSliceViews que resetea TAMBIEN el offset)
-                                    _reset_slice_field_of_view(label="[ISODOSE]")
-                                    # Saltar a maxima dosis
+                                    # Saltar a maxima dosis (ResetFieldOfView + JumpSlicesToLocation interno)
                                     _ras_post = _jump_to_max_dose(dose_node, dose_gy, label="[ISODOSE]")
                                     # Re-activar crosshair
                                     _enable_crosshair(label="[ISODOSE]")
@@ -2961,8 +2959,8 @@ def main():
 
 def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
     """Helper: lleva slices 2D al voxel de maxima dosis.
-    Usa SetSliceOffset DIRECTO (calculado como dot product del RAS target
-    con el normal del slice). NO usa ResetFieldOfView porque UNDOEA el offset.
+    Orden: ResetFieldOfView primero (FOV correcto en volumen),
+    luego JumpSlicesToLocation (centra en max dosis).
     Retorna RAS [x,y,z] o None si fallo."""
     if dose_node is None or dose_gy is None:
         logger.warning(f"{label} No dose data")
@@ -2978,33 +2976,23 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
         _mat_j.MultiplyPoint(_ijk_j, _r_j)
         ras = list(_r_j[:3])
         logger.info(f"{label} Max dose RAS: {ras}")
-        # ── SetSliceOffset calculado manualmente ──
-        # Producto punto entre RAS target y el vector normal del slice.
-        # El normal es la 3ra columna de la matriz SliceToRAS.
-        _ok = 0
-        for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
-            try:
-                _stor = _sn.GetSliceToRAS()
-                _n0 = _stor.GetElement(0, 2)
-                _n1 = _stor.GetElement(1, 2)
-                _n2 = _stor.GetElement(2, 2)
-                _off = _n0 * ras[0] + _n1 * ras[1] + _n2 * ras[2]
-                _sn.SetSliceOffset(_off)
-                _sn.Modified()
-                _ok += 1
-            except Exception as _ej:
-                logger.warning(f"{label} SetSliceOffset fallo en {_sn.GetName()}: {_ej}")
-        logger.info(f"{label} OK SetSliceOffset en {_ok} slice nodes")
-        # ── markups (fallback de confirmacion) ──
+        # ── Paso 1: ResetFieldOfView primero (FOV correcto, centrado en volumen) ──
+        try:
+            for _sn_j in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                _sn_j.ResetFieldOfView()
+                _sn_j.Modified()
+            slicer.app.processEvents()
+            logger.info(f"{label} OK ResetFieldOfView")
+        except Exception as _e_rfov:
+            logger.debug(f"{label} ResetFieldOfView fallo: {_e_rfov}")
+        # ── Paso 2: JumpSlicesToLocation (centra los 3 slices en max dosis) ──
         try:
             _ml = slicer.modules.markups.logic()
             _ml.JumpSlicesToLocation(ras[0], ras[1], ras[2], True)
-            logger.info(f"{label} OK markups.JumpSlicesToLocation (adicional)")
+            logger.info(f"{label} OK JumpSlicesToLocation")
         except Exception as _e2:
-            logger.debug(f"{label} markups fallo: {_e2}")
-        # ── FOV fijo SIN resetear posicion ──
-        _reset_slice_fov(fov_mm=300.0, label=label)
-        # ── Modified + processEvents ──
+            logger.debug(f"{label} JumpSlicesToLocation fallo: {_e2}")
+        # ── Paso 3: Modified + processEvents ──
         try:
             for _sn_m in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
                 _sn_m.Modified()
@@ -3148,10 +3136,7 @@ def _setup_display_sync(dose_node, dose_gy):
                 logger.info("[3DFOV] Reset FOV ejecutado (focalPoint + camera)")
         except Exception as _e:
             logger.debug(f"[3DFOV] fallo: {_e}")
-        # ── 6. FOV 2D ──
-        # _jump_to_max_dose ya ejecuta _reset_slice_fov(300) internamente
-        # (SetFieldOfView SIN mover posicion). NO llamar ResetFieldOfView
-        # porque UNDOEA el offset.
+        # ── 6. FOV 2D — _jump_to_max_dose ya hace ResetFieldOfView interno ──
         logger.info("[DISPLAY] Setup sincronico completado exitosamente")
     except Exception as _e:
         logger.warning(f"[DISPLAY] Error en setup sincronico: {_e}")
