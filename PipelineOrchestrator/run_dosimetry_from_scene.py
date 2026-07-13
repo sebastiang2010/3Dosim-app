@@ -2957,6 +2957,31 @@ def main():
     return 0
 
 
+def _center_slices_on_node(node, label="[CENTER]"):
+    """Centra todas las slice nodes en el centro RAS del nodo de volumen dado.
+    Utiliza vtkMRMLSliceNode.JumpSlicesToLocation() con las coordenadas del centro.
+    """
+    if node is None:
+        logger.warning(f"{label} No node provided for centering")
+        return
+    try:
+        # Obtener los límites RAS del nodo (xmin, xmax, ymin, ymax, zmin, zmax)
+        bounds = node.GetRASBounds()
+        if not bounds or len(bounds) != 6:
+            logger.warning(f"{label} Bounds inesperados del nodo: {bounds}")
+            return
+        center = [(bounds[i] + bounds[i + 1]) / 2.0 for i in range(0, 6, 2)]
+        for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+            try:
+                _sn.JumpSlicesToLocation(center)
+            except Exception as _e_center:
+                logger.debug(f"{label} JumpSlicesToLocation fallo en {_sn.GetName()}: {_e_center}")
+        slicer.app.processEvents()
+        logger.info(f"{label} Slices centrados en {center}")
+    except Exception as _e_center_all:
+        logger.warning(f"{label} Error al centrar slices: {_e_center_all}")
+
+
 def _reset_2d_views(label="[RESET-2D]"):
     """Replica el boton 'Reset Field of View' 2D de Slicer en TODOS los slices.
     NO salta a maxima dosis — solo centra el FOV en el volumen de fondo.
@@ -2987,9 +3012,6 @@ def _reset_slice_fov(fov_mm=300.0, label="[FOV]"):
             logger.debug(f"{label} FOV fallo en {_sn_fov.GetName()}: {_ef}")
     if _ok:
         logger.info(f"{label} FOV={fov_mm}mm fijado en {_ok} slice nodes")
-
-
-
 
 def _enable_crosshair(label="[CROSSHAIR]"):
     """Activa lineas de interseccion del crosshair.
@@ -3063,6 +3085,7 @@ def _setup_display_sync(dose_node, dose_gy):
             logger.debug(f"[TRANSLATE] fallo: {_e}")
         # ── 4. Reset 2D views (ResetFieldOfView en todos los slices) ──
         _reset_2d_views(label="[JUMP-SYNC]")
+        _center_slices_on_node(dose_node, label="[CENTER]")
         # ── 5. Reset 3D FOV ──
         try:
             _tw = _lm.threeDWidget(0) if _lm else None
@@ -3106,6 +3129,7 @@ def _reassign_dvh_chart(dose_node=None, dose_gy=None):
     _enable_crosshair(label="[FINAL]")
     # ── C) Reset 2D views (ResetFieldOfView en todos los slices) ──
     _reset_2d_views(label="[FINAL]")
+    _center_slices_on_node(dose_node, label="[FINAL]")
     try:
         _lm2 = slicer.app.layoutManager()
         _tw2 = _lm2.threeDWidget(0) if _lm2 else None
