@@ -2961,8 +2961,8 @@ def main():
 
 def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
     """Helper: lleva slices 2D al voxel de maxima dosis.
-    Orden: ResetFieldOfView → JumpSliceByCentering → markups → Modified.
-    JumpSliceByCentering es la API oficial de Slicer para centrar en un punto RAS.
+    Usa SetSliceOffset DIRECTO (calculado como dot product del RAS target
+    con el normal del slice). NO usa ResetFieldOfView porque UNDOEA el offset.
     Retorna RAS [x,y,z] o None si fallo."""
     if dose_node is None or dose_gy is None:
         logger.warning(f"{label} No dose data")
@@ -2978,51 +2978,39 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
         _mat_j.MultiplyPoint(_ijk_j, _r_j)
         ras = list(_r_j[:3])
         logger.info(f"{label} Max dose RAS: {ras}")
-        # ── Paso 1: ResetFieldOfView PRIMERO ──
-        # Reposiciona el FOV al centro del volumen, evita que el ResetFieldOfView
-        # posterior a SetSliceOffset deshaga el jump (ResetFieldOfView en Slicer
-        # puede recalcular el SliceOffset al centro del background volume).
-        try:
-            for _sn_r in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
-                try:
-                    _sn_r.ResetFieldOfView()
-                except Exception as _erf_j:
-                    logger.debug(f"{label} ResetFieldOfView fallo en {_sn_r.GetName()}: {_erf_j}")
-            logger.info(f"{label} OK ResetFieldOfView pre-jump")
-        except Exception as _e_rend:
-            logger.warning(f"{label} ResetFieldOfView pre-jump fallo: {_e_rend}")
-
-        # ── Paso 2: JumpSliceByCentering en cada slice node ──
-        # Usa la API oficial de Slicer para centrar el slice en el punto RAS.
-        # No usa SetSliceOffset manual porque es fragil — JumpSliceByCentering
-        # calcula internamente el offset correcto a lo largo del normal del slice.
+        # ── SetSliceOffset calculado manualmente ──
+        # Producto punto entre RAS target y el vector normal del slice.
+        # El normal es la 3ra columna de la matriz SliceToRAS.
         _ok = 0
         for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
             try:
-                _sn.JumpSliceByCentering(ras[0], ras[1], ras[2])
+                _stor = _sn.GetSliceToRAS()
+                _n0 = _stor.GetElement(0, 2)
+                _n1 = _stor.GetElement(1, 2)
+                _n2 = _stor.GetElement(2, 2)
+                _off = _n0 * ras[0] + _n1 * ras[1] + _n2 * ras[2]
+                _sn.SetSliceOffset(_off)
                 _sn.Modified()
                 _ok += 1
             except Exception as _ej:
-                logger.warning(f"{label} JumpSliceByCentering fallo en {_sn.GetName()}: {_ej}")
-        logger.info(f"{label} OK JumpSliceByCentering en {_ok} slice nodes")
-
-        # ── Paso 3: markups (fallback de confirmacion) ──
+                logger.warning(f"{label} SetSliceOffset fallo en {_sn.GetName()}: {_ej}")
+        logger.info(f"{label} OK SetSliceOffset en {_ok} slice nodes")
+        # ── markups (fallback de confirmacion) ──
         try:
             _ml = slicer.modules.markups.logic()
             _ml.JumpSlicesToLocation(ras[0], ras[1], ras[2], True)
             logger.info(f"{label} OK markups.JumpSlicesToLocation (adicional)")
         except Exception as _e2:
             logger.debug(f"{label} markups fallo: {_e2}")
-
-        # ── Paso 4: Modified + processEvents (fuerza render final) ──
+        # ── FOV fijo SIN resetear posicion ──
+        _reset_slice_fov(fov_mm=300.0, label=label)
+        # ── Modified + processEvents ──
         try:
             for _sn_m in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
                 _sn_m.Modified()
             slicer.app.processEvents()
-            logger.info(f"{label} OK Modified + processEvents en slice nodes")
         except Exception as _e_rend:
-            logger.warning(f"{label} Modified forcing fallo: {_e_rend}")
-
+            logger.debug(f"{label} Modified forcing fallo: {_e_rend}")
         return ras
     except Exception as _e:
         logger.warning(f"{label} Helper fallo: {_e}")
@@ -3160,11 +3148,10 @@ def _setup_display_sync(dose_node, dose_gy):
                 logger.info("[3DFOV] Reset FOV ejecutado (focalPoint + camera)")
         except Exception as _e:
             logger.debug(f"[3DFOV] fallo: {_e}")
-        # ── 6. Reset 2D FOV (boton 'Reset Field of View' de Slicer) ──
-        # NOTA: _reset_slice_field_of_view NO se llama aqui porque _jump_to_max_dose
-        # ya ejecuta ResetFieldOfView ANTES de SetSliceOffset. Llamarlo post-jump
-        # UNDOEA el offset (ResetFieldOfView recentra en el volumen en vez del max dosis).
-        # Ver _jump_to_max_dose para el orden correcto: ResetFOV → SetOffset → Jump.
+        # ── 6. FOV 2D ──
+        # _jump_to_max_dose ya ejecuta _reset_slice_fov(300) internamente
+        # (SetFieldOfView SIN mover posicion). NO llamar ResetFieldOfView
+        # porque UNDOEA el offset.
         logger.info("[DISPLAY] Setup sincronico completado exitosamente")
     except Exception as _e:
         logger.warning(f"[DISPLAY] Error en setup sincronico: {_e}")
@@ -3194,10 +3181,7 @@ def _reassign_dvh_chart(ras_max=None, dose_node=None, dose_gy=None):
         logger.warning(f"[DVH] Error re-asignando chart: {e}")
     # ── B) Re-aplicar crosshair ──
     _enable_crosshair(label="[FINAL]")
-    # ── C) Re-aplicar jump ──
-    # NOTA: _jump_to_max_dose ya ejecuta ResetFieldOfView ANTES de SetSliceOffset
-    # (ver orden correcto en _jump_to_max_dose). NO llamar _reset_slice_field_of_view
-    # despues, porque UNDOEA el offset (recentra en el volumen en vez del max dosis).
+    # ── C) Re-aplicar jump (SetSliceOffset + FOV fijo, sin ResetFieldOfView) ──
     _jump_to_max_dose(dose_node, dose_gy, label="[FINAL]")
     try:
         _lm2 = slicer.app.layoutManager()
