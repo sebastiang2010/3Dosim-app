@@ -288,15 +288,9 @@ def _setup_labelmap_color_table(labelmap_node):
 
     # ── Activar labelmap como capa "label" en slices ──
     try:
-        lm = slicer.app.layoutManager()
-        if lm:
-            for idx in range(lm.sliceViewCount()):
-                sv = lm.sliceWidget(idx).sliceView()
-                if sv:
-                    scn = sv.sliceCompositeNode()
-                    if scn:
-                        scn.SetLabelVolumeID(labelmap_node.GetID())
-                        scn.SetLabelOpacity(0.8)
+        for scn in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
+            scn.SetLabelVolumeID(labelmap_node.GetID())
+            scn.SetLabelOpacity(0.8)
         logger.info("  Labelmap activado como capa label en slices")
     except Exception as e:
         logger.warning(f"  No se pudo activar labelmap en slices: {e}")
@@ -2539,12 +2533,9 @@ def main():
                         # Quitar labelmap de los slices
                         sn.SetLabelVolumeID(None)
                         sn.SetLabelOpacity(0.0)
-                    # Forzar redraw de todos los slice views
-                    lm = slicer.app.layoutManager()
-                    for idx in range(lm.sliceViewCount()):
-                        sv = lm.sliceWidget(idx).sliceView()
-                        if sv:
-                            sv.scheduleRender()
+                    # Forzar redraw de todos los slice views (via Modified, NO layoutManager)
+                    for _sn_rd in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                        _sn_rd.Modified()
                     slicer.app.processEvents()
                     logger.info("  Slices configurados: CT fondo + Dosis overlay (0.4)")
                     _log_consola_ok("Vista: CT + Dosis rainbow")
@@ -2585,7 +2576,7 @@ def main():
                     # Congelar config para el closure
                     _levels = list(isodose_levels) if isodose_levels else None
                     _relative = isodose_relative
-                    def _run_isodose_later(levels=_levels, relative=_relative):
+                    def _run_isodose_later(levels=_levels, relative=_relative, dose_gy=dose_gy):
                         try:
                             model_node, param = create_isodose_contours(
                                 dose_node,
@@ -2605,18 +2596,14 @@ def main():
                                         sn.SetForegroundVolumeID(dose_node.GetID())
                                         sn.SetForegroundOpacity(0.4)
                                         sn.SetLabelVolumeID(None)
-                                    # Forzar redraw
-                                    try:
-                                        lm = slicer.app.layoutManager()
-                                        for idx in range(lm.sliceViewCount()):
-                                            sv = lm.sliceWidget(idx).sliceView()
-                                            if sv: sv.scheduleRender()
-                                    except Exception:
-                                        pass
+                                    # Forzar redraw (via Modified en slice nodes, NO layoutManager)
+                                    for _sn_iso in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                                        _sn_iso.Modified()
+                                    slicer.app.processEvents()
                                     logger.info("  Slices restaurados post-isodosis (CT + Dosis)")
                                     # Reset FOV sin tocar posicion (no usar resetSliceViews que resetea TAMBIEN el offset)
-                                    _reset_slice_fov(fov_mm=300.0, label="[ISODOSE]")
-                                    # Saltar a maxima dosis (ahora con SetSliceOffset directo, NO JumpSlice)
+                                    _reset_slice_field_of_view(label="[ISODOSE]")
+                                    # Saltar a maxima dosis
                                     _ras_post = _jump_to_max_dose(dose_node, dose_gy, label="[ISODOSE]")
                                     # Re-activar crosshair
                                     _enable_crosshair(label="[ISODOSE]")
@@ -2867,6 +2854,11 @@ def main():
     else:
         _log_consola("  PDF omitido (--no-pdf)")
 
+    # Save copies for QTimer callbacks (defined after del)
+    _dvh_dose_gy = dose_gy
+    _dvh_labelmap = labelmap
+    _dvh_spacing = spacing
+
     # Liberar labelmap y dose_gy - ya no se necesitan despues del PDF (~540 MB total)
     if labelmap is not None:
         del labelmap
@@ -2902,7 +2894,7 @@ def main():
     # (DVH plots en background para no congelar consola)
     if not args.no_slicer:
         from qt import QTimer
-        def _run_dvh_plots_later():
+        def _run_dvh_plots_later(dose_gy=_dvh_dose_gy, labelmap=_dvh_labelmap, spacing=_dvh_spacing):
             try:
                 logger.info("  Graficando DVH en Slicer (background)...")
                 _create_dvh_plots_slicer(dose_gy, labelmap, spacing, args.show)
@@ -2931,18 +2923,24 @@ def main():
         logger.info("[INIT] Configurando display final...")
         if args.show:
             # --- Layout + Crosshair + Translate + Jump + Reset 3D (TODO sincrónico) ---
-            _ras_max = _setup_display_sync(dose_node, dose_gy)
+            _ras_max = _setup_display_sync(dose_node, _dvh_dose_gy)
             # Timer solo para re-asignar DVH chart (2000ms post-DVH para asegurar)
             QTimer.singleShot(2200,
-                lambda r=_ras_max, dn=dose_node, dg=dose_gy:
+                lambda r=_ras_max, dn=dose_node, dg=_dvh_dose_gy:
                     _reassign_dvh_chart(r, dn, dg))
             logger.info("[INIT] Display sincronico OK + timer reassign DVH@2200ms")
             # Timer de SEGURIDAD a los 60s: re-aplica jump/FOV/crosshair/chart
             # (la isodosis termina ~33s, esto es mucho despues)
             QTimer.singleShot(60000,
-                lambda dn=dose_node, dg=dose_gy:
+                lambda dn=dose_node, dg=_dvh_dose_gy:
                     _reassign_dvh_chart(None, dn, dg))
             logger.info("[INIT] Safety timer @60000ms (re-aplica display post-isodosis)")
+            # Timer de SEGURIDAD a los 5000ms: re-aplica jump/FOV/crosshair/chart
+            # (la isodosis termina ~33s, pero el post-procesamiento ~3s; esto corre bien despues)
+            QTimer.singleShot(5000,
+                lambda dn=dose_node, dg=_dvh_dose_gy:
+                    _reassign_dvh_chart(None, dn, dg))
+            logger.info("[INIT] Safety timer @5000ms (re-aplica display post-isodosis temprana)")
 
         if consola:
             _log_consola("Consola activa. Escribi 'ayuda' para comandos, 'salir' para cerrar.")
@@ -2963,7 +2961,8 @@ def main():
 
 def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
     """Helper: lleva slices 2D al voxel de maxima dosis.
-    Usa SetSliceOffset DIRECTO (bypass de JumpSlice que falla con slices linkeados).
+    Orden: ResetFieldOfView → JumpSliceByCentering → markups → Modified.
+    JumpSliceByCentering es la API oficial de Slicer para centrar en un punto RAS.
     Retorna RAS [x,y,z] o None si fallo."""
     if dose_node is None or dose_gy is None:
         logger.warning(f"{label} No dose data")
@@ -2979,57 +2978,51 @@ def _jump_to_max_dose(dose_node, dose_gy, label="[JUMP]"):
         _mat_j.MultiplyPoint(_ijk_j, _r_j)
         ras = list(_r_j[:3])
         logger.info(f"{label} Max dose RAS: {ras}")
-        # ── Metodo 1: SetSliceOffset DIRECTO en cada slice node ──
+        # ── Paso 1: ResetFieldOfView PRIMERO ──
+        # Reposiciona el FOV al centro del volumen, evita que el ResetFieldOfView
+        # posterior a SetSliceOffset deshaga el jump (ResetFieldOfView en Slicer
+        # puede recalcular el SliceOffset al centro del background volume).
+        try:
+            for _sn_r in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                try:
+                    _sn_r.ResetFieldOfView()
+                except Exception as _erf_j:
+                    logger.debug(f"{label} ResetFieldOfView fallo en {_sn_r.GetName()}: {_erf_j}")
+            logger.info(f"{label} OK ResetFieldOfView pre-jump")
+        except Exception as _e_rend:
+            logger.warning(f"{label} ResetFieldOfView pre-jump fallo: {_e_rend}")
+
+        # ── Paso 2: JumpSliceByCentering en cada slice node ──
+        # Usa la API oficial de Slicer para centrar el slice en el punto RAS.
+        # No usa SetSliceOffset manual porque es fragil — JumpSliceByCentering
+        # calcula internamente el offset correcto a lo largo del normal del slice.
         _ok = 0
         for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
             try:
-                # Calcular offset: producto punto entre RAS target y el normal del slice
-                # Slicer 5.x: GetSliceToRAS() retorna la matriz directamente (0 args)
-                # Slicer 4.x: GetSliceToRAS(matrix) llena la matriz pasada (1 arg)
-                try:
-                    _stor = _sn.GetSliceToRAS()
-                except TypeError:
-                    _stor = _vtk_j.vtkMatrix4x4()
-                    _sn.GetSliceToRAS(_stor)
-                _n0 = _stor.GetElement(0, 2)
-                _n1 = _stor.GetElement(1, 2)
-                _n2 = _stor.GetElement(2, 2)
-                _off = _n0 * ras[0] + _n1 * ras[1] + _n2 * ras[2]
-                _sn.SetSliceOffset(_off)
+                _sn.JumpSliceByCentering(ras[0], ras[1], ras[2])
+                _sn.Modified()
                 _ok += 1
             except Exception as _ej:
-                logger.warning(f"{label} SetSliceOffset fallo en {_sn.GetName()}: {_ej}")
-        logger.info(f"{label} OK SetSliceOffset directo en {_ok} slice nodes")
-        # ── Metodo 2: markups (fallback, por si el directo no basto) ──
+                logger.warning(f"{label} JumpSliceByCentering fallo en {_sn.GetName()}: {_ej}")
+        logger.info(f"{label} OK JumpSliceByCentering en {_ok} slice nodes")
+
+        # ── Paso 3: markups (fallback de confirmacion) ──
         try:
             _ml = slicer.modules.markups.logic()
             _ml.JumpSlicesToLocation(ras[0], ras[1], ras[2], True)
             logger.info(f"{label} OK markups.JumpSlicesToLocation (adicional)")
         except Exception as _e2:
             logger.debug(f"{label} markups fallo: {_e2}")
-        # ── Forzar render ──
+
+        # ── Paso 4: Modified + processEvents (fuerza render final) ──
         try:
-            _lm_j = slicer.app.layoutManager()
-            for _i_j in range(_lm_j.sliceViewCount()):
-                _sv_j = _lm_j.sliceWidget(_i_j).sliceView()
-                _sv_j.scheduleRender()
-                # FitSliceToBackground: encuadra el slice al volumen de fondo
-                # para que el voxel de maxima dosis sea visible
-                try:
-                    _sv_j.fitToBackground()
-                except Exception:
-                    pass
-            # ResetFieldOfView: replica el boton 'Reset Field of View' de Slicer 2D
-            # Ajusta el FOV al volumen de fondo (no solo encuadra, sino que ajusta tamano)
-            try:
-                for _sn_rfov in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
-                    _sn_rfov.ResetFieldOfView()
-            except Exception:
-                pass
-            # fuerza render inmediato
+            for _sn_m in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                _sn_m.Modified()
             slicer.app.processEvents()
-        except Exception:
-            pass
+            logger.info(f"{label} OK Modified + processEvents en slice nodes")
+        except Exception as _e_rend:
+            logger.warning(f"{label} Modified forcing fallo: {_e_rend}")
+
         return ras
     except Exception as _e:
         logger.warning(f"{label} Helper fallo: {_e}")
@@ -3070,10 +3063,10 @@ def _reset_slice_field_of_view(label="[RESET-FOV]"):
             except Exception as _erf:
                 logger.debug(f"{label} ResetFieldOfView fallo en {_sn_rfov.GetName()}: {_erf}")
         # Forzar render visual de todos los slices
-        _lm_rfov = slicer.app.layoutManager()
-        for _i_rfov in range(_lm_rfov.sliceViewCount()):
-            _sv_rfov = _lm_rfov.sliceWidget(_i_rfov).sliceView()
-            _sv_rfov.scheduleRender()
+        # NOTA: NO usamos layoutManager().sliceViewCount() — no existe en Slicer 5.8.1
+        # En su lugar, marcamos todos los vtkMRMLSliceNode como Modified()
+        for _sn_rfov in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+            _sn_rfov.Modified()
         slicer.app.processEvents()
         if _ok:
             logger.info(f"{label} ResetFieldOfView aplicado en {_ok} slice nodes + render forzado")
@@ -3100,14 +3093,9 @@ def _enable_crosshair(label="[CROSSHAIR]"):
             _cn.SetCrosshairMode(_crosshair_mode)
             logger.info(f"{label} ShowIntersectionLines (via crosshair logic, mode={_crosshair_mode})")
             # Forzar render visual del crosshair
-            try:
-                _lm = slicer.app.layoutManager()
-                for _i in range(_lm.sliceViewCount()):
-                    _sv = _lm.sliceWidget(_i).sliceView()
-                    _sv.scheduleRender()
-                slicer.app.processEvents()
-            except Exception:
-                pass
+            for _sn_cr in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                _sn_cr.Modified()
+            slicer.app.processEvents()
             return
     except Exception as _e1:
         logger.debug(f"{label} crosshair logic fallo: {_e1}")
@@ -3118,14 +3106,9 @@ def _enable_crosshair(label="[CROSSHAIR]"):
             _cn2.SetCrosshairMode(_crosshair_mode)
             logger.info(f"{label} ShowIntersectionLines (via getNode, mode={_crosshair_mode})")
             # Forzar render visual del crosshair
-            try:
-                _lm = slicer.app.layoutManager()
-                for _i in range(_lm.sliceViewCount()):
-                    _sv = _lm.sliceWidget(_i).sliceView()
-                    _sv.scheduleRender()
-                slicer.app.processEvents()
-            except Exception:
-                pass
+            for _sn_cr2 in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                _sn_cr2.Modified()
+            slicer.app.processEvents()
             return
     except Exception as _e2:
         logger.warning(f"{label} getNode fallo: {_e2}")
@@ -3178,7 +3161,10 @@ def _setup_display_sync(dose_node, dose_gy):
         except Exception as _e:
             logger.debug(f"[3DFOV] fallo: {_e}")
         # ── 6. Reset 2D FOV (boton 'Reset Field of View' de Slicer) ──
-        _reset_slice_field_of_view(label="[DISPLAY-SYNC]")
+        # NOTA: _reset_slice_field_of_view NO se llama aqui porque _jump_to_max_dose
+        # ya ejecuta ResetFieldOfView ANTES de SetSliceOffset. Llamarlo post-jump
+        # UNDOEA el offset (ResetFieldOfView recentra en el volumen en vez del max dosis).
+        # Ver _jump_to_max_dose para el orden correcto: ResetFOV → SetOffset → Jump.
         logger.info("[DISPLAY] Setup sincronico completado exitosamente")
     except Exception as _e:
         logger.warning(f"[DISPLAY] Error en setup sincronico: {_e}")
@@ -3208,10 +3194,11 @@ def _reassign_dvh_chart(ras_max=None, dose_node=None, dose_gy=None):
         logger.warning(f"[DVH] Error re-asignando chart: {e}")
     # ── B) Re-aplicar crosshair ──
     _enable_crosshair(label="[FINAL]")
-    # ── C) Re-aplicar jump + 3D FOV ──
+    # ── C) Re-aplicar jump ──
+    # NOTA: _jump_to_max_dose ya ejecuta ResetFieldOfView ANTES de SetSliceOffset
+    # (ver orden correcto en _jump_to_max_dose). NO llamar _reset_slice_field_of_view
+    # despues, porque UNDOEA el offset (recentra en el volumen en vez del max dosis).
     _jump_to_max_dose(dose_node, dose_gy, label="[FINAL]")
-    # ── D) Re-aplicar Reset 2D FOV (boton 'Reset Field of View') ──
-    _reset_slice_field_of_view(label="[FINAL]")
     try:
         _lm2 = slicer.app.layoutManager()
         _tw2 = _lm2.threeDWidget(0) if _lm2 else None
