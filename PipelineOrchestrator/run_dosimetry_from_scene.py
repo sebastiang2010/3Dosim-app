@@ -72,6 +72,10 @@ try:
 except Exception:
     ai_supervisor = None
     _HAS_AI = False
+# Allow disabling AI supervisor via env var (useful when no OpenRouter credits)
+if os.getenv("DISABLE_AI_SUPERVISOR"):
+    _HAS_AI = False
+    logger.info("[AI supervisor] Deshabilitado por variable de entorno DISABLE_AI_SUPERVISOR")
 
 # Isodose contours (opcional — requiere Slicer con SlicerRT o VTK)
 try:
@@ -2547,27 +2551,11 @@ def main():
                         logger.debug(f"  resetSliceViews: {e}")
                 except Exception as e:
                     logger.warning(f"  Configurando slices: {e}")
-                # ── Saltar al voxel con maxima dosis ──
-                _max_ras = None
+                # ── Centrar slices en el nodo de dosis (reemplaza salto a voxel max) ──
                 try:
-                    if dose_node is not None:
-                        import vtk as _vtk
-                        max_idx = np.unravel_index(np.argmax(dose_gy), dose_gy.shape)
-                        ijk = [float(max_idx[2]), float(max_idx[1]), float(max_idx[0]), 1.0]
-                        mat_ras = _vtk.vtkMatrix4x4()
-                        dose_node.GetIJKToRASMatrix(mat_ras)
-                        ras = [0.0, 0.0, 0.0, 0.0]
-                        mat_ras.MultiplyPoint(ijk, ras)
-                        from qt import QTimer
-                        QTimer.singleShot(500,
-                            lambda r=ras[:3]: slicer.modules.markups.logic().JumpSlicesToLocation(r[0], r[1], r[2], True))
-                        logger.info(f"  Saltando al voxel de maxima dosis: "
-                                    f"IJK({max_idx[0]},{max_idx[1]},{max_idx[2]}) "
-                                    f"-> RAS({ras[0]:.1f},{ras[1]:.1f},{ras[2]:.1f})")
-                        _log_consola_ok(f"Maxima dosis: {dose_gy.max():.2f} Gy")
-                        _max_ras = list(ras[:3])
+                    _center_slices_on_node(dose_node, label="[MAX]")
                 except Exception as e:
-                    logger.warning(f"  No se pudo saltar al maximo de dosis: {e}")
+                    logger.warning(f"  No se pudo centrar slices en dosis: {e}")
                 # ── Isodosis (NO BLOQUEANTE: corre en background via QTimer) ──
                 if not args.no_isodose and _HAS_ISODOSE and create_isodose_contours:
                     logger.info("\n--- Isodosis: programada en background ---")
