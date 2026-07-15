@@ -2551,11 +2551,18 @@ def main():
                         logger.debug(f"  resetSliceViews: {e}")
                 except Exception as e:
                     logger.warning(f"  Configurando slices: {e}")
-                # ── Centrar slices en el nodo de dosis (reemplaza salto a voxel max) ──
+                # ── Centrar slices en el nodo de dosis ──
                 try:
                     _center_slices_on_node(dose_node, label="[MAX]")
                 except Exception as e:
                     logger.warning(f"  No se pudo centrar slices en dosis: {e}")
+                # ── Crosshair + translate-only ──
+                _enable_crosshair(label="[INIT]")
+                try:
+                    for _sn_init in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
+                        _sn_init.SetInteractionMode(_sn_init.TranslateSlice)
+                except Exception as _e_init:
+                    logger.debug(f"[INIT] Modo trasladar fallo: {_e_init}")
                 # ── Isodosis (NO BLOQUEANTE: corre en background via QTimer) ──
                 if not args.no_isodose and _HAS_ISODOSE and create_isodose_contours:
                     logger.info("\n--- Isodosis: programada en background ---")
