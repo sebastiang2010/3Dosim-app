@@ -2553,11 +2553,12 @@ def main():
                     logger.warning(f"  Configurando slices: {e}")
                 # ── Centrar slices en el nodo de dosis ──
                 try:
-                    _center_slices_on_node(dose_node, label="[MAX]")
+                    _center_slices_on_node(dose_node, label="[MAX]", use_max=True)
                 except Exception as e:
                     logger.warning(f"  No se pudo centrar slices en dosis: {e}")
                 # ── Crosshair + translate-only ──
                 _enable_crosshair(label="[INIT]")
+                _enable_slice_intersections(label="[INIT]")
                 try:
                     for _sn_init in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
                         _sn_init.SetInteractionMode(_sn_init.TranslateSlice)
@@ -2600,6 +2601,7 @@ def main():
                                     _reset_2d_views(label="[ISODOSE]")
                                     # Re-activar crosshair
                                     _enable_crosshair(label="[ISODOSE]")
+                                    _enable_slice_intersections(label="[ISODOSE]")
                                     # Re-reset 3D FOV
                                     try:
                                         _lm_is = slicer.app.layoutManager()
@@ -2611,11 +2613,13 @@ def main():
                                             logger.info("[ISODOSE] 3D FOV reseteado post-isodosis (focalPoint + camera)")
                                     except Exception as _e_fov:
                                         logger.warning(f"[ISODOSE] 3D FOV fallo: {_e_fov}")
+                                    # Saltar al maximo de dosis
+                                    _center_slices_on_node(dose_node, label="[ISODOSE]", use_max=True)
                                 except Exception as e:
                                     logger.warning(f"  No se pudieron restaurar slices post-isodosis: {e}")
-                            else:
-                                logger.info("  No se generaron isodosis")
-                                _log_consola("Isodosis: sin datos (niveles fuera de rango?)")
+                                else:
+                                    logger.info("  No se generaron isodosis")
+                                    _log_consola("Isodosis: sin datos (niveles fuera de rango?)")
                         except Exception as e:
                             logger.warning(f"  Error generando isodosis: {e}")
                             _log_consola_error(f"Error en isodosis: {e}")
@@ -2952,27 +2956,42 @@ def main():
     return 0
 
 
-def _center_slices_on_node(node, label="[CENTER]"):
-    """Centra todas las slice nodes en el centro RAS del nodo de volumen dado.
-    Utiliza vtkMRMLSliceNode.JumpSlicesToLocation() con las coordenadas del centro.
+def _center_slices_on_node(node, label="[CENTER]", use_max=False):
+    """Centra slices en un punto RAS usando JumpSlicesToLocation (markups logic).
+
+    Args:
+        node: vtkMRMLScalarVolumeNode
+        label: Tag para el log
+        use_max: Si True, salta al voxel con máximo valor. Si False (default),
+                 centra en el punto medio geométrico del volumen.
     """
     if node is None:
         logger.warning(f"{label} No node provided for centering")
         return
     try:
-        # Obtener los límites RAS del nodo (xmin, xmax, ymin, ymax, zmin, zmax)
-        bounds = node.GetRASBounds()
-        if not bounds or len(bounds) != 6:
-            logger.warning(f"{label} Bounds inesperados del nodo: {bounds}")
-            return
-        center = [(bounds[i] + bounds[i + 1]) / 2.0 for i in range(0, 6, 2)]
-        for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
-            try:
-                _sn.JumpSlicesToLocation(center)
-            except Exception as _e_center:
-                logger.debug(f"{label} JumpSlicesToLocation fallo en {_sn.GetName()}: {_e_center}")
+        import numpy as np
+        if use_max:
+            arr = slicer.util.arrayFromVolume(node)
+            if arr is None or arr.size == 0:
+                raise RuntimeError("array vacío o None")
+            max_idx_3d = np.unravel_index(np.argmax(arr), arr.shape)
+            c, r, s = max_idx_3d[2], max_idx_3d[1], max_idx_3d[0]
+            ijk = [c, r, s, 1.0]
+            ijk_to_ras = vtk.vtkMatrix4x4()
+            node.GetIJKToRASMatrix(ijk_to_ras)
+            ras_xyz = ijk_to_ras.MultiplyPoint(ijk)
+            target = [ras_xyz[0], ras_xyz[1], ras_xyz[2]]
+            max_val = float(np.max(arr))
+            logger.info(f"{label} Max={max_val:.4e} en IJK({c},{r},{s}) "
+                        f"RAS({target[0]:.1f}, {target[1]:.1f}, {target[2]:.1f})")
+        else:
+            bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            node.GetRASBounds(bounds)
+            target = [(bounds[i] + bounds[i + 1]) / 2.0 for i in range(0, 6, 2)]
+
+        slicer.modules.markups.logic().JumpSlicesToLocation(target[0], target[1], target[2], True)
         slicer.app.processEvents()
-        logger.info(f"{label} Slices centrados en {center}")
+        logger.info(f"{label} Slices centrados en ({target[0]:.1f}, {target[1]:.1f}, {target[2]:.1f})")
     except Exception as _e_center_all:
         logger.warning(f"{label} Error al centrar slices: {_e_center_all}")
 
@@ -3009,27 +3028,49 @@ def _reset_slice_fov(fov_mm=300.0, label="[FOV]"):
         logger.info(f"{label} FOV={fov_mm}mm fijado en {_ok} slice nodes")
 
 def _enable_crosshair(label="[CROSSHAIR]"):
-    """Activa lineas de interseccion del crosshair.
-    Usa slicer.vtkMRMLCrosshairNode.ShowIntersectionLines
-    (constante de clase, NO atributo de instancia).
-    Fuerza render visual despues de activar.
+    """Configura crosshair en modo NoCrosshair (sin lineas rojas) + Navigation + Translate.
     """
-    # Obtener el valor del modo (2 = ShowIntersectionLines)
-    try:
-        _crosshair_mode = slicer.vtkMRMLCrosshairNode.ShowIntersectionLines
-    except AttributeError:
-        _crosshair_mode = 2  # fallback numerico
+    def _apply_crosshair_settings(_cn, _label):
+        """Aplica modo oculto, navegacion y comportamiento Translate al crosshair node."""
+        try:
+            _cn.SetCrosshairMode(0)  # NoCrosshair
+        except Exception as _e_m:
+            logger.debug(f"{_label} SetCrosshairMode failed: {_e_m}")
+        try:
+            _cn.SetNavigation(1)
+        except Exception as _e_nav:
+            logger.debug(f"{_label} SetNavigation failed: {_e_nav}")
+        try:
+            _behavior = slicer.vtkMRMLCrosshairNode.OffsetJumpSlice
+        except AttributeError:
+            _behavior = 1
+        try:
+            _cn.SetCrosshairBehavior(_behavior)
+        except Exception as _e_behav:
+            logger.debug(f"{_label} SetCrosshairBehavior failed: {_e_behav}")
+        logger.info(f"{_label} Crosshair: NoCrosshair + Navigation + Translate (OffsetJumpSlice)")
+        # Forzar redraw de todos los slice views
+        for _sn_cr in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+            _sn_cr.Modified()
+        slicer.app.processEvents()
     # Metodo 1: via crosshair logic
     try:
         _cl = slicer.modules.crosshair.logic()
         _cn = _cl.GetCrosshairNode()
         if _cn:
-            _cn.SetCrosshairMode(_crosshair_mode)
-            logger.info(f"{label} ShowIntersectionLines (via crosshair logic, mode={_crosshair_mode})")
-            # Forzar render visual del crosshair
-            for _sn_cr in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
-                _sn_cr.Modified()
-            slicer.app.processEvents()
+            _apply_crosshair_settings(_cn, label)
+            # Set crosshair position to centre of first volume (if any) – ensures it becomes visible
+            try:
+                vol_node = slicer.util.getFirstNodeByClass('vtkMRMLScalarVolumeNode')
+                if vol_node:
+                    # Compute centre RAS using GetRASBounds (expects a pre‑allocated list)
+                    b = [0.0]*6
+                    vol_node.GetRASBounds(b)
+                    center = [(b[i] + b[i+1]) / 2.0 for i in range(0,6,2)]
+                    # Use markups logic to move crosshair (works across all slices)
+                    slicer.modules.markups.logic().JumpSlicesToLocation(center, True)
+            except Exception as _e_pos:
+                logger.debug(f"{label} Set crosshair position failed: {_e_pos}")
             return
     except Exception as _e1:
         logger.debug(f"{label} crosshair logic fallo: {_e1}")
@@ -3037,15 +3078,41 @@ def _enable_crosshair(label="[CROSSHAIR]"):
     try:
         _cn2 = slicer.util.getNode(pattern="Crosshair")
         if _cn2:
-            _cn2.SetCrosshairMode(_crosshair_mode)
-            logger.info(f"{label} ShowIntersectionLines (via getNode, mode={_crosshair_mode})")
-            # Forzar render visual del crosshair
-            for _sn_cr2 in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
-                _sn_cr2.Modified()
-            slicer.app.processEvents()
+            _apply_crosshair_settings(_cn2, label)
+            # Set crosshair position (mismo codigo que Metodo 1)
+            try:
+                vol_node = slicer.util.getFirstNodeByClass('vtkMRMLScalarVolumeNode')
+                if vol_node:
+                    b = [0.0]*6
+                    vol_node.GetRASBounds(b)
+                    center = [(b[i] + b[i+1]) / 2.0 for i in range(0,6,2)]
+                    slicer.modules.markups.logic().JumpSlicesToLocation(center, True)
+            except Exception as _e_pos2:
+                logger.debug(f"{label} Set crosshair position failed (method 2): {_e_pos2}")
             return
     except Exception as _e2:
         logger.warning(f"{label} getNode fallo: {_e2}")
+
+
+def _enable_slice_intersections(label="[SLICE-INTERSECT]"):
+    """Desactiva las lineas de interseccion entre slices (rojo/verde/amarillo).
+    """
+    try:
+        slice_display_nodes = slicer.util.getNodesByClass("vtkMRMLSliceDisplayNode")
+        count = 0
+        for slice_disp in slice_display_nodes:
+            try:
+                slice_disp.SetIntersectingSlicesVisibility(1)
+                count += 1
+            except Exception as _e_disp:
+                logger.debug(f"{label} SetIntersectingSlicesVisibility(0) failed: {_e_disp}")
+        slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceNode")
+        for slice_node in slice_nodes:
+            slice_node.Modified()
+        slicer.app.processEvents()
+        logger.info(f"{label} Slice intersections visibles en {count} display nodes")
+    except Exception as _e:
+        logger.warning(f"{label} Error activando slice intersections: {_e}")
 
 
 def _setup_display_sync(dose_node, dose_gy):
@@ -3071,16 +3138,29 @@ def _setup_display_sync(dose_node, dose_gy):
         slicer.app.processEvents()
         # ── 2. Crosshair ──
         _enable_crosshair()
-        # ── 3. Translate-only ──
+        # ── 2b. Slice Intersections DESACTIVADAS ──
+        _enable_slice_intersections()
+        # ── 3. Modo Translate en interactor style ──
+        # vtkMRMLSliceViewInteractorStyle::ActionType: 0=AdjustWL,1=Select,2=Translate,3=Zoom,4=Rotate,5=SetCrosshairPos,6=SetCursorPos
+        # Usamos sliceView().interactorObserver() + SetActionEnabled (API oficial Slicer)
         try:
-            for _sn in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
-                _sn.SetInteractionMode(_sn.TranslateSlice)
-            logger.info("[TRANSLATE] Modo solo trasladar activado")
-        except Exception as _e:
-            logger.debug(f"[TRANSLATE] fallo: {_e}")
+            _DISABLE = [0, 1, 3, 4, 7]  # AdjustWL, Select, Zoom, Rotate, BrowseSlice
+            _ENABLE = [2, 5, 6]          # Translate, SetCrosshairPos, SetCursorPos
+            for _slice_name in ["Red", "Yellow", "Green"]:
+                _sw = _lm.sliceWidget(_slice_name)
+                if _sw:
+                    _obs = _sw.sliceView().interactorObserver()
+                    if _obs:
+                        for _act in _DISABLE:
+                            _obs.SetActionEnabled(_act, False)
+                        for _act in _ENABLE:
+                            _obs.SetActionEnabled(_act, True)
+            logger.info("[TRANSLATE] Solo Translate + crosshair habilitado via interactorObserver()")
+        except Exception as _e_is:
+            logger.warning(f"[TRANSLATE] interactor style fallo: {_e_is}")
         # ── 4. Reset 2D views (ResetFieldOfView en todos los slices) ──
         _reset_2d_views(label="[JUMP-SYNC]")
-        _center_slices_on_node(dose_node, label="[CENTER]")
+        _center_slices_on_node(dose_node, label="[CENTER]", use_max=True)
         # ── 5. Reset 3D FOV ──
         try:
             _tw = _lm.threeDWidget(0) if _lm else None
@@ -3122,9 +3202,10 @@ def _reassign_dvh_chart(dose_node=None, dose_gy=None):
         logger.warning(f"[DVH] Error re-asignando chart: {e}")
     # ── B) Re-aplicar crosshair ──
     _enable_crosshair(label="[FINAL]")
+    _enable_slice_intersections(label="[FINAL]")
     # ── C) Reset 2D views (ResetFieldOfView en todos los slices) ──
     _reset_2d_views(label="[FINAL]")
-    _center_slices_on_node(dose_node, label="[FINAL]")
+    _center_slices_on_node(dose_node, label="[FINAL]", use_max=True)
     try:
         _lm2 = slicer.app.layoutManager()
         _tw2 = _lm2.threeDWidget(0) if _lm2 else None

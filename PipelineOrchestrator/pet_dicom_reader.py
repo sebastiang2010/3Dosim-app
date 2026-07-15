@@ -211,11 +211,15 @@ def read_pet_dicom_activity(pet_dir: str) -> dict:
     # Actividad por slice
     result["activity_per_slice_bq"] = [float(np.sum(slices_bq[i])) for i in sort_idx]
 
-    # Estadisticas Bq/mL
+    # Estadisticas Bq/mL (siempre sobre valores > 0)
     stacked_bqml = np.stack([slices_bqml[i] for i in sort_idx], axis=0)
-    result["mean_bqml"] = float(np.mean(stacked_bqml[stacked_bqml > 0])) if np.any(stacked_bqml > 0) else 0.0
-    result["max_bqml"] = float(np.max(stacked_bqml))
-    result["min_bqml"] = float(np.min(stacked_bqml[stacked_bqml > 0])) if np.any(stacked_bqml > 0) else 0.0
+    positive = stacked_bqml[stacked_bqml > 0]
+    if positive.size > 0:
+        result["mean_bqml"] = float(np.mean(positive))
+        result["min_bqml"] = float(np.min(positive))
+        result["max_bqml"] = float(np.max(positive))
+    else:
+        result["mean_bqml"] = result["min_bqml"] = result["max_bqml"] = 0.0
     result["nonzero_voxels"] = int(np.sum(stacked_bq > 0))
     # Geometria DICOM para crear nodo calibrado (cuando Slicer no coincide)
     result["dicom_spacing_mm"] = dicom_spacing         # (pix_x, pix_y, slice_thick)

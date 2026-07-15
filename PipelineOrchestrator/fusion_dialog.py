@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 def show_fusion_info_dialog(
     pet_activity: dict,
+    pet_activity_after: dict = None,
     ct_dims: tuple = None,
     ct_spacing: tuple = None,
     ct_slices: int = 0,
@@ -37,7 +38,8 @@ def show_fusion_info_dialog(
     Muestra un dialogo NO MODAL con toda la informacion de la fusion.
 
     Args:
-        pet_activity: dict retornado por read_pet_dicom_activity()
+        pet_activity: dict retornado por read_pet_dicom_activity() (PRE-resample)
+        pet_activity_after: dict con actividad POST-resample desde nodo Slicer
         ct_dims: (nx, ny) dimensiones del CT
         ct_spacing: (sx, sy, sz) espaciado del CT en mm
         ct_slices: numero de slices del CT
@@ -56,7 +58,7 @@ def show_fusion_info_dialog(
     try:
         from qt import (
             QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-            QPushButton, QFont, QFrame, QApplication, QEventLoop, Qt,
+            QPushButton, QFont, QFrame, QApplication, Qt,
         )
         import slicer
     except ImportError:
@@ -180,7 +182,9 @@ def show_fusion_info_dialog(
 
     mean_bqml = pet_activity.get("mean_bqml", 0)
     max_bqml = pet_activity.get("max_bqml", 0)
+    min_bqml = pet_activity.get("min_bqml", 0)
     _add_info("Concentracion media", f"{mean_bqml:.2f} Bq/mL")
+    _add_info("Concentracion min (>0)", f"{min_bqml:.2f} Bq/mL")
     _add_info("Concentracion max", f"{max_bqml:.2f} Bq/mL")
 
     nonzero = pet_activity.get("nonzero_voxels", 0)
@@ -240,6 +244,43 @@ def show_fusion_info_dialog(
     for w in pet_activity.get("warnings", []):
         _add_verification(False, w[:120])
 
+    # ── Comparacion PRE vs POST resample ──
+    if pet_activity_after:
+        _add_section("Comparacion PRE vs POST resample")
+
+        def _add_compare_row(label, pre_val, post_val, fmt=".2f"):
+            hl = QHBoxLayout()
+            hl.setSpacing(10)
+            lbl = QLabel(f"<b>{label}:</b>")
+            lbl.setFixedWidth(130)
+            lbl.setStyleSheet("color: #555;")
+            hl.addWidget(lbl)
+            pre_lbl = QLabel(f"{pre_val:{fmt}}  →")
+            pre_lbl.setStyleSheet("color: #2c3e50; font-weight: bold;")
+            hl.addWidget(pre_lbl)
+            post_lbl = QLabel(f"{post_val:{fmt}}")
+            post_lbl.setStyleSheet("color: #2c3e50; font-weight: bold;")
+            hl.addWidget(post_lbl)
+            hl.addStretch(1)
+            layout.addLayout(hl)
+
+        pre = pet_activity
+        post = pet_activity_after
+        _add_compare_row("Total", pre.get("total_gbq", 0), post.get("total_gbq", 0), ".4f")
+        _add_compare_row("Media Bq/mL", pre.get("mean_bqml", 0), post.get("mean_bqml", 0))
+        _add_compare_row("Min Bq/mL (>0)", pre.get("min_bqml", 0), post.get("min_bqml", 0))
+        _add_compare_row("Max Bq/mL", pre.get("max_bqml", 0), post.get("max_bqml", 0))
+        _add_compare_row("Voxeles activos", pre.get("nonzero_voxels", 0), post.get("nonzero_voxels", 0), ".0f")
+
+        interp = registration_interpolation
+        if isinstance(pre.get("mean_bqml", 0), (int, float)) and isinstance(post.get("mean_bqml", 0), (int, float)):
+            diff_mean = abs(pre.get("mean_bqml", 0) - post.get("mean_bqml", 0))
+            diff_min = abs(pre.get("min_bqml", 0) - post.get("min_bqml", 0))
+            diff_max = abs(pre.get("max_bqml", 0) - post.get("max_bqml", 0))
+            _add_info("Dif. media", f"{diff_mean:.2f} Bq/mL")
+            _add_info("Dif. min", f"{diff_min:.2f} Bq/mL")
+            _add_info("Dif. max", f"{diff_max:.2f} Bq/mL")
+
     # ── Boton cerrar ──
     btn_layout = QHBoxLayout()
     btn_layout.addStretch(1)
@@ -259,15 +300,8 @@ def show_fusion_info_dialog(
     btn_layout.addWidget(close_btn)
     layout.addLayout(btn_layout)
 
-    # Mostrar NO MODAL — Slicer sigue operativo mientras el dialogo esta abierto
-    dialog.show()
-    dialog.raise_()
-    dialog.activateWindow()
-    logger.info("  Dialogo de fusion NO MODAL — Slicer completamente operativo")
-    logger.info("  El usuario puede cerrarlo cuando desee")
-
-    loop = QEventLoop()
-    dialog.finished.connect(lambda: loop.quit())
-    loop.exec()
-
+    # Modal blocking dialog — asegura que el dialogo siempre aparezca
+    # y que el pipeline espere a que el usuario lo cierre.
+    dialog.setModal(True)
+    dialog.exec_()
     logger.info("  Dialogo de fusion cerrado por el usuario")

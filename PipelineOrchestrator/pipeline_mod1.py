@@ -852,7 +852,8 @@ class PipelineMod1:
             filepath = os.path.join(scene_dir, filename)
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
             t0 = time.time()
-            logger.info(f"  Escena{" ["+tag+"]" if tag else ''} -> {filepath}")
+            tag_suffix = f" [{tag}]" if tag else ""
+            logger.info(f"  Escena{tag_suffix} -> {filepath}")
             logger.info(f"  Guardando escena (puede tomar hasta 2 min si la escena es grande)...")
             slicer.util.saveScene(filepath)
             dt = time.time() - t0
@@ -1023,11 +1024,19 @@ class PipelineMod1:
                     spacing = activity.get("dicom_spacing_mm", (1.0, 1.0, 1.0))
                     voxel_vol_mL = float(spacing[0] * spacing[1] * spacing[2]) / 1000.0
                     total_bq = float(np.sum(bqml_array[bqml_array > 0])) * voxel_vol_mL
+                    positive = bqml_array[bqml_array > 0]
+                    if positive.size > 0:
+                        mean_bqml = float(np.mean(positive))
+                        max_bqml = float(np.max(positive))
+                        min_bqml = float(np.min(positive))
+                    else:
+                        mean_bqml = max_bqml = min_bqml = 0.0
                     self.pet_activity_before_resample = {
                         "total_bq": total_bq,
                         "total_gbq": total_bq / 1e9,
-                        "mean_bqml": float(np.mean(bqml_array[bqml_array > 0])) if np.any(bqml_array > 0) else 0.0,
-                        "max_bqml": float(np.max(bqml_array)) if bqml_array.size > 0 else 0.0,
+                        "mean_bqml": mean_bqml,
+                        "max_bqml": max_bqml,
+                        "min_bqml": min_bqml,
                         "nonzero_voxels": int(np.sum(bqml_array > 0)),
                         "n_slices": bqml_array.shape[0],
                         "voxel_vol_mL": voxel_vol_mL,
@@ -1106,7 +1115,7 @@ class PipelineMod1:
         slicer.util.resetSliceViews()
         slicer.app.processEvents()
 
-        # ── 2. Leer actividad PET desde DICOM raw ──
+        # ── 2. Leer actividad PET desde DICOM raw (valores PRE-resample) ──
         if self.pet_node and os.path.isdir(self.pet_dir):
             try:
                 from PipelineOrchestrator.pet_dicom_reader import read_pet_dicom_activity
@@ -1115,7 +1124,7 @@ class PipelineMod1:
                 self.pet_activity = pet_activity
                 total_bq = pet_activity.get("total_bq", 0)
                 total_gbq = pet_activity.get("total_gbq", 0)
-                logger.info(f"  Actividad PET: {total_bq:.4e} Bq  ({total_gbq:.4f} GBq)")
+                logger.info(f"  Actividad PET (PRE-resample): {total_bq:.4e} Bq  ({total_gbq:.4f} GBq)")
                 if pet_activity.get("error"):
                     logger.warning(f"  Error lectura PET: {pet_activity['error']}")
                 for w in pet_activity.get("warnings", []):
@@ -1125,6 +1134,36 @@ class PipelineMod1:
         else:
             logger.info("  No hay PET o directorio PET, saltando lectura de actividad")
             self.pet_activity = None
+
+        # ── 2b. Leer actividad POST-resample desde el nodo PET re-muestreado ──
+        self.pet_activity_after_resample = None
+        if self.pet_node and self.pet_node.GetImageData():
+            try:
+                import numpy as np
+                arr = slicer.util.arrayFromVolume(self.pet_node)
+                if arr is not None and arr.size > 0:
+                    spacing = self.pet_node.GetSpacing()
+                    voxel_vol_mL = spacing[0] * spacing[1] * spacing[2] / 1000.0
+                    total_bq_post = float(np.sum(arr[arr > 0])) * voxel_vol_mL
+                    positive = arr[arr > 0]
+                    if positive.size > 0:
+                        min_bqml = float(np.min(positive))
+                        max_bqml = float(np.max(positive))
+                        mean_bqml = float(np.mean(positive))
+                    else:
+                        min_bqml = max_bqml = mean_bqml = 0.0
+                    self.pet_activity_after_resample = {
+                        "total_bq": total_bq_post,
+                        "total_gbq": total_bq_post / 1e9,
+                        "mean_bqml": mean_bqml,
+                        "max_bqml": max_bqml,
+                        "min_bqml": min_bqml,
+                        "nonzero_voxels": int(positive.size),
+                        "dims": arr.shape,
+                    }
+                    logger.info(f"  Actividad PET (POST-resample): total={total_bq_post:.4e} Bq  mean={mean_bqml:.2f}  min={min_bqml:.2f}  max={max_bqml:.2f}")
+            except Exception as e:
+                logger.warning(f"  No se pudo leer actividad PET post-resample: {e}")
 
         # ── 3. Recopilar datos de fusion (siempre, antes de cualquier dialogo) ──
         ct_dims = None
@@ -1155,6 +1194,7 @@ class PipelineMod1:
             resample_cfg = self.pipeline_config.get("resample", {})
             show_fusion_info_dialog(
                 pet_activity=self.pet_activity or {},
+                pet_activity_after=self.pet_activity_after_resample,
                 ct_dims=ct_dims,
                 ct_spacing=ct_spacing,
                 ct_slices=ct_dims[2] if ct_dims else 0,
@@ -1172,11 +1212,14 @@ class PipelineMod1:
             logger.info("  Dialogo informativo de fusion cerrado por el usuario (modal)")
         except Exception as e:
             logger.warning(f"  No se pudo mostrar dialogo de fusion: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
 
         # ── 5. Guardar resumen de fusion a TXT en exports/ ──
         self._save_fusion_summary_txt(
             patient_id=patient_id,
             pet_activity=self.pet_activity or {},
+            pet_activity_after=self.pet_activity_after_resample,
             ct_dims=ct_dims,
             ct_spacing=ct_spacing,
             ct_node_name=self.ct_node.GetName() if self.ct_node else "",
@@ -1190,6 +1233,7 @@ class PipelineMod1:
         self,
         patient_id: str = "",
         pet_activity: dict = None,
+        pet_activity_after: dict = None,
         ct_dims: tuple = None,
         ct_spacing: tuple = None,
         ct_node_name: str = "",
@@ -1207,6 +1251,7 @@ class PipelineMod1:
         os.makedirs(export_dir, exist_ok=True)
 
         pa = pet_activity
+        pst = pet_activity_after
         lines = []
         lines.append("=" * 52)
         lines.append("  3Dosim — Fusion CT+PET — Resumen")
@@ -1223,7 +1268,7 @@ class PipelineMod1:
             lines.append(f"  Espaciado:       {ct_spacing[0]:.3f} x {ct_spacing[1]:.3f} x {ct_spacing[2]:.3f} mm")
         lines.append(f"  Nodo Slicer:     {ct_node_name or '—'}")
         lines.append("")
-        lines.append("PET (desde DICOM raw)")
+        lines.append("PET (desde DICOM raw) — ANTES del resample")
         if pa.get("error"):
             lines.append(f"  ERROR:           {pa['error']}")
         else:
@@ -1235,6 +1280,7 @@ class PipelineMod1:
             total_mci = total_bq / 3.7e7
             lines.append(f"  Total:           {total_mci:.2f} mCi")
             lines.append(f"  Concentracion media: {pa.get('mean_bqml', 0):.2f} Bq/mL")
+            lines.append(f"  Concentracion min (>0): {pa.get('min_bqml', 0):.2f} Bq/mL")
             lines.append(f"  Concentracion max:   {pa.get('max_bqml', 0):.2f} Bq/mL")
             lines.append(f"  Voxeles activos: {pa.get('nonzero_voxels', 0):,}")
             lines.append(f"  Slices DICOM:    {pa.get('n_slices', 0)}")
@@ -1242,6 +1288,29 @@ class PipelineMod1:
             lines.append(f"  Dimensiones:     {pet_dims[0]} x {pet_dims[1]} x {pet_dims[2]}")
             lines.append(f"  Espaciado:       {pet_spacing[0]:.3f} x {pet_spacing[1]:.3f} x {pet_spacing[2]:.3f} mm")
         lines.append(f"  Nodo Slicer:     {pet_node_name or '—'}")
+        lines.append("")
+        lines.append("--- COMPARACION PRE vs POST RESAMPLE ---")
+        if pst:
+            lines.append(f"  {'':25s} {'PRE':>12s}  {'POST':>12s}  {'DIF':>12s}")
+            lines.append(f"  {'-'*25} {'-'*12}  {'-'*12}  {'-'*12}")
+            pre_gbq = pa.get("total_gbq", 0)
+            post_gbq = pst.get("total_gbq", 0)
+            lines.append(f"  {'Total GBq':25s} {pre_gbq:12.4f}  {post_gbq:12.4f}  {abs(pre_gbq-post_gbq):12.4f}")
+            pre_mean = pa.get("mean_bqml", 0)
+            post_mean = pst.get("mean_bqml", 0)
+            lines.append(f"  {'Media Bq/mL':25s} {pre_mean:12.2f}  {post_mean:12.2f}  {abs(pre_mean-post_mean):12.2f}")
+            pre_min = pa.get("min_bqml", 0)
+            post_min = pst.get("min_bqml", 0)
+            lines.append(f"  {'Min Bq/mL (>0)':25s} {pre_min:12.2f}  {post_min:12.2f}  {abs(pre_min-post_min):12.2f}")
+            pre_max = pa.get("max_bqml", 0)
+            post_max = pst.get("max_bqml", 0)
+            lines.append(f"  {'Max Bq/mL':25s} {pre_max:12.2f}  {post_max:12.2f}  {abs(pre_max-post_max):12.2f}")
+            pre_nz = pa.get("nonzero_voxels", 0)
+            post_nz = pst.get("nonzero_voxels", 0)
+            lines.append(f"  {'Voxeles activos':25s} {pre_nz:>12,}  {post_nz:>12,}  {abs(pre_nz-post_nz):>12,}")
+        else:
+            lines.append("  (Datos post-resample no disponibles)")
+            lines.append(f"  Concentracion min (>0): {pa.get('min_bqml', 0):.2f} Bq/mL")
         lines.append("")
         lines.append("REGISTRO PET -> CT")
         resample_cfg = self.pipeline_config.get("resample", {})
