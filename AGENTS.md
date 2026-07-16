@@ -1118,3 +1118,24 @@ API de referencia para operaciones comunes en Slicer:
 - DICOM loading and database management
 
 Consultar esta página antes de implementar cualquier operación nueva con nodos, vistas o volúmenes en Slicer.
+
+---
+
+## Instrucciones de revisión y desarrollo
+
+> **Regla fundamental:** Siempre que exista una funcionalidad equivalente en **3D Slicer**, utilizar preferentemente las **CLI Modules**, los módulos oficiales o las clases de lógica (*Logic classes*) proporcionadas por Slicer, en lugar de implementar algoritmos propios en Python.
+
+### Cuándo está permitido implementar una solución personalizada en Python
+
+Solo implementar una solución propia cuando se cumpla **alguna** de estas condiciones:
+
+1. **No exista** una CLI o API oficial que resuelva el problema.
+2. La funcionalidad oficial **no permita** realizar la operación requerida.
+3. Exista una **justificación técnica clara** para hacerlo (rendimiento, precisión, limitación documentada).
+
+### Proceso obligatorio antes de escribir código nuevo
+
+1. **Verificar siempre** si la funcionalidad ya está disponible en la API oficial de 3D Slicer o en alguno de sus módulos.
+2. Consultar la documentación oficial y las referencias de la API especificadas en este archivo como fuente principal.
+3. **No recurrir a implementaciones alternativas** sin haber comprobado previamente la existencia de una solución oficial.
+4. Revisar de forma integral los tres módulos, verificando la consistencia entre ellos, eliminando código duplicado y asegurando que las interfaces y el flujo de datos sean coherentes.
