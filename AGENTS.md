@@ -412,6 +412,7 @@ Commit: `b6aa7a8` - "eliminar test extras fusion_test, fusion_simple, test_ts_st
 ## Reglas importantes
 
 - **NO modificar archivos dentro de `3Dosim_v_3.14/`** — esa versión es estable/legacy. Todo el desarrollo activo es en `3Dosim_v4/`.
+- **Siempre citar referencias oficiales**: cuando consultes documentación oficial de Slicer (apidocs.slicer.org, readthedocs.io, discourse.slicer.org), al final de tu respuesta incluí los links exactos de las páginas que visitaste.
 
 ## Comandos utiles
 - `/remember [tag] mensaje` - Guardar progreso en memoria persistente
@@ -1099,3 +1100,21 @@ en `get_labelmap_array()` → `slicer.util.arrayFromVolume()`.
 
 ### Regla de oro para futuras sesiones
 > **ANTES de modificar cualquier archivo, verificar en `launcher/app.py` y `trace.log` cual es el punto de entrada real. No asumir que el usuario usa los modulos de Slicer desde el dropdown.**
+
+---
+
+## Referencias técnicas
+
+### Slicer Python Script Repository
+https://slicer.readthedocs.io/en/latest/developer_guide/script_repository.html
+
+API de referencia para operaciones comunes en Slicer:
+- `slicer.util.arrayFromVolume()` / `updateVolumeFromArray()`
+- `slicer.util.setSliceViewerLayers()`
+- `slicer.mrmlScene` node management
+- Volume rendering, display nodes, segmentation nodes
+- Layout management, slice views, 3D views
+- CLI module execution (`slicer.cli.run()`)
+- DICOM loading and database management
+
+Consultar esta página antes de implementar cualquier operación nueva con nodos, vistas o volúmenes en Slicer.
