@@ -110,6 +110,14 @@ except Exception:
     ConsolaComandos = None
     _HAS_CONSOLE = False
 
+# Reporte LaTeX profesional (opcional — requiere jinja2 + xelatex)
+try:
+    from PipelineOrchestrator.latex_report_generator import generate_latex_report
+    _HAS_LATEX = True
+except Exception:
+    generate_latex_report = None
+    _HAS_LATEX = False
+
 # ======================================================================
 # DEBUG: primer output inmediato
 # ======================================================================
@@ -2850,6 +2858,29 @@ def main():
             logger.warning(traceback.format_exc())
     else:
         _log_consola("  PDF omitido (--no-pdf)")
+
+    # PDF (LaTeX - profesional)
+    if _HAS_LATEX:
+        try:
+            # Derivar patient_id desde el nombre de escena
+            latex_patient_id = os.path.splitext(os.path.basename(scene_path))[0]
+            latex_pdf_path = generate_latex_report(
+                results_data=results,
+                output_dir=OUTPUT_DIR_DEFAULT,
+                patient_id=latex_patient_id,
+                dvh_curves=dvh_curves_for_pdf if dvh_curves_for_pdf else None,
+            )
+            if latex_pdf_path:
+                _log_consola_ok(f"PDF LaTeX generado: {latex_pdf_path}")
+            else:
+                _log_consola_error("No se pudo generar PDF LaTeX (revisar dependencias: jinja2, xelatex, latexmk)")
+        except Exception as e:
+            _log_consola_error(f"Error generando PDF LaTeX: {e}")
+            logger.warning(f"  Error generando PDF LaTeX: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
+    else:
+        logger.info("  PDF LaTeX omitido (generate_latex_report no disponible)")
 
     # Save copies for QTimer callbacks (defined after del)
     _dvh_dose_gy = dose_gy
