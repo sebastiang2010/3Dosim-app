@@ -1,4 +1,19 @@
-# 3Dosim v3.14 - Dosimetria 3D para Medicina Nuclear
+# 3Dosim v4 - Dosimetria 3D para Medicina Nuclear
+
+## Repositorio contenedor
+
+Este repo (`3Dosim_v4/`) es el repositorio activo de desarrollo, contenido dentro de `C:\programas\3Dosim/`.
+
+| Contexto | Valor |
+|----------|-------|
+| **Repo raíz** | `C:\programas\3Dosim/` — contenedor sin ramas propias |
+| **Repo activo** | `C:\programas\3Dosim/3Dosim_v4/` — rama `mod3` |
+| **Rama activa** | `mod3` (recién creada desde `carteles`, contiene todas las features) |
+| **Ramas legado** | `carteles` (features previas), `main` (estable) |
+| **Entry point real** | `launcher/app.py` (NO los módulos Slicer del dropdown) |
+| **Legacy** | `3Dosim_v_3.14/` — NO modificar |
+
+Para comandos coordinados entre ambos repos, ver `CLAUDE.md` en la raíz.
 
 ## Stack
 - MATLAB (.m) - modulos principales
@@ -397,6 +412,7 @@ Commit: `b6aa7a8` - "eliminar test extras fusion_test, fusion_simple, test_ts_st
 ## Reglas importantes
 
 - **NO modificar archivos dentro de `3Dosim_v_3.14/`** — esa versión es estable/legacy. Todo el desarrollo activo es en `3Dosim_v4/`.
+- **Siempre citar referencias oficiales**: cuando consultes documentación oficial de Slicer (apidocs.slicer.org, readthedocs.io, discourse.slicer.org), al final de tu respuesta incluí los links exactos de las páginas que visitaste.
 
 ## Comandos utiles
 - `/remember [tag] mensaje` - Guardar progreso en memoria persistente
@@ -1084,3 +1100,42 @@ en `get_labelmap_array()` → `slicer.util.arrayFromVolume()`.
 
 ### Regla de oro para futuras sesiones
 > **ANTES de modificar cualquier archivo, verificar en `launcher/app.py` y `trace.log` cual es el punto de entrada real. No asumir que el usuario usa los modulos de Slicer desde el dropdown.**
+
+---
+
+## Referencias técnicas
+
+### Slicer Python Script Repository
+https://slicer.readthedocs.io/en/latest/developer_guide/script_repository.html
+
+API de referencia para operaciones comunes en Slicer:
+- `slicer.util.arrayFromVolume()` / `updateVolumeFromArray()`
+- `slicer.util.setSliceViewerLayers()`
+- `slicer.mrmlScene` node management
+- Volume rendering, display nodes, segmentation nodes
+- Layout management, slice views, 3D views
+- CLI module execution (`slicer.cli.run()`)
+- DICOM loading and database management
+
+Consultar esta página antes de implementar cualquier operación nueva con nodos, vistas o volúmenes en Slicer.
+
+---
+
+## Instrucciones de revisión y desarrollo
+
+> **Regla fundamental:** Siempre que exista una funcionalidad equivalente en **3D Slicer**, utilizar preferentemente las **CLI Modules**, los módulos oficiales o las clases de lógica (*Logic classes*) proporcionadas por Slicer, en lugar de implementar algoritmos propios en Python.
+
+### Cuándo está permitido implementar una solución personalizada en Python
+
+Solo implementar una solución propia cuando se cumpla **alguna** de estas condiciones:
+
+1. **No exista** una CLI o API oficial que resuelva el problema.
+2. La funcionalidad oficial **no permita** realizar la operación requerida.
+3. Exista una **justificación técnica clara** para hacerlo (rendimiento, precisión, limitación documentada).
+
+### Proceso obligatorio antes de escribir código nuevo
+
+1. **Verificar siempre** si la funcionalidad ya está disponible en la API oficial de 3D Slicer o en alguno de sus módulos.
+2. Consultar la documentación oficial y las referencias de la API especificadas en este archivo como fuente principal.
+3. **No recurrir a implementaciones alternativas** sin haber comprobado previamente la existencia de una solución oficial.
+4. Revisar de forma integral los tres módulos, verificando la consistencia entre ellos, eliminando código duplicado y asegurando que las interfaces y el flujo de datos sean coherentes.

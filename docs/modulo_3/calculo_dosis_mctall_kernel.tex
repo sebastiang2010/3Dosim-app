@@ -1,38 +1,13 @@
 \documentclass[12pt,a4paper]{article}
 
-% ============================================================
-% Paquetes
-% ============================================================
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage[spanish]{babel}
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{geometry}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
-\usepackage{float}
-\usepackage{caption}
-\usepackage{booktabs}
-% enumitem no disponible, usamos config nativa de enumerate
+% Estilo compartido (paquetes, colores, hyperref, listings, AI Supervisor)
+\input{../estilo_3dosim}
 
-\geometry{margin=2.5cm}
-
-% ============================================================
-% Configuración de encabezado/pie
-% ============================================================
-\pagestyle{fancy}
-\fancyhf{}
+% Encabezado especifico del modulo
 \fancyhead[L]{\small 3Dosim — Cálculo de Dosis}
 \fancyhead[R]{\small MCTALL y Kernel}
-\fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
 
-% ============================================================
 % Portada
-% ============================================================
 \title{\textbf{Cálculo de Dosis en 3Dosim:} \\
        Método MCTALL (Monte Carlo) y \\
        Método Kernel (Convolución)}
@@ -152,7 +127,7 @@ El flujo de trabajo es:
 El archivo MCTAL es la salida ASCII de MCNP que contiene los resultados de
 los tallies. Para el FMESH4, la estructura relevante es:
 
-\begin{verbatim}
+\begin{lstlisting}
 tally    1   -1   -1
  0 0 1 0 0 0 0 0 0 ...
  f <total> <type> <nx> <ny> <nz>
@@ -164,7 +139,7 @@ tally    1   -1   -1
  v1 e1 v2 e2 v3 e3 v4 e4
  v5 e5 v6 e6 v7 e7 v8 e8
  ...
-\end{verbatim}
+\end{lstlisting}
 
 Donde:
 \begin{itemize}
@@ -356,18 +331,16 @@ espacio es igual a la dosis total depositada por 1 Bq:
     \iiint K(\mathbf{r})\,d^3\mathbf{r} = \frac{\bar{E}_\beta \cdot 1}{m}
 \end{equation}
 
-Sin embargo, para la convolución clínica, el kernel se normaliza a suma
-unitaria:
+Sin embargo, en la implementación actual en Python, el kernel \textbf{no se normaliza} a suma
+unitaria. Esto se debe a que \texttt{kernel.mat} ya incluye el factor $\tau \times 10^9$ (vida
+media $\times$ GBq), y normalizarlo rompería la escala absoluta de dosis:
 
 \begin{equation}
-    K_{\text{norm}} = \frac{K}{\sum K}
+    K_{\text{uso}} = K \quad (\text{sin normalizar})
 \end{equation}
 
-Esto garantiza que la convolución conserve la actividad total:
-
-\begin{equation}
-    \sum D = \sum (S \ast K_{\text{norm}}) = \sum S
-\end{equation}
+La convolución con el kernel sin normalizar produce directamente dosis en Gy,
+sin necesidad de multiplicar por $\tau$ posteriormente.
 
 \subsection{Centrado del kernel}
 

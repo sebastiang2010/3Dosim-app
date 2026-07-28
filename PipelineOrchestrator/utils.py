@@ -221,6 +221,101 @@ def _show_dialog(description: str, mensaje: str = ""):
         return None
 
 
+# ═══════════════════════════════════════════════════════════════
+# Funciones compartidas de carteles (unificadas desde modulo 1)
+# ═══════════════════════════════════════════════════════════════
+
+
+def show_save_scene_dialog():
+    """Muestra cartel no-modal 'Guardando escena...' mientras se guarda el .mrb.
+
+    Patron unificado de modulo 1. Si Qt no esta disponible, retorna None
+    y el pipeline continua sin cartel.
+
+    Returns:
+        QDialog o None si no se pudo crear.
+    """
+    try:
+        from qt import QDialog, QVBoxLayout, QLabel, QApplication
+        import slicer
+        main_w = slicer.util.mainWindow()
+        dialog = QDialog(main_w)
+        dialog.setWindowTitle("3Dosim — Guardando escena")
+        dialog.setModal(False)
+        dialog.setMinimumWidth(320)
+        layout = QVBoxLayout(dialog)
+        msg = QLabel(
+            "<b>Guardando escena...</b><br>"
+            "Puede tomar hasta 2 minutos si la escena es grande.<br>"
+            "No cerrar Slicer."
+        )
+        msg.setWordWrap(True)
+        msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+        layout.addWidget(msg)
+        dialog.show()
+        QApplication.processEvents()
+        return dialog
+    except Exception:
+        return None  # Qt no disponible, seguir sin cartel
+
+
+def close_save_scene_dialog(dialog):
+    """Cierra el cartel 'Guardando escena...' si existe."""
+    if dialog is not None:
+        try:
+            dialog.close()
+            dialog.deleteLater()
+            from qt import QApplication
+            QApplication.processEvents()
+        except Exception:
+            pass
+
+
+def show_popup(title: str, text: str, no_slicer: bool = False):
+    """Muestra dialogo no-modal simple en Slicer.
+
+    Args:
+        title: Titulo de la ventana.
+        text: Texto a mostrar (acepta HTML basico).
+        no_slicer: Si True, retorna None sin mostrar (para modo headless).
+
+    Returns:
+        QDialog o None si Qt no esta disponible.
+    """
+    if no_slicer:
+        return None
+    try:
+        import slicer
+        from qt import QDialog, QVBoxLayout, QLabel, Qt
+        dlg = QDialog(slicer.util.mainWindow())
+        dlg.setWindowTitle(title)
+        dlg.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint |
+                           Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        dlg.setModal(False)
+        layout = QVBoxLayout(dlg)
+        layout.addWidget(QLabel(text))
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+        slicer.app.processEvents()
+        return dlg
+    except Exception:
+        return None
+
+
+def close_popup(dlg):
+    """Cierra dialogo no-modal creado con show_popup()."""
+    if dlg is not None:
+        try:
+            dlg.close()
+            dlg.deleteLater()
+        except Exception:
+            pass
+
+
+# ═══════════════════════════════════════════════════════════════
+
+
 def kill_existing_slicer():
     """
     Cierra otras instancias de 3D Slicer abiertas (excepto la actual).

@@ -55,6 +55,16 @@ from scipy.ndimage import binary_dilation
 
 print(f"[3Dosim SCRIPT INICIADO] argv={sys.argv}", flush=True)
 
+# ── Fix PATH para que from PipelineOrchestrator.xxx funcione ──
+# Slicer ejecuta --python-script como <string>, no desde el directorio del paquete
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_parent_dir = os.path.dirname(_script_dir)  # 3Dosim_v4/
+for _p in (_script_dir, _parent_dir):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+        print(f"[3Dosim PATH] Agregado: {_p}")
+# ────────────────────────────────────────────────────────────────
+
 # AI Supervisor (opcional)
 try:
     from PipelineOrchestrator import ai_supervisor
@@ -62,6 +72,10 @@ try:
 except Exception:
     ai_supervisor = None
     _HAS_AI = False
+# Allow disabling AI supervisor via env var (useful when no OpenRouter credits)
+if os.getenv("DISABLE_AI_SUPERVISOR"):
+    _HAS_AI = False
+    logger.info("[AI supervisor] Deshabilitado por variable de entorno DISABLE_AI_SUPERVISOR")
 
 # Isodose contours (opcional — requiere Slicer con SlicerRT o VTK)
 try:
@@ -95,6 +109,14 @@ try:
 except Exception:
     ConsolaComandos = None
     _HAS_CONSOLE = False
+
+# Reporte LaTeX profesional (opcional — requiere jinja2 + xelatex)
+try:
+    from PipelineOrchestrator.latex_report_generator import generate_latex_report
+    _HAS_LATEX = True
+except Exception:
+    generate_latex_report = None
+    _HAS_LATEX = False
 
 # ======================================================================
 # DEBUG: primer output inmediato
@@ -278,15 +300,9 @@ def _setup_labelmap_color_table(labelmap_node):
 
     # ── Activar labelmap como capa "label" en slices ──
     try:
-        lm = slicer.app.layoutManager()
-        if lm:
-            for idx in range(lm.sliceViewCount()):
-                sv = lm.sliceWidget(idx).sliceView()
-                if sv:
-                    scn = sv.sliceCompositeNode()
-                    if scn:
-                        scn.SetLabelVolumeID(labelmap_node.GetID())
-                        scn.SetLabelOpacity(0.8)
+        for scn in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
+            scn.SetLabelVolumeID(labelmap_node.GetID())
+            scn.SetLabelOpacity(0.8)
         logger.info("  Labelmap activado como capa label en slices")
     except Exception as e:
         logger.warning(f"  No se pudo activar labelmap en slices: {e}")
@@ -652,9 +668,12 @@ def compute_dvh(
     v70_pct = float((doses >= 70).sum() / n_total * 100) if n_total > 0 else 0.0
 
     # DVH histograma
-    dose_max_hist = float(np.percentile(doses, 99.5))  # evitar outliers
+    # Usar Dmax real (no percentil 99.5) para capturar TODA la curva DVH
+    # El percentil 99.5 cortaba hasta 57% del rango en higado (excluyendo voxeles
+    # de alta dosis cerca del tumor que son clinicamente importantes)
+    dose_max_hist = max_dose
     if dose_max_hist <= 0:
-        dose_max_hist = max_dose
+        dose_max_hist = 1.0  # evitar division por cero
 
     hist, edges = np.histogram(
         doses, bins=bins, range=(0, dose_max_hist * 1.05)
@@ -835,11 +854,11 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
     chart_node.SetTitle("Cumulative Dose Volume Histogram")
     chart_node.SetXAxisTitle("Dose (Gy)")
     chart_node.SetYAxisTitle("Volume (%)")
-    # Escala Y log — Slicer 5.8 usa SetYAxisLogScale(int)
+    # Escala Y lineal (explicita: Slicer 5.8 default es lineal, pero forzamos)
     if hasattr(chart_node, "SetYAxisLogScale"):
-        chart_node.SetYAxisLogScale(1)
+        chart_node.SetYAxisLogScale(0)
     elif hasattr(chart_node, "SetYAxisLog"):
-        chart_node.SetYAxisLog(True)
+        chart_node.SetYAxisLog(False)
 
     series_nodes = []
     dvh_curves = []  # para exportar PNG
@@ -907,26 +926,28 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
 
         logger.info(f"  DVH creado: {name} ({n} voxels, Dmax={Dmax:.1f} Gy)")
 
-    # Escalar eje X al maximo real (bug: Slicer default es 0-1000)
-    if global_dmax > 0 and hasattr(chart_node, "SetXAxisRange"):
-        chart_node.SetXAxisRange(0, global_dmax * 1.05)
-        logger.info(f"  DVH X-axis range: 0 - {global_dmax * 1.05:.1f} Gy")
+    # Escalar ejes (Slicer default no es correcto)
+    if global_dmax > 0:
+        if hasattr(chart_node, "SetXAxisRange"):
+            chart_node.SetXAxisRange(0, global_dmax * 1.05)
+            logger.info(f"  DVH X-axis range: 0 - {global_dmax * 1.05:.1f} Gy")
+        if hasattr(chart_node, "SetYAxisRange"):
+            chart_node.SetYAxisRange(0, 105)
+            logger.info("  DVH Y-axis range: 0 - 105 (lineal)")
 
-    # Activar modulo Plots
+    # Asignar chart al PlotViewNode (API correcta Slicer 5.8:
+    # plotWidget.plotView() devuelve qMRMLPlotView (Qt), NO vtkMRMLPlotViewNode.
+    # El metodo SetPlotChartNodeID esta en el MRML node, no en el Qt widget.
     if series_nodes and show_gui:
-        slicer.util.selectModule("Plots")
-        # Asignar chart al PlotView
-        plotWidget = slicer.app.layoutManager().plotWidget(0)
-        if plotWidget:
-            plotView = plotWidget.plotView()
-            if plotView:
-                # Slicer 5.8 usa SetPlotChartNodeID (no SetChartNodeID)
-                if hasattr(plotView, "SetPlotChartNodeID"):
-                    plotView.SetPlotChartNodeID(chart_node.GetID())
-                elif hasattr(plotView, "SetChartNodeID"):
-                    plotView.SetChartNodeID(chart_node.GetID())
-                else:
-                    logger.warning("  No se pudo asignar chart al PlotView: metodo no encontrado")
+        try:
+            _pv_nodes = slicer.util.getNodesByClass("vtkMRMLPlotViewNode")
+            if _pv_nodes:
+                _pv_nodes[0].SetPlotChartNodeID(chart_node.GetID())
+                logger.info("[DVH] Chart asignado al PlotViewNode via MRML node")
+            else:
+                logger.warning("[DVH] No se encontraron PlotViewNodes en la escena")
+        except Exception as _e_dvh:
+            logger.warning(f"[DVH] Error asignando chart: {_e_dvh}")
         slicer.app.processEvents()
 
     # Exportar imagen PNG
@@ -963,9 +984,10 @@ def _export_dvh_png(dvh_curves, filepath):
         ax.set_xlabel("Dose (Gy)", fontweight="bold")
         ax.set_ylabel("Volume (%)", fontweight="bold")
         ax.set_title("Cumulative Dose Volume Histogram", fontweight="bold")
-        ax.set_yscale("log")
+        # Escala Y lineal (sin log)
+        ax.set_yscale("linear")
         ax.set_xlim(0, x_max * 1.05 if x_max > 0 else 100)
-        ax.set_ylim(0.1, 110)
+        ax.set_ylim(0, 105)
         ax.grid(True, which="both", alpha=0.3)
         ax.legend()
         fig.tight_layout()
@@ -1678,6 +1700,28 @@ def setup_slicer_paths():
     return None
 
 
+def _get_unique_values(arr, label="labelmap"):
+    """Obtiene valores unicos de un array 3D sin explotar memoria.
+    Prefiere pd.unique() que es O(n) sin copia de sorting.
+    Fallback: muestreo aleatorio de bloques si hasta eso falla."""
+    try:
+        import pandas as _pd
+        return _pd.unique(arr.ravel())
+    except (ImportError, MemoryError):
+        try:
+            return np.unique(arr)
+        except MemoryError as _me:
+            logger.warning(f"  MemoryError en np.unique({label}): {_me}. Muestreando...")
+            _seen = set()
+            _flat = arr.ravel()
+            for _ in range(10):
+                _idx = np.random.randint(0, _flat.size, min(50000, _flat.size))
+                for _v in _flat[_idx]:
+                    _seen.add(int(_v))
+            logger.info(f"  Valores unicos (muestra): {sorted(_seen)}")
+            return np.array(sorted(_seen))
+
+
 def get_labelmap_array(labelmap_node):
     """Extrae array 3D del labelmap, transpone a (nx, ny, nz)."""
     import slicer
@@ -1717,40 +1761,23 @@ def load_kernel(kernel_path: str) -> np.ndarray:
 
 
 def _show_popup(title: str, text: str, no_slicer: bool = False):
-    """Muestra dialogo no-modal en Slicer (evita que el usuario crea que se colgo)."""
-    if no_slicer:
-        return None
-    try:
-        import slicer
-        from qt import QDialog, QVBoxLayout, QLabel, Qt
-        dlg = QDialog(slicer.util.mainWindow())
-        dlg.setWindowTitle(title)
-        dlg.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint |
-                           Qt.CustomizeWindowHint | Qt.WindowTitleHint)
-        dlg.setModal(False)
-        layout = QVBoxLayout(dlg)
-        layout.addWidget(QLabel(text))
-        dlg.show()
-        dlg.raise_()
-        dlg.activateWindow()
-        slicer.app.processEvents()
-        return dlg
-    except Exception as e:
-        logger.warning(f"  Popup no disponible: {e}")
-        return None
+    """Wrapper para compatibilidad — usa la funcion compartida en utils."""
+    from PipelineOrchestrator.utils import show_popup
+    return show_popup(title, text, no_slicer)
 
 
 def _close_popup(dlg):
-    """Cierra dialogo no-modal si existe."""
-    if dlg is not None:
-        try:
-            dlg.close()
-            dlg.deleteLater()
-        except Exception:
-            pass
+    """Wrapper para compatibilidad — usa la funcion compartida en utils."""
+    from PipelineOrchestrator.utils import close_popup
+    close_popup(dlg)
 
 
 def main():
+    # ── Limpieza inicial de memoria (importante para multiples ejecuciones) ──
+    import gc
+    gc.collect()
+    logger.info("Memoria inicial liberada (gc.collect)")
+
     # ── Logging global: captura TODO a archivo ──
     try:
         from PipelineOrchestrator.logging_setup import setup_global_logging
@@ -1945,15 +1972,20 @@ def main():
 
         logger.info("\n--- Paso 1: Cargar escena ---")
         _log_consola("Paso 1/10: Cargando escena (puede tardar ~2 min)...")
-        print("[3Dosim] ============================================", flush=True)
-        print("[3Dosim] CARGANDO ESCENA... (puede tardar hasta 2 minutos)", flush=True)
-        print("[3Dosim] NO CIERRE SLICER, ESPERE...", flush=True)
-        print("[3Dosim] ============================================", flush=True)
+        from PipelineOrchestrator.utils import show_popup, close_popup
+        scene_popup = show_popup(
+            "3Dosim — Cargando escena",
+            "<b>Cargando escena en 3D Slicer...</b><br><br>"
+            "Esto puede tardar hasta 2 minutos si la escena es grande.<br>"
+            "NO cierre Slicer, espere a que termine."
+        )
         if not load_scene(scene_path):
+            close_popup(scene_popup)
             logger.error("Abortando: no se pudo cargar la escena")
             _log_consola_error("Error cargando escena")
             _wait_slicer("La escena no pudo cargarse. Revise el archivo y cierre Slicer.", timeout_s=30)
             return 1
+        close_popup(scene_popup)
 
         logger.info("\n--- Paso 2: Buscar nodos ---")
         _log_consola("Paso 2/10: Buscando nodos (CT, PET, Labelmap)...")
@@ -2074,12 +2106,12 @@ def main():
 
         logger.info(f"  Labelmap shape: {dims}")
         logger.info(f"  Spacing: {spacing}")
-        logger.info(f"  Indices unicos: {np.unique(labelmap)}")
+        logger.info(f"  Indices unicos: {_get_unique_values(labelmap, label='labelmap')}")
 
         # Generar zona peritumoral (1 cm alrededor del tumor)
         t_peri = time.time()
         try:
-            if TUMOR_INDEX in labelmap and PRETUMOR_INDEX not in np.unique(labelmap):
+            if TUMOR_INDEX in labelmap and PRETUMOR_INDEX not in labelmap:
                 logger.info("\n--- Generando zona peritumoral (1 cm alrededor del tumor) ---")
                 _log_consola("Generando zona peritumoral (1 cm alrededor del tumor)...")
                 sys.stdout.flush()
@@ -2213,7 +2245,7 @@ def main():
         _ai_review("Carga + Labelmap + Actividad", True, {
             "activity_gbq": activity_gbq,
             "labelmap_shape": list(dims),
-            "labelmap_indices": [int(x) for x in np.unique(labelmap)],
+            "labelmap_indices": [int(x) for x in _get_unique_values(labelmap, label="indices")],
         })
 
     else:
@@ -2252,23 +2284,30 @@ def main():
         if pet_node is not None and labelmap is not None:
             logger.info(f"  Usando volumen PET_CT para kernel: {pet_node.GetName()}")
             pet_arr = slicer.util.arrayFromVolume(pet_node)  # (nz, ny, nx)
-            pet_arr = pet_arr.transpose(2, 1, 0).astype(np.float64)  # (nx, ny, nz)
+            # Convertir a float32 INMEDIATAMENTE para ahorrar 50% memoria
+            pet_arr = pet_arr.transpose(2, 1, 0).astype(np.float32)  # (nx, ny, nz)
             pet_arr = np.maximum(pet_arr, 0)  # sin negativos
-            if pet_arr.sum() > 0:
-                A = pet_arr / pet_arr.sum() * activity_gbq  # GBq/voxel (MATLAB: A = PET * 1e-9)
+            pet_sum = float(pet_arr.sum())
+            if pet_sum > 0:
+                # Crear A directamente en float32 (no float64) para ahorrar memoria
+                A = (pet_arr / pet_sum * activity_gbq).astype(np.float32)
             else:
-                A = np.ones(dims, dtype=np.float64) * activity_gbq / np.prod(dims)
+                A = np.ones(dims, dtype=np.float32) * (activity_gbq / np.prod(dims))
+            # Liberar pet_arr INMEDIATAMENTE - ya no se necesita
+            del pet_arr
+            import gc
+            gc.collect()
         elif labelmap is not None:
             # Sin PET: distribucion uniforme en higado+tumor
-            A = np.zeros(dims, dtype=np.float64)
+            A = np.zeros(dims, dtype=np.float32)
             liver_tumor = (labelmap == LIVER_INDEX) | (labelmap == TUMOR_INDEX)
             n_lt = np.sum(liver_tumor)
             if n_lt > 0:
-                A[liver_tumor] = activity_gbq / n_lt  # GBq/voxel
+                A[liver_tumor] = activity_gbq / n_lt
             else:
                 A[:] = activity_gbq / np.prod(dims)
         else:
-            A = np.ones(dims, dtype=np.float64) * activity_gbq / np.prod(dims)
+            A = np.ones(dims, dtype=np.float32) * (activity_gbq / np.prod(dims))
 
         logger.info(f"  Actividad total en A: {A.sum():.4f} GBq (MATLAB: A = PET * 1e-9)")
 
@@ -2293,6 +2332,8 @@ def main():
                 A_crop = np.asarray(A_crop, dtype=np.float32)
                 # Liberar A (float64 original) — ya no se necesita en esta rama
                 del A
+                import gc
+                gc.collect()
                 logger.info(f"  ROI actividad: {A_crop.shape} (full: {dims})")
                 _log_consola(f"Convolucion FFT sobre ROI {A_crop.shape}...")
                 sys.stdout.flush()
@@ -2306,9 +2347,16 @@ def main():
                 t_conv = time.time()
                 dose_crop = convolve_imfilter_symmetric(A_crop, kernel)
                 dt_conv = time.time() - t_conv
+                # Liberar A_crop - ya no se necesita despues de la convolucion
+                del A_crop
+                import gc
+                gc.collect()
                 # Reconstruir volumen completo
                 dose_gy = np.zeros(dims, dtype=np.float64)
                 dose_gy[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]] = dose_crop
+                # Liberar dose_crop - ya esta copiado en dose_gy
+                del dose_crop
+                gc.collect()
                 logger.info(f"  Convolucion FFT (ROI) completada en {dt_conv:.1f}s")
                 _log_consola(f"Convolucion FFT: {dt_conv:.1f}s (MATLAB: ~22s)")
             else:
@@ -2497,12 +2545,9 @@ def main():
                         # Quitar labelmap de los slices
                         sn.SetLabelVolumeID(None)
                         sn.SetLabelOpacity(0.0)
-                    # Forzar redraw de todos los slice views
-                    lm = slicer.app.layoutManager()
-                    for idx in range(lm.sliceViewCount()):
-                        sv = lm.sliceWidget(idx).sliceView()
-                        if sv:
-                            sv.scheduleRender()
+                    # Forzar redraw de todos los slice views (via Modified, NO layoutManager)
+                    for _sn_rd in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                        _sn_rd.Modified()
                     slicer.app.processEvents()
                     logger.info("  Slices configurados: CT fondo + Dosis overlay (0.4)")
                     _log_consola_ok("Vista: CT + Dosis rainbow")
@@ -2514,27 +2559,19 @@ def main():
                         logger.debug(f"  resetSliceViews: {e}")
                 except Exception as e:
                     logger.warning(f"  Configurando slices: {e}")
-                # ── Saltar al voxel con maxima dosis ──
-                _max_ras = None
+                # ── Centrar slices en el nodo de dosis ──
                 try:
-                    if dose_node is not None:
-                        import vtk as _vtk
-                        max_idx = np.unravel_index(np.argmax(dose_gy), dose_gy.shape)
-                        ijk = [float(max_idx[2]), float(max_idx[1]), float(max_idx[0]), 1.0]
-                        mat_ras = _vtk.vtkMatrix4x4()
-                        dose_node.GetIJKToRASMatrix(mat_ras)
-                        ras = [0.0, 0.0, 0.0, 0.0]
-                        mat_ras.MultiplyPoint(ijk, ras)
-                        from qt import QTimer
-                        QTimer.singleShot(500,
-                            lambda r=ras[:3]: slicer.modules.markups.logic().JumpSlicesToLocation(r[0], r[1], r[2], True))
-                        logger.info(f"  Saltando al voxel de maxima dosis: "
-                                    f"IJK({max_idx[0]},{max_idx[1]},{max_idx[2]}) "
-                                    f"-> RAS({ras[0]:.1f},{ras[1]:.1f},{ras[2]:.1f})")
-                        _log_consola_ok(f"Maxima dosis: {dose_gy.max():.2f} Gy")
-                        _max_ras = list(ras[:3])
+                    _center_slices_on_node(dose_node, label="[MAX]", use_max=True)
                 except Exception as e:
-                    logger.warning(f"  No se pudo saltar al maximo de dosis: {e}")
+                    logger.warning(f"  No se pudo centrar slices en dosis: {e}")
+                # ── Crosshair + translate-only ──
+                _enable_crosshair(label="[INIT]")
+                _enable_slice_intersections(label="[INIT]")
+                try:
+                    for _sn_init in slicer.util.getNodesByClass("vtkMRMLSliceCompositeNode"):
+                        _sn_init.SetInteractionMode(_sn_init.TranslateSlice)
+                except Exception as _e_init:
+                    logger.debug(f"[INIT] Modo trasladar fallo: {_e_init}")
                 # ── Isodosis (NO BLOQUEANTE: corre en background via QTimer) ──
                 if not args.no_isodose and _HAS_ISODOSE and create_isodose_contours:
                     logger.info("\n--- Isodosis: programada en background ---")
@@ -2543,7 +2580,7 @@ def main():
                     # Congelar config para el closure
                     _levels = list(isodose_levels) if isodose_levels else None
                     _relative = isodose_relative
-                    def _run_isodose_later(levels=_levels, relative=_relative):
+                    def _run_isodose_later(levels=_levels, relative=_relative, dose_gy=dose_gy):
                         try:
                             model_node, param = create_isodose_contours(
                                 dose_node,
@@ -2563,27 +2600,34 @@ def main():
                                         sn.SetForegroundVolumeID(dose_node.GetID())
                                         sn.SetForegroundOpacity(0.4)
                                         sn.SetLabelVolumeID(None)
-                                    # Forzar redraw
-                                    try:
-                                        lm = slicer.app.layoutManager()
-                                        for idx in range(lm.sliceViewCount()):
-                                            sv = lm.sliceWidget(idx).sliceView()
-                                            if sv: sv.scheduleRender()
-                                    except Exception:
-                                        pass
+                                    # Forzar redraw (via Modified en slice nodes, NO layoutManager)
+                                    for _sn_iso in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+                                        _sn_iso.Modified()
+                                    slicer.app.processEvents()
                                     logger.info("  Slices restaurados post-isodosis (CT + Dosis)")
-                                    # Reset views post-isodosis: centra field of view correctamente
-                                    # (equivale a click "Actualizar vistas" manual)
+                                    # Reset 2D views (ResetFieldOfView en todos los slices)
+                                    _reset_2d_views(label="[ISODOSE]")
+                                    # Re-activar crosshair
+                                    _enable_crosshair(label="[ISODOSE]")
+                                    _enable_slice_intersections(label="[ISODOSE]")
+                                    # Re-reset 3D FOV
                                     try:
-                                        slicer.util.resetSliceViews()
-                                        logger.info("  Slice views reseteados post-isodosis")
-                                    except Exception:
-                                        pass
+                                        _lm_is = slicer.app.layoutManager()
+                                        _tw_is = _lm_is.threeDWidget(0) if _lm_is else None
+                                        if _tw_is:
+                                            _3dv_is = _tw_is.threeDView()
+                                            _3dv_is.resetFocalPoint()
+                                            _3dv_is.resetCamera()
+                                            logger.info("[ISODOSE] 3D FOV reseteado post-isodosis (focalPoint + camera)")
+                                    except Exception as _e_fov:
+                                        logger.warning(f"[ISODOSE] 3D FOV fallo: {_e_fov}")
+                                    # Saltar al maximo de dosis
+                                    _center_slices_on_node(dose_node, label="[ISODOSE]", use_max=True)
                                 except Exception as e:
                                     logger.warning(f"  No se pudieron restaurar slices post-isodosis: {e}")
-                            else:
-                                logger.info("  No se generaron isodosis")
-                                _log_consola("Isodosis: sin datos (niveles fuera de rango?)")
+                                else:
+                                    logger.info("  No se generaron isodosis")
+                                    _log_consola("Isodosis: sin datos (niveles fuera de rango?)")
                         except Exception as e:
                             logger.warning(f"  Error generando isodosis: {e}")
                             _log_consola_error(f"Error en isodosis: {e}")
@@ -2815,6 +2859,45 @@ def main():
     else:
         _log_consola("  PDF omitido (--no-pdf)")
 
+    # PDF (LaTeX - profesional)
+    if _HAS_LATEX:
+        try:
+            # Derivar patient_id desde el nombre de escena
+            latex_patient_id = os.path.splitext(os.path.basename(scene_path))[0]
+            latex_pdf_path = generate_latex_report(
+                results_data=results,
+                output_dir=OUTPUT_DIR_DEFAULT,
+                patient_id=latex_patient_id,
+                dvh_curves=dvh_curves_for_pdf if dvh_curves_for_pdf else None,
+            )
+            if latex_pdf_path:
+                _log_consola_ok(f"PDF LaTeX generado: {latex_pdf_path}")
+            else:
+                _log_consola_error("No se pudo generar PDF LaTeX (revisar dependencias: jinja2, xelatex, latexmk)")
+        except Exception as e:
+            _log_consola_error(f"Error generando PDF LaTeX: {e}")
+            logger.warning(f"  Error generando PDF LaTeX: {e}")
+            import traceback
+            logger.warning(traceback.format_exc())
+    else:
+        logger.info("  PDF LaTeX omitido (generate_latex_report no disponible)")
+
+    # Save copies for QTimer callbacks (defined after del)
+    _dvh_dose_gy = dose_gy
+    _dvh_labelmap = labelmap
+    _dvh_spacing = spacing
+
+    # Liberar labelmap y dose_gy - ya no se necesitan despues del PDF (~540 MB total)
+    if labelmap is not None:
+        del labelmap
+        logger.info("  Labelmap liberado de memoria (~180 MB)")
+    if dose_gy is not None:
+        del dose_gy
+        logger.info("  dose_gy liberado de memoria (~360 MB)")
+    import gc
+    gc.collect()
+    logger.info("  Memoria liberada post-reporte")
+
     if not args.no_slicer:
         # Guardar escena NO BLOQUEANTE (en background, no demora la vista)
         try:
@@ -2839,7 +2922,7 @@ def main():
     # (DVH plots en background para no congelar consola)
     if not args.no_slicer:
         from qt import QTimer
-        def _run_dvh_plots_later():
+        def _run_dvh_plots_later(dose_gy=_dvh_dose_gy, labelmap=_dvh_labelmap, spacing=_dvh_spacing):
             try:
                 logger.info("  Graficando DVH en Slicer (background)...")
                 _create_dvh_plots_slicer(dose_gy, labelmap, spacing, args.show)
@@ -2865,27 +2948,27 @@ def main():
     # Mantener Slicer abierto si --show O si hay consola interactiva
     keep_alive = args.show or (consola is not None)
     if keep_alive:
+        logger.info("[INIT] Configurando display final...")
         if args.show:
-            try:
-                slicer.util.selectModule("Plots")
-                slicer.app.processEvents()
-                # Layout SIN vista 3D: ConventionalView = axial/sagital/coronal + plot
-                slicer.app.layoutManager().setLayout(
-                    slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
-                # Re-saltar al voxel de maxima dosis DESPUÉS del layout (evita reset de vistas)
-                if dose_node is not None:
-                    import vtk as _vtk
-                    max_idx = np.unravel_index(np.argmax(dose_gy), dose_gy.shape)
-                    ijk = [float(max_idx[2]), float(max_idx[1]), float(max_idx[0]), 1.0]
-                    mat_ras = _vtk.vtkMatrix4x4()
-                    dose_node.GetIJKToRASMatrix(mat_ras)
-                    ras = [0.0, 0.0, 0.0, 0.0]
-                    mat_ras.MultiplyPoint(ijk, ras)
-                    from qt import QTimer
-                    QTimer.singleShot(300,
-                        lambda r=ras[:3]: slicer.modules.markups.logic().JumpSlicesToLocation(r[0], r[1], r[2], True))
-            except Exception:
-                pass
+            # --- Layout + Crosshair + Translate + Reset 2D views + Reset 3D (sincrónico) ---
+            _setup_display_sync(dose_node, _dvh_dose_gy)
+            # Timer solo para re-asignar DVH chart (2000ms post-DVH para asegurar)
+            QTimer.singleShot(2200,
+                lambda dn=dose_node, dg=_dvh_dose_gy:
+                    _reassign_dvh_chart(dn, dg))
+            logger.info("[INIT] Display sincronico OK + timer reassign DVH@2200ms")
+            # Timer de SEGURIDAD a los 60s: re-aplica FOV/crosshair/chart
+            # (la isodosis termina ~33s, esto es mucho despues)
+            QTimer.singleShot(60000,
+                lambda dn=dose_node, dg=_dvh_dose_gy:
+                    _reassign_dvh_chart(dn, dg))
+            logger.info("[INIT] Safety timer @60000ms (re-aplica display post-isodosis)")
+            # Timer de SEGURIDAD a los 5000ms: re-aplica FOV/crosshair/chart
+            # (la isodosis termina ~33s, pero el post-procesamiento ~3s; esto corre bien despues)
+            QTimer.singleShot(5000,
+                lambda dn=dose_node, dg=_dvh_dose_gy:
+                    _reassign_dvh_chart(dn, dg))
+            logger.info("[INIT] Safety timer @5000ms (re-aplica display post-isodosis temprana)")
 
         if consola:
             _log_consola("Consola activa. Escribi 'ayuda' para comandos, 'salir' para cerrar.")
@@ -2902,6 +2985,268 @@ def main():
             pass
 
     return 0
+
+
+def _center_slices_on_node(node, label="[CENTER]", use_max=False):
+    """Centra slices en un punto RAS usando JumpSlicesToLocation (markups logic).
+
+    Args:
+        node: vtkMRMLScalarVolumeNode
+        label: Tag para el log
+        use_max: Si True, salta al voxel con máximo valor. Si False (default),
+                 centra en el punto medio geométrico del volumen.
+    """
+    if node is None:
+        logger.warning(f"{label} No node provided for centering")
+        return
+    try:
+        import numpy as np
+        if use_max:
+            arr = slicer.util.arrayFromVolume(node)
+            if arr is None or arr.size == 0:
+                raise RuntimeError("array vacío o None")
+            max_idx_3d = np.unravel_index(np.argmax(arr), arr.shape)
+            c, r, s = max_idx_3d[2], max_idx_3d[1], max_idx_3d[0]
+            ijk = [c, r, s, 1.0]
+            ijk_to_ras = vtk.vtkMatrix4x4()
+            node.GetIJKToRASMatrix(ijk_to_ras)
+            ras_xyz = ijk_to_ras.MultiplyPoint(ijk)
+            target = [ras_xyz[0], ras_xyz[1], ras_xyz[2]]
+            max_val = float(np.max(arr))
+            logger.info(f"{label} Max={max_val:.4e} en IJK({c},{r},{s}) "
+                        f"RAS({target[0]:.1f}, {target[1]:.1f}, {target[2]:.1f})")
+        else:
+            bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            node.GetRASBounds(bounds)
+            target = [(bounds[i] + bounds[i + 1]) / 2.0 for i in range(0, 6, 2)]
+
+        slicer.modules.markups.logic().JumpSlicesToLocation(target[0], target[1], target[2], True)
+        slicer.app.processEvents()
+        logger.info(f"{label} Slices centrados en ({target[0]:.1f}, {target[1]:.1f}, {target[2]:.1f})")
+    except Exception as _e_center_all:
+        logger.warning(f"{label} Error al centrar slices: {_e_center_all}")
+
+
+def _reset_2d_views(label="[RESET-2D]"):
+    """Replica el boton 'Reset Field of View' 2D de Slicer en TODOS los slices.
+    NO salta a maxima dosis — solo centra el FOV en el volumen de fondo.
+    Equivalente a slicer.util.resetSliceViews() pero mas especifico."""
+    try:
+        for _sn in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+            try:
+                _sn.ResetFieldOfView()
+                _sn.Modified()
+            except Exception as _er:
+                logger.debug(f"{label} ResetFieldOfView fallo en {_sn.GetName()}: {_er}")
+        slicer.app.processEvents()
+        logger.info(f"{label} ResetFieldOfView aplicado en todos los slices")
+    except Exception as _e:
+        logger.warning(f"{label} Error: {_e}")
+
+
+def _reset_slice_fov(fov_mm=300.0, label="[FOV]"):
+    """Helper: fija FieldOfView de TODOS los slice nodes a un valor fijo
+    SIN mover la posicion (a diferencia de resetSliceViews que resetea todo).
+    fov_mm: tamano en mm del FOV cuadrado (default 300mm)."""
+    _ok = 0
+    for _sn_fov in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+        try:
+            _sn_fov.SetFieldOfView(fov_mm, fov_mm, fov_mm)
+            _ok += 1
+        except Exception as _ef:
+            logger.debug(f"{label} FOV fallo en {_sn_fov.GetName()}: {_ef}")
+    if _ok:
+        logger.info(f"{label} FOV={fov_mm}mm fijado en {_ok} slice nodes")
+
+def _enable_crosshair(label="[CROSSHAIR]"):
+    """Configura crosshair en modo NoCrosshair (sin lineas rojas) + Navigation + Translate.
+    """
+    def _apply_crosshair_settings(_cn, _label):
+        """Aplica modo oculto, navegacion y comportamiento Translate al crosshair node."""
+        try:
+            _cn.SetCrosshairMode(0)  # NoCrosshair
+        except Exception as _e_m:
+            logger.debug(f"{_label} SetCrosshairMode failed: {_e_m}")
+        try:
+            _cn.SetNavigation(1)
+        except Exception as _e_nav:
+            logger.debug(f"{_label} SetNavigation failed: {_e_nav}")
+        try:
+            _behavior = slicer.vtkMRMLCrosshairNode.OffsetJumpSlice
+        except AttributeError:
+            _behavior = 1
+        try:
+            _cn.SetCrosshairBehavior(_behavior)
+        except Exception as _e_behav:
+            logger.debug(f"{_label} SetCrosshairBehavior failed: {_e_behav}")
+        logger.info(f"{_label} Crosshair: NoCrosshair + Navigation + Translate (OffsetJumpSlice)")
+        # Forzar redraw de todos los slice views
+        for _sn_cr in slicer.util.getNodesByClass("vtkMRMLSliceNode"):
+            _sn_cr.Modified()
+        slicer.app.processEvents()
+    # Metodo 1: via crosshair logic
+    try:
+        _cl = slicer.modules.crosshair.logic()
+        _cn = _cl.GetCrosshairNode()
+        if _cn:
+            _apply_crosshair_settings(_cn, label)
+            # Set crosshair position to centre of first volume (if any) – ensures it becomes visible
+            try:
+                vol_node = slicer.util.getFirstNodeByClass('vtkMRMLScalarVolumeNode')
+                if vol_node:
+                    # Compute centre RAS using GetRASBounds (expects a pre‑allocated list)
+                    b = [0.0]*6
+                    vol_node.GetRASBounds(b)
+                    center = [(b[i] + b[i+1]) / 2.0 for i in range(0,6,2)]
+                    # Use markups logic to move crosshair (works across all slices)
+                    slicer.modules.markups.logic().JumpSlicesToLocation(center, True)
+            except Exception as _e_pos:
+                logger.debug(f"{label} Set crosshair position failed: {_e_pos}")
+            return
+    except Exception as _e1:
+        logger.debug(f"{label} crosshair logic fallo: {_e1}")
+    # Metodo 2: via getNode
+    try:
+        _cn2 = slicer.util.getNode(pattern="Crosshair")
+        if _cn2:
+            _apply_crosshair_settings(_cn2, label)
+            # Set crosshair position (mismo codigo que Metodo 1)
+            try:
+                vol_node = slicer.util.getFirstNodeByClass('vtkMRMLScalarVolumeNode')
+                if vol_node:
+                    b = [0.0]*6
+                    vol_node.GetRASBounds(b)
+                    center = [(b[i] + b[i+1]) / 2.0 for i in range(0,6,2)]
+                    slicer.modules.markups.logic().JumpSlicesToLocation(center, True)
+            except Exception as _e_pos2:
+                logger.debug(f"{label} Set crosshair position failed (method 2): {_e_pos2}")
+            return
+    except Exception as _e2:
+        logger.warning(f"{label} getNode fallo: {_e2}")
+
+
+def _enable_slice_intersections(label="[SLICE-INTERSECT]"):
+    """Desactiva las lineas de interseccion entre slices (rojo/verde/amarillo).
+    """
+    try:
+        slice_display_nodes = slicer.util.getNodesByClass("vtkMRMLSliceDisplayNode")
+        count = 0
+        for slice_disp in slice_display_nodes:
+            try:
+                slice_disp.SetIntersectingSlicesVisibility(1)
+                count += 1
+            except Exception as _e_disp:
+                logger.debug(f"{label} SetIntersectingSlicesVisibility(0) failed: {_e_disp}")
+        slice_nodes = slicer.util.getNodesByClass("vtkMRMLSliceNode")
+        for slice_node in slice_nodes:
+            slice_node.Modified()
+        slicer.app.processEvents()
+        logger.info(f"{label} Slice intersections visibles en {count} display nodes")
+    except Exception as _e:
+        logger.warning(f"{label} Error activando slice intersections: {_e}")
+
+
+def _setup_display_sync(dose_node, dose_gy):
+    """Configura el display COMPLETO de forma sincrónica:
+    layout, crosshair, translate, reset 2D views, reset 3D FOV.
+    """
+    try:
+        from slicer import vtkMRMLLayoutNode as _LayoutNode
+        _lm = slicer.app.layoutManager()
+        # ── 1. Layout ──
+        _layout_plot = getattr(_LayoutNode, "SlicerLayoutConventionalPlotView", None)
+        if _layout_plot is not None:
+            _lm.setLayout(_layout_plot)
+            logger.info("[LAYOUT] ConventionalPlotView: 3D+plot / 3 slices")
+        else:
+            _layout_4up = getattr(_LayoutNode, "SlicerLayoutFourUpPlotView", None)
+            if _layout_4up is not None:
+                _lm.setLayout(_layout_4up)
+                logger.info("[LAYOUT] FourUpPlotView (fallback)")
+            else:
+                _lm.setLayout(_LayoutNode.SlicerLayoutConventionalView)
+                logger.info("[LAYOUT] ConventionalView (sin plot)")
+        slicer.app.processEvents()
+        # ── 2. Crosshair ──
+        _enable_crosshair()
+        # ── 2b. Slice Intersections DESACTIVADAS ──
+        _enable_slice_intersections()
+        # ── 3. Modo Translate en interactor style ──
+        # vtkMRMLSliceViewInteractorStyle::ActionType: 0=AdjustWL,1=Select,2=Translate,3=Zoom,4=Rotate,5=SetCrosshairPos,6=SetCursorPos
+        # Usamos sliceView().interactorObserver() + SetActionEnabled (API oficial Slicer)
+        try:
+            _DISABLE = [0, 1, 3, 4, 7]  # AdjustWL, Select, Zoom, Rotate, BrowseSlice
+            _ENABLE = [2, 5, 6]          # Translate, SetCrosshairPos, SetCursorPos
+            for _slice_name in ["Red", "Yellow", "Green"]:
+                _sw = _lm.sliceWidget(_slice_name)
+                if _sw:
+                    _obs = _sw.sliceView().interactorObserver()
+                    if _obs:
+                        for _act in _DISABLE:
+                            _obs.SetActionEnabled(_act, False)
+                        for _act in _ENABLE:
+                            _obs.SetActionEnabled(_act, True)
+            logger.info("[TRANSLATE] Solo Translate + crosshair habilitado via interactorObserver()")
+        except Exception as _e_is:
+            logger.warning(f"[TRANSLATE] interactor style fallo: {_e_is}")
+        # ── 4. Reset 2D views (ResetFieldOfView en todos los slices) ──
+        _reset_2d_views(label="[JUMP-SYNC]")
+        _center_slices_on_node(dose_node, label="[CENTER]", use_max=True)
+        # ── 5. Reset 3D FOV ──
+        try:
+            _tw = _lm.threeDWidget(0) if _lm else None
+            if _tw:
+                _3dv = _tw.threeDView()
+                # resetFocalPoint() solo resetea el punto focal; resetCamera() ajusta
+                # la camara para encuadrar toda la escena (FOV real).
+                _3dv.resetFocalPoint()
+                _3dv.resetCamera()
+                logger.info("[3DFOV] Reset FOV ejecutado (focalPoint + camera)")
+        except Exception as _e:
+            logger.debug(f"[3DFOV] fallo: {_e}")
+        # ── 6. FOV 2D ya hecho por _reset_2d_views en paso 4 ──
+        logger.info("[DISPLAY] Setup sincronico completado exitosamente")
+    except Exception as _e:
+        logger.warning(f"[DISPLAY] Error en setup sincronico: {_e}")
+        import traceback
+        logger.warning(traceback.format_exc())
+
+
+def _reassign_dvh_chart(dose_node=None, dose_gy=None):
+    """Timer postergado (~2200ms): re-asigna chart DVH + re-aplica crosshair + reset 2D views.
+    Se ejecuta DESPUES de que la isodosis (100ms) y DVH (200ms) terminaron,
+    para asegurar que todo quede en su estado final.
+    """
+    # ── A) Re-asignar DVH chart ──
+    try:
+        chart_node = slicer.util.getNode("DVH_Chart")
+        if chart_node:
+            _pv_nodes = slicer.util.getNodesByClass("vtkMRMLPlotViewNode")
+            if _pv_nodes:
+                _pv_nodes[0].SetPlotChartNodeID(chart_node.GetID())
+                logger.info("[DVH] Chart re-asignado al PlotViewNode correctamente")
+            else:
+                logger.warning("[DVH] No se encontraron PlotViewNodes en la escena")
+        else:
+            logger.warning("[DVH] No se encontro 'DVH_Chart' en la escena")
+    except Exception as e:
+        logger.warning(f"[DVH] Error re-asignando chart: {e}")
+    # ── B) Re-aplicar crosshair ──
+    _enable_crosshair(label="[FINAL]")
+    _enable_slice_intersections(label="[FINAL]")
+    # ── C) Reset 2D views (ResetFieldOfView en todos los slices) ──
+    _reset_2d_views(label="[FINAL]")
+    _center_slices_on_node(dose_node, label="[FINAL]", use_max=True)
+    try:
+        _lm2 = slicer.app.layoutManager()
+        _tw2 = _lm2.threeDWidget(0) if _lm2 else None
+        if _tw2:
+            _3dv2 = _tw2.threeDView()
+            _3dv2.resetFocalPoint()
+            _3dv2.resetCamera()
+            logger.info("[FINAL] 3D FOV reseteado (focalPoint + camera)")
+    except Exception as _e3:
+        logger.warning(f"[FINAL] 3D FOV fallo: {_e3}")
 
 
 if __name__ == "__main__":

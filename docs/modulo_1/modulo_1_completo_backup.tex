@@ -1,129 +1,19 @@
 \documentclass[12pt,a4paper]{article}
 
-% ============================================================
-% Paquetes
-% ============================================================
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage[spanish]{babel}
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{geometry}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
-\usepackage{float}
-\usepackage{caption}
-\usepackage{booktabs}
-\usepackage{longtable}
-\usepackage{array}
-\usepackage{verbatim}
-\usepackage[most]{tcolorbox}
-\usepackage[most]{tcolorbox}
+% Estilo compartido (paquetes, colores, hyperref, listings, AI Supervisor)
+\input{../estilo_3dosim}
 
-\geometry{margin=2.5cm}
-\setlength{\headheight}{13.6pt}
-% ============================================================
-% PALETA DE COLORES 3Dosim
-% ============================================================
-\definecolor{cPrimary}{RGB}{30,64,124}      % azul oscuro titulos
-\definecolor{cSecondary}{RGB}{70,130,180}   % azul claro subtitulos
-\definecolor{cAccent}{RGB}{220,50,50}        % rojo AI Supervisor / alertas
-\definecolor{cBg}{RGB}{245,245,245}          % gris muy claro fondo
-\definecolor{cDarkBg}{RGB}{230,230,230}      % gris fondo tablas
-
-% ============================================================
-% FORMATO DE SECCIONES CON COLORES
-% ============================================================
-\titleformat*{\section}{\normalfont\Large\bfseries\color{cPrimary}}
-\titleformat*{\subsection}{\normalfont\large\bfseries\color{cSecondary}}
-\titleformat*{\subsubsection}{\normalfont\normalsize\bfseries\color{cPrimary}}
-% ============================================================
-% PALETA DE COLORES 3Dosim
-% ============================================================
-\definecolor{cPrimary}{RGB}{30,64,124}      % azul oscuro titulos
-\definecolor{cSecondary}{RGB}{70,130,180}   % azul claro subtitulos
-\definecolor{cAccent}{RGB}{220,50,50}        % rojo AI Supervisor / alertas
-\definecolor{cBg}{RGB}{245,245,245}          % gris muy claro fondo
-\definecolor{cDarkBg}{RGB}{230,230,230}      % gris fondo tablas
-
-% ============================================================
-% FORMATO DE SECCIONES CON COLORES
-% ============================================================
-\titleformat*{\section}{\normalfont\Large\bfseries\color{cPrimary}}
-\titleformat*{\subsection}{\normalfont\large\bfseries\color{cSecondary}}
-\titleformat*{\subsubsection}{\normalfont\normalsize\bfseries\color{cPrimary}}
-
-% ============================================================
-% Configuracion de encabezado/pie
-% ============================================================
-\pagestyle{fancy}
-\fancyhf{}
+% Encabezado específico del modulo
 \fancyhead[L]{\small 3Dosim --- Modulo 1}
-\fancyhead[R]{\small Segmentacion, Registro y Fusion}
-\fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[R]{\small Segmentación, Registro y Fusion}
 
-% ============================================================
-% Macro para notacion: define una variable con descripcion
-% Uso: \vardef{$A_{vox}$}{Concentracion de actividad en Bq/mL}
-% ============================================================
-\newcommand{\vardef}[2]{\noindent\textbf{#1}: #2\\}
-
-\setlength{\parskip}{0.5em}
-
-% ============================================================
 % Portada
-% ============================================================
-\title{\textbf{Modulo 1: Segmentacion, Registro y Fusion de Imagenes}\\[0.5cm]
-       \large Pipeline de Preparacion para Dosimetria Hepatica con $^{90}$Y\\[0.3cm]
-       \normalsize Documentacion Tecnica --- Revision v4.0}
+\title{\textbf{Modulo 1: Segmentación, Registro y Fusion de Imagenes}\\[0.5cm]
+       \large Pipeline de Preparación para Dosimetria Hepatica con $^{90}$Y\\[0.3cm]
+       \normalsize Documentación Tecnica --- Revision v4.0}
 \author{Proyecto 3Dosim --- Dosimetria Hepatica con $^{90}$Y}
 \date{Julio 2026}
 
-% ============================================================
-% CAJA COLOREADA PARA AI SUPERVISOR
-% ============================================================
-\tcbset{
-  aiSupervisor/.style = {
-    colback=cBg,
-    colframe=cAccent,
-    boxrule=0.7pt,
-    arc=3pt,
-    left=4mm,
-    right=4mm,
-    top=3mm,
-    bottom=3mm,
-    fonttitle=\bfseries\large,
-    title=Control de Calidad (AI Supervisor),
-    coltitle=white,
-    colbacktitle=cAccent,
-    attach boxed title to top left={yshift=-3mm,xshift=5mm},
-    boxed title style={colback=cAccent,arc=2pt}
-  }
-}
-% ============================================================
-% CAJA COLOREADA PARA AI SUPERVISOR
-% ============================================================
-\tcbset{
-  aiSupervisor/.style = {
-    colback=cBg,
-    colframe=cAccent,
-    boxrule=0.7pt,
-    arc=3pt,
-    left=4mm,
-    right=4mm,
-    top=3mm,
-    bottom=3mm,
-    fonttitle=\bfseries\large,
-    title=Control de Calidad (AI Supervisor),
-    coltitle=white,
-    colbacktitle=cAccent,
-    attach boxed title to top left={yshift=-3mm,xshift=5mm},
-    boxed title style={colback=cAccent,arc=2pt}
-  }
-}
 \begin{document}
 
 \maketitle
@@ -137,39 +27,19 @@
 \section*{Resumen}
 \addcontentsline{toc}{section}{Resumen}
 
-Este modulo forma parte del pipeline completo \textbf{3Dosim} para dosimetria hepatica con Yttrium-90.
-Su objetivo es transformar imagenes DICOM (CT anatomico + PET funcional) en una \textbf{labelmap dosimetrica}
--- un volumen 3D donde cada voxel se clasifica segun su tipo de tejido siguiendo la nomenclatura ICRP-110/ICRU-44.
-Esta labelmap constituye la entrada fundamental para el Modulo 2, donde se genera el input de simulacion Monte Carlo (MCNP).
+Este módulo es el primero del pipeline \textbf{3Dosim} para dosimetría hepática con Yttrium-90.
+Su objetivo es transformar imágenes DICOM crudas (TC anatómico + PET funcional) en una \textbf{labelmap dosimétrica}
+-- un volumen 3D donde cada voxel se clasifica según su tipo de tejido siguiendo la nomenclatura ICRP-110/ICRU-44.
+Esta labelmap constituye la entrada fundamental para el Módulo 2, donde se genera el input de simulación Monte Carlo (MCNP).
 
 \vspace{0.5em}
 \noindent
-\textbf{Pregunta que resuelve:} \textit{Cual es la forma mas precisa y automatica de identificar y clasificar cada tejido del paciente para poder calcular la dosis absorbida por voxel?}
+\textbf{Pregunta que resuelve:} \textit{¿Cuál es la forma más precisa y automática de identificar y clasificar cada tejido del paciente para poder calcular la dosis absorbida por voxel?}
 
 \vspace{0.3em}
 \noindent
 \textbf{Resultado principal:} Labelmap NIfTI/NRRD con 53+ materiales ICRP-110 indexados, lista para MCNP.
 
-
-
-% ============================================================
-% RESUMEN DEL MODULO
-% ============================================================
-\section*{Resumen}
-\addcontentsline{toc}{section}{Resumen}
-
-Este modulo forma parte del pipeline completo \textbf{3Dosim} para dosimetria hepatica con Yttrium-90.
-Su objetivo es transformar imagenes DICOM (CT anatomico + PET funcional) en una \textbf{labelmap dosimetrica}
--- un volumen 3D donde cada voxel se clasifica segun su tipo de tejido siguiendo la nomenclatura ICRP-110/ICRU-44.
-Esta labelmap constituye la entrada fundamental para el Modulo 2, donde se genera el input de simulacion Monte Carlo (MCNP).
-
-\vspace{0.5em}
-\noindent
-\textbf{Pregunta que resuelve:} \textit{Cual es la forma mas precisa y automatica de identificar y clasificar cada tejido del paciente para poder calcular la dosis absorbida por voxel?}
-
-\vspace{0.3em}
-\noindent
-\textbf{Resultado principal:} Labelmap NIfTI/NRRD con 53+ materiales ICRP-110 indexados, lista para MCNP.
 
 
 % ============================================================
@@ -179,50 +49,50 @@ Esta labelmap constituye la entrada fundamental para el Modulo 2, donde se gener
 \addcontentsline{toc}{section}{Glosario de Acronimos}
 
 \begin{description}
-    \item[3Dosim] Pipeline de dosimetria interna 3D para radioembolizacion hepatica.
+    \item[3Dosim] Pipeline de dosimetria interna 3D para radioembolización hepatica.
     \item[A$_{\text{total}}$] Actividad total integrada sobre todo el volumen PET [Bq].
     \item[ASGD] Adaptive Stochastic Gradient Descent --- optimizador de Elastix.
-    \item[Bq] Becquerel --- unidad de actividad radiactiva (1 desintegracion/s).
-    \item[Bq/mL] Concentracion de actividad por mililitro de tejido.
-    \item[CT] Computed Tomography --- imagen anatomica en unidades Hounsfield (HU).
+    \item[Bq] Becquerel --- unidad de actividad radiactiva (1 desintegración/s).
+    \item[Bq/mL] Concentración de actividad por mililitro de tejido.
+    \item[CT] Computed Tomography --- imagen anatómica en unidades Hounsfield (HU).
     \item[DICOM] Digital Imaging and Communications in Medicine --- estandar
           de almacenamiento y transmision de imagenes medicas.
-    \item[DOF] Degrees of Freedom --- grados de libertad de una transformacion.
+    \item[DOF] Degrees of Freedom --- grados de libertad de una transformación.
     \item[FMESH4] Mesh tally multiplicador de MCNP --- registra energia
           depositada por voxel.
     \item[FOV] Field of View --- campo de vision de la imagen.
-    \item[FU] Fraction of Uptake --- fraccion de actividad captada por un organo.
-    \item[GBq] Gigabecquerel ($10^9$ Bq). Dosis tipica de $^{90}$Y: 1--5 GBq.
+    \item[FU] Fraction of Uptake --- fracción de actividad captada por un órgano.
+    \item[GBq] Gigabecquerel ($10^9$ Bq). Dosis típica de $^{90}$Y: 1--5 GBq.
     \item[GDPR] General Data Protection Regulation (Union Europea).
     \item[HIPAA] Health Insurance Portability and Accountability Act (EEUU).
     \item[HU] Hounsfield Unit --- escala de densidad radiologica:
           agua $= 0$ HU, aire $= -1000$ HU, hueso $> 400$ HU.
-    \item[ICRP-110] Publicacion 110 de la Comision Internacional de
-          Proteccion Radiologica --- phantoms computacionales de referencia.
+    \item[ICRP-110] Publicación 110 de la Comision Internacional de
+          Protección Radiologica --- phantoms computacionales de referencia.
     \item[ICRU-44] Reporte 44 de la Comision Internacional de Unidades y
           Medidas Radiologicas --- composiciones de tejidos.
     \item[MAE] Mean Absolute Error.
-    \item[MCNP] Monte Carlo N-Particle --- codigo de simulacion de transporte
-          de radiacion (Los Alamos National Laboratory).
+    \item[MCNP] Monte Carlo N-Particle --- codigo de simulación de transporte
+          de radiación (Los Alamos National Laboratory).
     \item[MCTAL] Archivo de salida de MCNP con resultados de tallies.
     \item[mCi] Milicurie ($1$ mCi $= 37$ MBq $= 3.7 \times 10^7$ Bq). Unidad historica.
-    \item[MI] Mutual Information --- metrica de similitud entre imagenes.
+    \item[MI] Mutual Information --- métrica de similitud entre imagenes.
     \item[MIRD] Medical Internal Radiation Dose --- modelo analitico de dosimetria.
-    \item[MSE] Mean Squared Error --- metrica de diferencia cuadratica media.
-    \item[NCC] Normalized Cross-Correlation --- metrica de similitud entre imagenes.
+    \item[MSE] Mean Squared Error --- métrica de diferencia cuadratica media.
+    \item[NCC] Normalized Cross-Correlation --- métrica de similitud entre imagenes.
     \item[NIfTI] Neuroimaging Informatics Technology Initiative --- formato
-          de archivo volumetrico (.nii), usado por MCNP.
+          de archivo volumétrico (.nii), usado por MCNP.
     \item[NPS] Number of Particle Histories --- numero de historias en MCNP.
-    \item[NRRD] Nearly Raw Raster Data --- formato volumetrico (.nrrd),
+    \item[NRRD] Nearly Raw Raster Data --- formato volumétrico (.nrrd),
           nativo de 3D Slicer.
     \item[PET] Positron Emission Tomography --- imagen funcional de actividad.
     \item[PHI] Protected Health Information --- datos de salud protegidos (HIPAA).
     \item[RMSE] Root Mean Squared Error.
     \item[ROI] Region of Interest.
-    \item[SF] Shunt Fraction --- fraccion de microesferas que escapan al pulmon.
+    \item[SF] Shunt Fraction --- fracción de microesferas que escapan al pulmon.
     \item[SUV] Standardized Uptake Value --- medida semicuantitativa PET.
-    \item[T/N] Tumor-to-Normal ratio --- razon de captacion PET tumor/higado sano.
-    \item[TS] TotalSegmentator --- segmentador anatomico por deep learning
+    \item[T/N] Tumor-to-Normal ratio --- razon de captación PET tumor/higado sano.
+    \item[TS] TotalSegmentator --- segmentador anatómico por deep learning
           (104 clases a partir de CT).
     \item[nnU-Net] Arquitectura de red neuronal convolucional usada por TS.
 \end{description}
@@ -242,14 +112,14 @@ Esta labelmap constituye la entrada fundamental para el Modulo 2, donde se gener
 
 \subsection{Vision General}
 
-La dosimetria interna con $^{90}$Y requiere conocer exactamente donde esta cada tejido (higado,
+La dosimetria interna con $^{90}$Y requiere conocer exactamente donde está cada tejido (higado,
 tumor, pulmon, hueso) y cuanta actividad hay en cada punto (PET). El Modulo 1 toma imagenes
-DICOM crudas --- un CT anatomico y un PET funcional --- y las procesa a traves de 16 pasos
-automatizados para producir una \textbf{labelmap dosimetrica}: un volumen 3D donde cada voxel
+DICOM crudas --- un CT anatómico y un PET funcional --- y las procesa a traves de 16 pasos
+automatizados para producir una \textbf{labelmap dosimétrica}: un volumen 3D donde cada voxel
 tiene un valor entero que identifica su tipo de tejido segun la tabla de materiales
-ICRP-110/ICRU-44. Esta labelmap es la entrada del Modulo 2 (generacion de entrada MCNP).
+ICRP-110/ICRU-44. Esta labelmap es la entrada del Modulo 2 (generación de entrada MCNP).
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -267,23 +137,25 @@ TS & TotalSegmentator \\
 
 \subsection{Diagrama de Flujo General}
 
-\begin{verbatim}
+El pipeline del Módulo 1 se compone de 16 pasos secuenciales que transforman las imágenes DICOM del paciente en una labelmap dosimétrica. El diagrama siguiente muestra la arquitectura general del flujo, desde la carga de imágenes hasta la exportación de la labelmap lista para MCNP.
+
+\begin{lstlisting}
 +-----------------------------------------------------------------+
 |                         MODULO 1                                |
-|              Segmentacion + Registro + Fusion                    |
+|              Segmentación + Registro + Fusion                    |
 |                                                                  |
-|  DICOM ---> Calibracion ---> Camilla ---> Registro ---> Fusion  |
+|  DICOM ---> Calibración ---> Camilla ---> Registro ---> Fusion  |
 |   CT       PET            removal     PET->CT      CT+PET       |
 |    |          |              |            |           |          |
 |    +----------+--------------+------------+-----------+          |
 |                           |                                      |
 |                           v                                      |
-|  Anonimizacion ---> TotalSegmentator ---> Validacion IA          |
+|  Anonimización ---> TotalSegmentator ---> Validación IA          |
 |       |                  |                        |              |
 |       +------------------+------------------------+              |
 |                           |                                      |
 |                           v                                      |
-|  Validacion Medica ---> Creacion Tumor ---> Validacion Tumor     |
+|  Validación Medica ---> Creación Tumor ---> Validación Tumor     |
 |                           |                                      |
 |                           v                                      |
 |  Higado Sano ---> Body seg. ---> Labelmap NIfTI+NRRD             |
@@ -292,33 +164,33 @@ TS & TotalSegmentator \\
 |                    Labelmap Dosimetrica                          |
 |                    (entrada Modulo 2)                            |
 +-----------------------------------------------------------------+
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Secuencia de Pasos}
 
-Cada paso tiene un archivo fuente, un proposito y una salida especifica.
-A continuacion se listan los 16 pasos con referencias a las secciones detalladas.
+Cada paso tiene un archivo fuente, un proposito y una salida específica.
+A continuación se listan los 16 pasos con referencias a las secciones detalladas.
 
 \begin{enumerate}
-    \item \textbf{Check Slicer} (Seccion \ref{sec:check}): Verifica entorno, modulos y rutas.
-    \item \textbf{Carga DICOM} (Seccion \ref{sec:carga}): Carga CT y PET desde directorios DICOM.
-    \item \textbf{Calibracion PET} (Seccion \ref{sec:calibracion}): Convierte DICOM raw a Bq/mL.
-    \item \textbf{Eliminar Camilla} (Seccion \ref{sec:camilla}): Remueve mesa y aire del CT.
-    \item \textbf{Registro PET$\to$CT} (Seccion \ref{sec:registro}): Re-muestrea PET a grilla CT.
-    \item \textbf{Fusion CT+PET} (Seccion \ref{sec:fusion}): Layout 4-up + dialogo de actividad.
-    \item \textbf{Anonimizacion} (Seccion \ref{sec:anonimizacion}): Elimina metadatos PHI.
-    \item \textbf{Exportar metadatos} (Seccion \ref{sec:anonimizacion}): Metadatos DICOM a CSV.
-    \item \textbf{TotalSegmentator} (Seccion \ref{sec:ts}): Segmentacion 104 clases (nnU-Net).
-    \item \textbf{Validacion IA} (Seccion \ref{sec:ai}): AI Supervisor verifica automaticamente.
-    \item \textbf{Validacion Medica} (Seccion \ref{sec:validacion}): Aprobacion obligatoria.
-    \item \textbf{Creacion de Tumor} (Seccion \ref{sec:tumor}): 4 modos de lesion hepatica.
-    \item \textbf{Validacion de Tumor} (Seccion \ref{sec:validacion_tumor}): Aprobacion medica.
-    \item \textbf{Higado Sano} (Seccion \ref{sec:tumor}): Higado completo menos tumor.
-    \item \textbf{Body Segmentation} (Seccion \ref{sec:body}): Contorno externo con TS.
-    \item \textbf{Exportar Labelmap} (Seccion \ref{sec:labelmap}): NIfTI + NRRD con indices.
+    \item \textbf{Check Slicer} (Sección \ref{sec:check}): Verifica entorno, modulos y rutas.
+    \item \textbf{Carga DICOM} (Sección \ref{sec:carga}): Carga CT y PET desde directorios DICOM.
+    \item \textbf{Calibración PET} (Sección \ref{sec:calibracion}): Convierte DICOM raw a Bq/mL.
+    \item \textbf{Eliminar Camilla} (Sección \ref{sec:camilla}): Remueve mesa y aire del CT.
+    \item \textbf{Registro PET$\to$CT} (Sección \ref{sec:registro}): Re-muestrea PET a grilla CT.
+    \item \textbf{Fusion CT+PET} (Sección \ref{sec:fusion}): Layout 4-up + dialogo de actividad.
+    \item \textbf{Anonimización} (Sección \ref{sec:anonimizacion}): Elimina metadatos PHI.
+    \item \textbf{Exportar metadatos} (Sección \ref{sec:anonimizacion}): Metadatos DICOM a CSV.
+    \item \textbf{TotalSegmentator} (Sección \ref{sec:ts}): Segmentación 104 clases (nnU-Net).
+    \item \textbf{Validación IA} (Sección \ref{sec:ai}): AI Supervisor verifica automaticamente.
+    \item \textbf{Validación Medica} (Sección \ref{sec:validacion}): Aprobación obligatoria.
+    \item \textbf{Creación de Tumor} (Sección \ref{sec:tumor}): 4 modos de lesion hepatica.
+    \item \textbf{Validación de Tumor} (Sección \ref{sec:validacion_tumor}): Aprobación medica.
+    \item \textbf{Higado Sano} (Sección \ref{sec:tumor}): Higado completo menos tumor.
+    \item \textbf{Body Segmentation} (Sección \ref{sec:body}): Contorno externo con TS.
+    \item \textbf{Exportar Labelmap} (Sección \ref{sec:labelmap}): NIfTI + NRRD con índices.
 \end{enumerate}
 
-\subsection{Modos de Ejecucion}
+\subsection{Modos de Ejecución}
 
 \begin{table}[H]
 \centering
@@ -328,7 +200,7 @@ A continuacion se listan los 16 pasos con referencias a las secciones detalladas
 \textbf{Modo} & \textbf{Comando} & \textbf{Pasos} \\
 \midrule
 Completo & \texttt{Slicer.exe --python-script main.py --data-dir ''Paciente\_2''} & 16 \\
-Hasta fusion & \texttt{--stop-after-fusion} & 1--6 \\
+Hasta fusión & \texttt{--stop-after-fusion} & 1--6 \\
 Antes de segmentar & \texttt{--stop-before-segment} & 1--7 \\
 Reset & \texttt{--reset} & 16 (desde cero) \\
 Debug & \texttt{--debug} & 16 (pausa tras cada paso) \\
@@ -338,7 +210,7 @@ Debug & \texttt{--debug} & 16 (pausa tras cada paso) \\
 
 \subsection{Estructura de Archivos de Salida}
 
-\begin{verbatim}
+\begin{lstlisting}
 output_dir/
 +-- anon/
 |   +-- ANON_CT.nrrd       (CT anonimizado)
@@ -355,17 +227,17 @@ output_dir/
 |   +-- pipeline_mod1.log
 +-- summary.txt
 +-- pipeline_results.json  (historial de ejecuciones)
-\end{verbatim}
+\end{lstlisting}
 
 \newpage
 
 % ============================================================
 % 1b. CHECK SLICER
 % ============================================================
-\section{Verificacion de Entorno (Check Slicer)}
+\section{Verificación de Entorno (Check Slicer)}
 \label{sec:check}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -375,10 +247,10 @@ TS & TotalSegmentator \\
 \bottomrule
 \end{tabular}
 
-La ejecucion del pipeline comienza verificando que 3D Slicer este funcionando correctamente, que
+La ejecución del pipeline comienza verificando que 3D Slicer este funcionando correctamente, que
 los modulos necesarios esten disponibles (BRAINSResample, TotalSegmentator) y que los directorios
-de entrada/salida existan. Si el flag \texttt{--reset} esta activo, se eliminan todos los
-checkpoints previos para forzar una ejecucion completa desde cero.
+de entrada/salida existan. Si el flag \texttt{--reset} está activo, se eliminan todos los
+checkpoints previos para forzar una ejecución completa desde cero.
 
 \subsection{Verificaciones}
 
@@ -391,17 +263,13 @@ checkpoints previos para forzar una ejecucion completa desde cero.
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
 Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
@@ -417,170 +285,52 @@ Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
 % 2. CARGA DICOM
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 2. CARGA DICOM
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
-Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
-Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
-Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 2. CARGA DICOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
-Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
-Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
-Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 2. CARGA DICOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
-Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
-Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
-Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 2. CARGA DICOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
-Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
-Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
-Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 2. CARGA DICOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
-Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
-Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
-Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 2. CARGA DICOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
-Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
-Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
-Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 2. CARGA DICOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Slicer disponible & \texttt{slicer.\_\_version\_\_} existe & Critico \\
-Modulo BRAINSResample & Cargado en \texttt{slicer.modules} & Critico \\
-Modulo TotalSegmentator & Cargado en \texttt{slicer.modules} & Critico \\
-Directorios de entrada & \texttt{os.path.exists($\mathcal{D}$)} & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 2. CARGA DICOM
-% ============================================================
 \section{Carga DICOM CT+PET}
 \label{sec:carga}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -595,8 +345,8 @@ UID & Unique Identifier \\
 \bottomrule
 \end{tabular}
 
-La dosimetria con $^{90}$Y requiere dos tipos de imagenes: un CT anatomico (alta resolucion,
-$512\times512$ voxels, $0.976$ mm de espaciado) y un PET funcional (menor resolucion,
+La dosimetria con $^{90}$Y requiere dos tipos de imagenes: un CT anatómico (alta resolución,
+$512\times512$ voxels, $0.976$ mm de espaciado) y un PET funcional (menor resolución,
 $200\times200$ voxels, $4.07$ mm de espaciado). Ambas provienen de equipos diferentes y se
 almacenan en archivos DICOM separados. Este paso las indexa en una base de datos temporal de
 Slicer, construye los volumenes 3D a partir de los slices individuales y renombra los nodos con
@@ -635,7 +385,7 @@ El proceso de carga sigue estos pasos:
 \centering
 \begin{tabular}{l c c}
 \toprule
-\textbf{Parametro} & \textbf{CT tipico} & \textbf{PET tipico} \\
+\textbf{Parametro} & \textbf{CT típico} & \textbf{PET típico} \\
 \midrule
 Modalidad DICOM & CT & PT \\
 Dimensiones ($N_x \times N_y \times N_z$) & $512 \times 512 \times N_s$ & $200 \times 200 \times N_s$ \\
@@ -648,13 +398,13 @@ Campo de vision (FOV) & 500 mm & 814 mm \\
 \end{tabular}
 \end{table}
 
-\subsection{Notacion de Variables}
+\subsection{Notación de Variables}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{lll}
 \toprule
-\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\textbf{Variable} & \textbf{Descripción} & \textbf{Unidad} \\
 \midrule
 $N_s$ & Numero de slices (tipicamente 100--600) & --- \\
 $s_x, s_y, s_z$ & Espaciado entre voxeles & mm \\
@@ -682,7 +432,7 @@ Geometria & (0028,0030) & PixelSpacing ($s_x, s_y$) \\
  & (0018,0050) & SliceThickness ($s_z$) \\
  & (0020,0032) & ImagePositionPatient (origen) \\
  & (0020,0037) & ImageOrientationPatient (cosenos) \\
-Calibracion & (0028,1052) & RescaleSlope ($m_k$) \\
+Calibración & (0028,1052) & RescaleSlope ($m_k$) \\
  & (0028,1053) & RescaleIntercept ($b_k$) \\
  & (0028,1054) & RescaleType \\
 \bottomrule
@@ -691,17 +441,13 @@ Calibracion & (0028,1052) & RescaleSlope ($m_k$) \\
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
 PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
@@ -718,182 +464,57 @@ Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
 % 3. CALIBRACION PET
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 3. CALIBRACION PET
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
-PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
-Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
-Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
-Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 3. CALIBRACION PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
-PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
-Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
-Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
-Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 3. CALIBRACION PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
-PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
-Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
-Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
-Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 3. CALIBRACION PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
-PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
-Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
-Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
-Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 3. CALIBRACION PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
-PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
-Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
-Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
-Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 3. CALIBRACION PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
-PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
-Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
-Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
-Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 3. CALIBRACION PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-CT detectado & Nodo con ``CT'' en nombre existe & Critico \\
-PET detectado & Nodo con ``PET''/``PT''/``NM'' existe & Critico \\
-Dimensiones CT & $N_x = 512,\ N_y = 512$ & Warning \\
-Dimensiones PET & $N_x \geq 100,\ N_y \geq 100$ & Warning \\
-Escena guardada & Escritura exitosa de \texttt{.mrb} & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 3. CALIBRACION PET
-% ============================================================
-\section{Calibracion PET a Bq/mL}
+\section{Calibración PET a Bq/mL}
 \label{sec:calibracion}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
 \midrule
-Bq/mL & Becquerel por mililitro --- concentracion de actividad \\
+Bq/mL & Becquerel por mililitro --- concentración de actividad \\
 DICOM & Digital Imaging and Communications in Medicine \\
 GBq & Gigabecquerel ($10^9$ Bq) \\
 mCi & Milicurie ($3.7 \times 10^7$ Bq) \\
@@ -903,28 +524,28 @@ SUV & Standardized Uptake Value \\
 \end{tabular}
 
 El PET DICOM almacena valores crudos (cuentas detectadas) que no son directamente utilizables
-para dosimetria. Cada fabricante de escaner PET aplica factores de calibracion diferentes, y
+para dosimetria. Cada fabricante de escaner PET aplica factores de calibración diferentes, y
 estos factores pueden variar incluso entre slices del mismo estudio. Este paso lee cada slice
 DICOM individualmente, extrae los factores \texttt{RescaleSlope} y \texttt{RescaleIntercept}
-especificos de cada uno y convierte los valores raw a concentracion de actividad radiactiva en
+específicos de cada uno y convierte los valores raw a concentración de actividad radiactiva en
 Bq/mL. Es una replica del algoritmo MATLAB \texttt{f\_Rescale\_Bq.m}.
 
-\subsection{Algoritmo de Calibracion}
+\subsection{Algoritmo de Calibración}
 
 Sea $P_{\text{raw}}^{(k)}$ la matriz 2D de valores crudos del slice $k$,
-con dimensiones $N_x \times N_y$. La calibracion se aplica voxel a voxel:
+con dimensiones $N_x \times N_y$. La calibración se aplica voxel a voxel:
 
 \begin{enumerate}
     \item Listar archivos DICOM en $\mathcal{D}_{\text{PET}}$, ordenados por nombre.
     \item Leer cada slice $k$ con \texttt{pydicom.dcmread()}.
     \item Extraer factores del slice $k$: $m_k$, $b_k$, $\tau_k$.
-    \item Si $\tau_k = \texttt{``BQML''}$, aplicar la ecuacion de calibracion.
+    \item Si $\tau_k = \texttt{``BQML''}$, aplicar la ecuación de calibración.
 \end{enumerate}
 
 \begin{equation}\label{eq:calibracion}
     A_{\text{vox}}^{(k)}(i,j) = P_{\text{raw}}^{(k)}(i,j) \cdot m_k + b_k
 \end{equation}
-\vardef{$A_{\text{vox}}^{(k)}(i,j)$}{Concentracion de actividad en Bq/mL en el voxel $(i,j)$ del slice $k$}
+\vardef{$A_{\text{vox}}^{(k)}(i,j)$}{Concentración de actividad en Bq/mL en el voxel $(i,j)$ del slice $k$}
 \vardef{$P_{\text{raw}}^{(k)}(i,j)$}{Valor crudo DICOM del voxel $(i,j)$ del slice $k$}
 \vardef{$m_k$}{RescaleSlope del slice $k$}
 \vardef{$b_k$}{RescaleIntercept del slice $k$}
@@ -933,9 +554,9 @@ con dimensiones $N_x \times N_y$. La calibracion se aplica voxel a voxel:
 \centering
 \begin{tabular}{lll}
 \toprule
-\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\textbf{Variable} & \textbf{Descripción} & \textbf{Unidad} \\
 \midrule
-$A_{\text{vox}}^{(k)}(i,j)$ & Concentracion de actividad calibrada & Bq/mL \\
+$A_{\text{vox}}^{(k)}(i,j)$ & Concentración de actividad calibrada & Bq/mL \\
 $P_{\text{raw}}^{(k)}(i,j)$ & Valor crudo DICOM & adimensional \\
 $m_k$ & RescaleSlope del slice $k$ & (Bq/mL)/unidad \\
 $b_k$ & RescaleIntercept del slice $k$ & Bq/mL \\
@@ -991,23 +612,23 @@ donde $1$ mCi $= 37$ MBq $= 3.7 \times 10^7$ Bq.
 \centering
 \begin{tabular}{l c l}
 \toprule
-\textbf{Parametro} & \textbf{Valor tipico} & \textbf{Descripcion} \\
+\textbf{Parametro} & \textbf{Valor típico} & \textbf{Descripción} \\
 \midrule
 RescaleSlope ($m_k$) & 1.0--2.5 & Factor de pendiente por slice \\
 RescaleIntercept ($b_k$) & 0.0 & Intercepto (tipicamente 0) \\
 RescaleType ($\tau_k$) & \texttt{``BQML''} & Unidad: Bq/mL \\
 Voxel PET ($V_{\text{voxel}}$) & 0.042 mL & Para $4.07 \times 4.07 \times 2.5$ mm \\
-Actividad administrada ($^{90}$Y) & 1--5 GBq & Rango tipico clinico \\
-Actividad en imagen & 0.5--3 GBq & Depende del tiempo post-administracion \\
-Numero de slices & 100--400 & Segun la duracion de la adquisicion \\
+Actividad administrada ($^{90}$Y) & 1--5 GBq & Rango típico clinico \\
+Actividad en imagen & 0.5--3 GBq & Depende del tiempo post-administración \\
+Numero de slices & 100--400 & Segun la duración de la adquisición \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Conservacion de la Actividad Post-Registro}
+\subsection{Conservación de la Actividad Post-Registro}
 
-Cuando el PET se re-muestrea a la grilla del CT (Paso 5), la interpolacion altera la suma total.
-Para compensar se aplica un factor de correccion:
+Cuando el PET se re-muestrea a la grilla del CT (Paso 5), la interpolación altera la suma total.
+Para compensar se aplica un factor de corrección:
 
 \begin{equation}\label{eq:conservacion}
     \text{PET}_{\text{corregido}}(\mathbf{r}) =
@@ -1019,16 +640,12 @@ Para compensar se aplica un factor de correccion:
 \vardef{$A_{\text{original}}$}{Actividad total antes del resample [Bq]}
 \vardef{$A_{\text{interpolada}}$}{Actividad total del PET interpolado [Bq]}
 
-\subsection{Advertencia Critica: Slicer Pierde la Calibracion por Slice}
+\subsection{Advertencia Critica: Slicer Pierde la Calibración por Slice}
 
 El nodo de Slicer \textbf{pierde} los factores RescaleSlope/RescaleIntercept por slice: Slicer
-aplica factores globales a todo el volumen, no por archivo. Por esta razon el pipeline lee la
+aplica factores globales a todo el volumen, no por archivo. Por está razon el pipeline lee la
 actividad desde DICOM raw con \texttt{pydicom}, no desde el nodo Slicer.
 
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 
 \begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
@@ -1037,7 +654,7 @@ actividad desde DICOM raw con \texttt{pydicom}, no desde el nodo Slicer.
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Actividad total & $A_{\text{total}} > 0$ & Critico \\
 RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
@@ -1053,170 +670,52 @@ Slices validos & $N_{\text{slices}} > 0$ & Critico \\
 % 4. ELIMINACION DE CAMILLA
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 4. ELIMINACION DE CAMILLA
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Actividad total & $A_{\text{total}} > 0$ & Critico \\
-RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
-Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
-Slices validos & $N_{\text{slices}} > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 4. ELIMINACION DE CAMILLA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Actividad total & $A_{\text{total}} > 0$ & Critico \\
-RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
-Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
-Slices validos & $N_{\text{slices}} > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 4. ELIMINACION DE CAMILLA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Actividad total & $A_{\text{total}} > 0$ & Critico \\
-RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
-Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
-Slices validos & $N_{\text{slices}} > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 4. ELIMINACION DE CAMILLA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Actividad total & $A_{\text{total}} > 0$ & Critico \\
-RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
-Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
-Slices validos & $N_{\text{slices}} > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 4. ELIMINACION DE CAMILLA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Actividad total & $A_{\text{total}} > 0$ & Critico \\
-RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
-Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
-Slices validos & $N_{\text{slices}} > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 4. ELIMINACION DE CAMILLA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Actividad total & $A_{\text{total}} > 0$ & Critico \\
-RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
-Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
-Slices validos & $N_{\text{slices}} > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 4. ELIMINACION DE CAMILLA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Actividad total & $A_{\text{total}} > 0$ & Critico \\
-RescaleType & $\tau_k = \text{``BQML''}$ & Warning \\
-Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
-Slices validos & $N_{\text{slices}} > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 4. ELIMINACION DE CAMILLA
-% ============================================================
-\section{Eliminacion de Camilla y Aire}
+\section{Eliminación de Camilla y Aire}
 \label{sec:camilla}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -1227,8 +726,8 @@ HU & Hounsfield Unit \\
 \bottomrule
 \end{tabular}
 
-El CT incluye la camilla (mesa de exploracion) y el aire alrededor del paciente, que no deben
-formar parte del modelo dosimetrico. Este paso separa el cuerpo del paciente del fondo mediante
+El CT incluye la camilla (mesa de exploración) y el aire alrededor del paciente, que no deben
+formar parte del modelo dosimétrico. Este paso separa el cuerpo del paciente del fondo mediante
 un umbral de Hounsfield Units, seguido de operaciones morfologicas y de conectividad para obtener
 una mascara corporal limpia. El CT original se conserva intacto para TotalSegmentator, que
 necesita el FOV completo; se crea un nuevo nodo \texttt{CT\_sin\_camilla} con la mascara aplicada.
@@ -1238,7 +737,7 @@ necesita el FOV completo; se crea un nuevo nodo \texttt{CT\_sin\_camilla} con la
 Sea $I_{\text{CT}}(x,y,z)$ el volumen CT original en HU. El proceso genera una mascara corporal
 $M(x,y,z)$ binaria ($1$ = cuerpo, $0$ = fondo).
 
-\subsubsection{Paso 1: Umbralizacion}
+\subsubsection{Paso 1: Umbralización}
 
 Se aplica un umbral sobre los valores HU para separar tejido del aire:
 
@@ -1256,23 +755,23 @@ Solo el aire puro ($<-900$ HU) queda excluido.
 
 \subsubsection{Paso 2: Cierre Morfologico}
 
-Operacion morfologica para rellenar huecos internos (vasos, bronquios) dentro del cuerpo:
+Operación morfologica para rellenar huecos internos (vasos, bronquios) dentro del cuerpo:
 
 \begin{equation}\label{eq:cierre}
     M_2 = (M_1 \oplus B) \ominus B
 \end{equation}
 \vardef{$M_2$}{Mascara tras cierre morfologico}
-\vardef{$\oplus$}{Operador de dilatacion morfologica}
+\vardef{$\oplus$}{Operador de dilatación morfologica}
 \vardef{$\ominus$}{Operador de erosion morfologica}
 \vardef{$B$}{Elemento estructurante cubico $3\times3\times3$}
 
 Parametros: elemento estructurante $B$ de $3 \times 3 \times 3$ voxeles, 3 iteraciones.
-Implementacion: \texttt{scipy.ndimage.binary\_closing}.
+Implementación: \texttt{scipy.ndimage.binary\_closing}.
 
 \subsubsection{Paso 3: Componente Conexa Mayoritaria}
 
 En cada slice axial $z$, se etiquetan las componentes conectadas (conectividad 8-vecina en 2D)
-y se conserva solo la mas grande:
+y se conserva solo la más grande:
 
 \begin{equation}\label{eq:comp_conexa}
     M_3(z,:,:) = \arg\max_{c \in \mathcal{C}_z} |c|
@@ -1281,13 +780,13 @@ y se conserva solo la mas grande:
 \vardef{$|c|$}{Numero de voxeles de la componente $c$}
 \vardef{$\arg\max$}{Selecciona la componente con mayor $|c|$}
 
-\subsubsection{Paso 4: Eliminacion de Camilla}
+\subsubsection{Paso 4: Eliminación de Camilla}
 
-En cada slice axial se identifica la fila inferior del cuerpo y se elimina todo lo que esta
+En cada slice axial se identifica la fila inferior del cuerpo y se elimina todo lo que está
 debajo (la camilla). Tambien se recortan 2--3 pixeles de los bordes laterales para eliminar
 artefactos.
 
-\subsubsection{Paso 5: Aplicacion de Mascara}
+\subsubsection{Paso 5: Aplicación de Mascara}
 
 El CT enmascarado se construye fijando a $-1024$ HU (aire) los voxeles fuera del cuerpo:
 
@@ -1306,7 +805,7 @@ El CT enmascarado se construye fijando a $-1024$ HU (aire) los voxeles fuera del
 \centering
 \begin{tabular}{l c l}
 \toprule
-\textbf{Parametro} & \textbf{Valor} & \textbf{Descripcion} \\
+\textbf{Parametro} & \textbf{Valor} & \textbf{Descripción} \\
 \midrule
 Umbral HU & $>-200$ & Separa tejido de aire \\
 Elemento estructurante & $3\times3\times3$ vox. & Cubo para cierre morfologico \\
@@ -1319,17 +818,13 @@ Fondo & $-1024$ HU & Valor de aire asignado \\
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
 Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
@@ -1344,172 +839,61 @@ Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
 % 5. REGISTRO PET/CT
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 5. REGISTRO PET/CT
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
-Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
-Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 5. REGISTRO PET/CT
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
-Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
-Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 5. REGISTRO PET/CT
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
-Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
-Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 5. REGISTRO PET/CT
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
-Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
-Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 5. REGISTRO PET/CT
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
-Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
-Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 5. REGISTRO PET/CT
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
-Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
-Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 5. REGISTRO PET/CT
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen eliminado & $f_{\text{rem}} = (V_{\text{orig}} - V_{\text{masc}})/V_{\text{orig}}$ & $< 0.5$ (50\%) \\
-Mascara no vacia & $\sum M \geq 1$ voxel & Critico \\
-Nodo CT\_sin\_camilla & Existe en escena Slicer & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 5. REGISTRO PET/CT
-% ============================================================
 \section{Registro y Re-muestreo PET/CT}
 \label{sec:registro}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
 \midrule
 ASGD & Adaptive Stochastic Gradient Descent --- optimizador de Elastix \\
-BSpline & Basis Spline --- funcion de interpolacion polinomica \\
+BSpline & Basis Spline --- función de interpolación polinomica \\
 CLI & Command-Line Interface \\
 DOF & Degrees of Freedom --- grados de libertad \\
-MI & Mutual Information --- metrica de similitud \\
+MI & Mutual Information --- métrica de similitud \\
 MSE & Mean Squared Error \\
 NCC & Normalized Cross-Correlation \\
 RMSE & Root Mean Squared Error \\
@@ -1540,18 +924,18 @@ Voxels por slice & 40,000 & 262,144 \\
 \end{tabular}
 \end{table}
 
-\subsection{Notacion General}
+\subsection{Notación General}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{lll}
 \toprule
-\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\textbf{Variable} & \textbf{Descripción} & \textbf{Unidad} \\
 \midrule
 $V_{\text{PET}}$ & Volumen PET en coordenadas voxel IJK & --- \\
 $V_{\text{CT}}$ & Volumen CT en coordenadas voxel IJK & --- \\
-$T_{\text{PET}}$ & Transformacion IJK$\to$RAS del PET ($4\times4$) & --- \\
-$T_{\text{CT}}$ & Transformacion IJK$\to$RAS del CT ($4\times4$) & --- \\
+$T_{\text{PET}}$ & Transformación IJK$\to$RAS del PET ($4\times4$) & --- \\
+$T_{\text{CT}}$ & Transformación IJK$\to$RAS del CT ($4\times4$) & --- \\
 $s_x^{\text{CT}}, s_y^{\text{CT}}, s_z^{\text{CT}}$ & Espaciado del CT & mm \\
 $\mathbf{r}_{\text{CT}}$ & Coordenada RAS de un voxel CT & mm \\
 $o_x^{\text{PET}}, o_y^{\text{PET}}, o_z^{\text{PET}}$ & Origen RAS del PET & mm \\
@@ -1563,26 +947,26 @@ $o_x^{\text{PET}}, o_y^{\text{PET}}, o_z^{\text{PET}}$ & Origen RAS del PET & mm
 
 Usa el modulo CLI \texttt{BRAINSResample} de Slicer:
 
-\begin{verbatim}
+\begin{lstlisting}
 inputVolume     = PET_node
 referenceVolume = CT_node
 outputVolume    = PET_registrado
 interpolationType = "Linear"
 pixelType       = "float"
-\end{verbatim}
+\end{lstlisting}
 
-\subsubsection{Opciones de Interpolacion}
+\subsubsection{Opciones de Interpolación}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{l l l}
 \toprule
-\textbf{Tipo} & \textbf{Descripcion} & \textbf{Uso tipico} \\
+\textbf{Tipo} & \textbf{Descripción} & \textbf{Uso típico} \\
 \midrule
-\texttt{NearestNeighbor} & Asigna el valor del voxel mas cercano & Labelmaps \\
-\texttt{Linear} & Interpolacion trilineal (8 vecinos) & PET, CT (default) \\
+\texttt{NearestNeighbor} & Asigna el valor del voxel más cercano & Labelmaps \\
+\texttt{Linear} & Interpolación trilineal (8 vecinos) & PET, CT (default) \\
 \texttt{BSpline} & Spline cubico de 3er orden (64 vecinos) & PET con suavizado \\
-\texttt{Cubic} & Convolucion cubica (16 vecinos) & Aplicaciones cientificas \\
+\texttt{Cubic} & Convolución cubica (16 vecinos) & Aplicaciones cientificas \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1597,7 +981,7 @@ pixelType       = "float"
           \end{equation}
     \item Si $\mathbf{r}_{\text{PET}}$ cae fuera del volumen PET, asignar 0.
     \item Si cae dentro, interpolar segun el metodo elegido.
-    \item Clipear negativos a 0 y aplicar conservacion de actividad:
+    \item Clipear negativos a 0 y aplicar conservación de actividad:
           \begin{equation}\label{eq:act_post}
               \text{PET}_{\text{final}} = \text{PET}_{\text{interp}} \cdot \frac{A_{\text{pre-resample}}}{A_{\text{post}}}
           \end{equation}
@@ -1605,7 +989,7 @@ pixelType       = "float"
 
 \subsection{Metodo B --- NumPy map\_coordinates}
 
-Alternativa mas exacta que replica el algoritmo MATLAB \texttt{register\_v7.m}:
+Alternativa más exacta que replica el algoritmo MATLAB \texttt{register\_v7.m}:
 
 \begin{enumerate}
     \item Extraer arrays numpy de PET y CT.
@@ -1614,7 +998,7 @@ Alternativa mas exacta que replica el algoritmo MATLAB \texttt{register\_v7.m}:
               x_{\text{PET}}(i) = i \cdot s_x^{\text{PET}} + o_x^{\text{PET}}
           \end{equation}
     \item Interpolar con \texttt{scipy.ndimage.map\_coordinates} con \texttt{order=1}.
-    \item Aplicar conservacion de actividad.
+    \item Aplicar conservación de actividad.
 \end{enumerate}
 
 \subsection{Metodo C --- Elastix (Registro Espacial)}
@@ -1626,7 +1010,7 @@ elastico (no solo remuestreo):
 \centering
 \begin{tabular}{l l l l}
 \toprule
-\textbf{Metodo} & \textbf{Transformacion} & \textbf{DOF} & \textbf{Optimizador} \\
+\textbf{Metodo} & \textbf{Transformación} & \textbf{DOF} & \textbf{Optimizador} \\
 \midrule
 BrainsFit & Rigid + Affine + BSpline & $6 + 6 + \text{vars}$ & 1500 iteraciones \\
 Elastix rigido & Euler (3T + 3R) & 6 & MI + ASGD \\
@@ -1643,13 +1027,15 @@ donde:
     \item 3R: 3 rotaciones ($R_x, R_y, R_z$).
 \end{itemize}
 
-\subsection{Metricas de Similitud}
+\subsection{Métricas de Similitud}
+
+Para evaluar la calidad del registro PET/CT se emplean tres métricas cuantitativas estándar. Cada una mide un aspecto diferente de la alineación: correlación estadística, diferencia absoluta promedio y proporción de vóxeles coincidentes. La tabla siguiente resume sus fórmulas y rangos de interpretación.
 
 \begin{table}[H]
 \centering
 \begin{tabular}{l l l}
 \toprule
-\textbf{Metrica} & \textbf{Formula} & \textbf{Rango} \\
+\textbf{Métrica} & \textbf{Fórmula} & \textbf{Rango} \\
 \midrule
 NCC & $\displaystyle\frac{\sum (A-\bar{A})(B-\bar{B})}
                 {\sqrt{\sum (A-\bar{A})^2 \sum (B-\bar{B})^2}}$ & $[-1, 1]$ \\
@@ -1663,22 +1049,18 @@ RMSE & $\sqrt{\text{MSE}}$ & $[0, \infty)$ \\
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
+Alineación PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
+Conservación actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
 Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
+Negativos post-interpolación & $N_{\text{voxels negativos}}$ & $= 0$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1689,170 +1071,52 @@ Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
 % 6. FUSION CT+PET
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 6. FUSION CT+PET
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
-Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 6. FUSION CT+PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
-Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 6. FUSION CT+PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
-Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 6. FUSION CT+PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
-Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 6. FUSION CT+PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
-Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 6. FUSION CT+PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
-Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 6. FUSION CT+PET
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Alineacion PET/CT & NCC entre PET y CT registrados & $> 0.6$ \\
-Conservacion actividad & $|A_{\text{final}}/A_{\text{original}} - 1|$ & $< 1\%$ \\
-Dimensiones post-registro & $= 512 \times 512 \times N_{\text{CT}}$ & Critico \\
-Negativos post-interpolacion & $N_{\text{voxels negativos}}$ & $= 0$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 6. FUSION CT+PET
-% ============================================================
 \section{Fusion CT+PET y Dialogo de Actividad}
 \label{sec:fusion}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -1866,15 +1130,15 @@ PET & Positron Emission Tomography \\
 \bottomrule
 \end{tabular}
 
-Despues del registro, el PET esta en la misma geometria que el CT. La fusion visual permite al
-medico verificar la alineacion y examinar la distribucion de actividad, mientras que el dialogo
-informativo proporciona los datos cuantitativos de actividad total que se usaran en el calculo
-dosimetrico. Este paso configura las vistas medicas de Slicer en layout 4-up y muestra un dialogo
-modal con informacion del paciente, metadatos de imagen y actividad calculada desde DICOM raw.
+Despues del registro, el PET está en la misma geometria que el CT. La fusión visual permite al
+medico verificar la alineación y examinar la distribución de actividad, mientras que el dialogo
+informativo proporciona los datos cuantitativos de actividad total que se usaran en el cálculo
+dosimétrico. Este paso configura las vistas medicas de Slicer en layout 4-up y muestra un dialogo
+modal con información del paciente, metadatos de imagen y actividad calculada desde DICOM raw.
 
-\subsection{Layout de Visualizacion 4-up}
+\subsection{Layout de Visualización 4-up}
 
-\begin{verbatim}
+\begin{lstlisting}
 +-----------------------+-----------------------+
 |        AXIAL          |       SAGITAL         |
 |   (corte transversal) |   (corte sagital)     |
@@ -1886,9 +1150,9 @@ modal con informacion del paciente, metadatos de imagen y actividad calculada de
 |   Background: CT      |   CT + PET +          |
 |   Foreground: PET     |   segmentos)          |
 +-----------------------+-----------------------+
-\end{verbatim}
+\end{lstlisting}
 
-\subsection{Parametros de Visualizacion}
+\subsection{Parametros de Visualización}
 
 \begin{table}[H]
 \centering
@@ -1904,14 +1168,14 @@ Window/Level CT & Level 40 HU, Width 400 HU (abdomen) \\
 Window/Level PET & P2--P98 de valores $>0$ (auto) \\
 Colormap PET & Rainbow invertido (azul=bajo, rojo=alto) \\
 Volume Rendering 3D & RayCast para CT y PET \\
-Slice linking & Activado (navegacion sincronizada) \\
+Slice linking & Activado (navegación sincronizada) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Window/Level}
 
-La transformacion de valores HU a escala de grises:
+La transformación de valores HU a escala de grises:
 
 \begin{equation}\label{eq:window_level}
     I_{\text{display}}(x) = \begin{cases}
@@ -1933,8 +1197,8 @@ Dialogo \textbf{modal} con las siguientes secciones informativas:
     \item \textbf{CT}: dimensiones, espaciado, nombre del nodo Slicer.
     \item \textbf{PET (DICOM raw)}: RescaleType, RescaleSlope, RescaleIntercept,
           numero de slices, volumen del voxel.
-    \item \textbf{Actividad}: Total Bq, GBq, mCi, Bq/mL media y maxima, voxeles activos.
-    \item \textbf{Registro PET$\to$CT}: metodo usado, duracion, verificacion de conservacion.
+    \item \textbf{Actividad}: Total Bq, GBq, mCi, Bq/mL media y máxima, voxeles activos.
+    \item \textbf{Registro PET$\to$CT}: metodo usado, duración, verificación de conservación.
 \end{enumerate}
 
 \subsection{Verificaciones de Calidad}
@@ -1943,21 +1207,17 @@ Dialogo \textbf{modal} con las siguientes secciones informativas:
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Unidades PET & \texttt{RescaleType == ``BQML''} & Critico \\
 Rango de actividad & $0.1 \leq A_{\text{total}} \leq 50$ GBq & Warning \\
 Dimensiones CT/PET & Similares tras registro & Warning \\
 Voxeles activos & $N_{\text{activos}} > 100$ & Warning \\
-Conservacion actividad & $|A_{\text{post}}/A_{\text{pre}} - 1| < 0.01$ & Warning \\
+Conservación actividad & $|A_{\text{post}}/A_{\text{pre}} - 1| < 0.01$ & Warning \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 
 \begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
@@ -1966,9 +1226,9 @@ Conservacion actividad & $|A_{\text{post}}/A_{\text{pre}} - 1| < 0.01$ & Warning
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
+Dialogo mostrado & Interacción del usuario & Critico \\
 Datos de actividad & Valores consistentes con DICOM raw & Warning \\
 \bottomrule
 \end{tabular}
@@ -1980,156 +1240,52 @@ Datos de actividad & Valores consistentes con DICOM raw & Warning \\
 % 7. ANONIMIZACION
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 7. ANONIMIZACION
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
-Datos de actividad & Valores consistentes con DICOM raw & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 7. ANONIMIZACION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
-Datos de actividad & Valores consistentes con DICOM raw & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 7. ANONIMIZACION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
-Datos de actividad & Valores consistentes con DICOM raw & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 7. ANONIMIZACION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
-Datos de actividad & Valores consistentes con DICOM raw & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 7. ANONIMIZACION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
-Datos de actividad & Valores consistentes con DICOM raw & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 7. ANONIMIZACION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
-Datos de actividad & Valores consistentes con DICOM raw & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 7. ANONIMIZACION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Dialogo mostrado & Interaccion del usuario & Critico \\
-Datos de actividad & Valores consistentes con DICOM raw & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 7. ANONIMIZACION
-% ============================================================
-\section{Anonimizacion DICOM}
+\section{Anonimización DICOM}
 \label{sec:anonimizacion}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -2142,10 +1298,10 @@ TS & TotalSegmentator \\
 \bottomrule
 \end{tabular}
 
-Las imagenes DICOM contienen informacion de salud protegida (PHI) que debe eliminarse antes de
+Las imagenes DICOM contienen información de salud protegida (PHI) que debe eliminarse antes de
 procesarlas con herramientas externas como TotalSegmentator. Este paso copia los archivos DICOM
 originales a un directorio \texttt{anon/}, limpia los metadatos identificables (nombre del
-paciente, ID, fecha del estudio, institucion, etc.) y renombra los archivos con prefijo
+paciente, ID, fecha del estudio, institución, etc.) y renombra los archivos con prefijo
 \texttt{ANON\_}. Es un requisito legal segun HIPAA (EEUU) y GDPR (Europa).
 
 \subsection{Campos Eliminados}
@@ -2156,15 +1312,15 @@ paciente, ID, fecha del estudio, institucion, etc.) y renombra los archivos con 
 \toprule
 \textbf{Tag DICOM} & \textbf{Campo} & \textbf{Razon} \\
 \midrule
-(0010,0010) & PatientName & Identificacion directa \\
-(0010,0020) & PatientID & Identificacion directa \\
-(0008,0020) & StudyDate & Informacion temporal \\
+(0010,0010) & PatientName & Identificación directa \\
+(0010,0020) & PatientID & Identificación directa \\
+(0008,0020) & StudyDate & Información temporal \\
 (0008,0080) & InstitutionName & Origen del estudio \\
 (0008,0090) & ReferringPhysician & Medico tratante \\
 (0008,0050) & AccessionNumber & ID interno del estudio \\
 (0020,0010) & StudyID & ID del estudio \\
-(0008,103E) & SeriesDescription & Descripcion de la serie \\
-(0008,0081) & InstitutionAddress & Direccion de la institucion \\
+(0008,103E) & SeriesDescription & Descripción de la serie \\
+(0008,0081) & InstitutionAddress & Dirección de la institución \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -2185,17 +1341,13 @@ paciente, ID, fecha del estudio, institucion, etc.) y renombra los archivos con 
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
 Campos PHI limpiados & PatientName vacio & Warning \\
@@ -2209,156 +1361,52 @@ Campos PHI limpiados & PatientName vacio & Warning \\
 % 8. TOTALSEGMENTATOR
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 8. TOTALSEGMENTATOR
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
-Campos PHI limpiados & PatientName vacio & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 8. TOTALSEGMENTATOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
-Campos PHI limpiados & PatientName vacio & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 8. TOTALSEGMENTATOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
-Campos PHI limpiados & PatientName vacio & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 8. TOTALSEGMENTATOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
-Campos PHI limpiados & PatientName vacio & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 8. TOTALSEGMENTATOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
-Campos PHI limpiados & PatientName vacio & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 8. TOTALSEGMENTATOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
-Campos PHI limpiados & PatientName vacio & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 8. TOTALSEGMENTATOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivos anonimizados & \texttt{os.path.exists(anon\_ct, anon\_pet)} & Critico \\
-Campos PHI limpiados & PatientName vacio & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 8. TOTALSEGMENTATOR
-% ============================================================
-\section{TotalSegmentator --- Segmentacion Anatomica}
+\section{TotalSegmentator --- Segmentación Anatómica}
 \label{sec:ts}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -2366,22 +1414,22 @@ Campos PHI limpiados & PatientName vacio & Warning \\
 CT & Computed Tomography \\
 GPU & Graphics Processing Unit \\
 IA & Inteligencia Artificial \\
-nnU-Net & Red convolucional para segmentacion 3D \\
+nnU-Net & Red convolucional para segmentación 3D \\
 TS & TotalSegmentator \\
 \bottomrule
 \end{tabular}
 
-Segmentar manualmente 104 estructuras anatomicas en un CT abdominal tomaria horas a un radiologo.
-TotalSegmentator (TS) automatiza completamente esta tarea usando una red neuronal nnU-Net
+Segmentar manualmente 104 estructuras anatómicas en un CT abdominal tomaria horas a un radiologo.
+TotalSegmentator (TS) automatiza completamente está tarea usando una red neuronal nnU-Net
 entrenada en miles de tomografias. Este paso ejecuta TS sobre el CT anonimizado, produciendo
-segmentaciones individuales para cada organo, hueso, musculo y vaso, que luego seran mapeadas
+segmentaciones individuales para cada órgano, hueso, musculo y vaso, que luego seran mapeadas
 a materiales MCNP.
 
-\subsection{Ejecucion}
+\subsection{Ejecución}
 
 Se usa la API directa \texttt{TotalSegmentatorLogic.process()}:
 
-\begin{verbatim}
+\begin{lstlisting}
 from TotalSegmentator import TotalSegmentatorLogic
 logic = TotalSegmentatorLogic()
 logic.setupPythonRequirements()
@@ -2390,7 +1438,7 @@ logic.process(
     outputSegmentation=seg_node,
     fast=True, cpu=True, task="total",
 )
-\end{verbatim}
+\end{lstlisting}
 
 \textbf{Importante}: TS es un ScriptedLoadableModule, NO un CLI module.
 NO se usa \texttt{slicer.cli.run()}.
@@ -2401,9 +1449,9 @@ NO se usa \texttt{slicer.cli.run()}.
 \centering
 \begin{tabular}{l l c c}
 \toprule
-\textbf{Task} & \textbf{Descripcion} & \textbf{Clases} & \textbf{Soporta --fast} \\
+\textbf{Task} & \textbf{Descripción} & \textbf{Clases} & \textbf{Soporta --fast} \\
 \midrule
-\texttt{total} & Todos los organos y estructuras & 104 & Si \\
+\texttt{total} & Todos los órganos y estructuras & 104 & Si \\
 \texttt{body} & Contorno externo del cuerpo & 1 & Si \\
 \texttt{body\_lowdose} & Body para CT de baja dosis & 1 & Si \\
 \texttt{liver\_lesions} & Lesiones hepaticas (tumores) & 1 & No \\
@@ -2426,7 +1474,7 @@ NO se usa \texttt{slicer.cli.run()}.
     \item[Otros]: medula espinal, tejido subcutaneo, glandulas salivales, cristalinos.
 \end{description}
 
-\subsection{Tiempos de Ejecucion}
+\subsection{Tiempos de Ejecución}
 
 \begin{table}[H]
 \centering
@@ -2461,22 +1509,18 @@ Slicer 5.8.1 usa Python 3.9.10. TotalSegmentator v2.13.0 requiere tres parches:
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
 Higado presente & Segmento ``liver'' existe & Critico \\
 Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
+Tiempo de ejecución & $< 60$ min & Warning \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -2487,187 +1531,69 @@ Tiempo de ejecucion & $< 60$ min & Warning \\
 % 9. MAPEO TS -> PHANTOM
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 9. MAPEO TS -> PHANTOM
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
-Higado presente & Segmento ``liver'' existe & Critico \\
-Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 9. MAPEO TS -> PHANTOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
-Higado presente & Segmento ``liver'' existe & Critico \\
-Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 9. MAPEO TS -> PHANTOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
-Higado presente & Segmento ``liver'' existe & Critico \\
-Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 9. MAPEO TS -> PHANTOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
-Higado presente & Segmento ``liver'' existe & Critico \\
-Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 9. MAPEO TS -> PHANTOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
-Higado presente & Segmento ``liver'' existe & Critico \\
-Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 9. MAPEO TS -> PHANTOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
-Higado presente & Segmento ``liver'' existe & Critico \\
-Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 9. MAPEO TS -> PHANTOM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Segmentos generados & $N_{\text{seg}} \geq 20$ & Critico \\
-Higado presente & Segmento ``liver'' existe & Critico \\
-Pulmones presentes & Segmentos pulmonares existen & Warning \\
-Tiempo de ejecucion & $< 60$ min & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 9. MAPEO TS -> PHANTOM
-% ============================================================
 \section{Mapeo TS \texorpdfstring{$\to$}{a} Phantom 3Dosim}
 \label{sec:mapeo}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
 \midrule
-ICRP-110 & Publicacion 110: phantoms computacionales de referencia \\
+ICRP-110 & Publicación 110: phantoms computacionales de referencia \\
 ICRU-44 & Reporte 44: composiciones de tejidos para dosimetria \\
 MCNP & Monte Carlo N-Particle \\
 TS & TotalSegmentator \\
 \bottomrule
 \end{tabular}
 
-TotalSegmentator produce 104 clases anatomicas con etiquetas numericas (labels 1--126). El
-phantom 3Dosim usa un sistema de indices diferente ($30$=tejido blando, $50$=pulmon, $80$=hueso,
-$90$=higado, $100$=tumor, $101$--$153$=materiales ICRP-110). Este paso convierte la segmentacion
-TS a la representacion interna del pipeline mediante una tabla de lookup
+TotalSegmentator produce 104 clases anatómicas con etiquetas numéricas (labels 1--126). El
+phantom 3Dosim usa un sistema de índices diferente ($30$=tejido blando, $50$=pulmon, $80$=hueso,
+$90$=higado, $100$=tumor, $101$--$153$=materiales ICRP-110). Este paso convierte la segmentación
+TS a la representación interna del pipeline mediante una tabla de lookup
 (\texttt{ts\_label\_to\_phantom} en \texttt{tissue\_config.json}), asignando a cada voxel el
-indice correcto para la generacion de entrada MCNP (Modulo 2).
+índice correcto para la generación de entrada MCNP (Modulo 2).
 
 \subsection{Tabla de Indices del Phantom}
 
@@ -2695,9 +1621,9 @@ El archivo \texttt{tissue\_config.json} contiene tres secciones principales:
 
 \subsubsection{ts\_label\_to\_phantom}
 
-Diccionario que mapea labels numericos de TS (1--126) a indices del phantom:
+Diccionario que mapea labels numéricos de TS (1--126) a índices del phantom:
 
-\begin{verbatim}
+\begin{lstlisting}
 "ts_label_to_phantom": {
     "1":  {"index": 30, "segment": "spleen"},
     "2":  {"index": 50, "segment": "lung_upper_lobe_left"},
@@ -2705,22 +1631,22 @@ Diccionario que mapea labels numericos de TS (1--126) a indices del phantom:
     "8":  {"index": 80, "segment": "heart"},
     ...
 }
-\end{verbatim}
+\end{lstlisting}
 
 \subsubsection{ts\_body\_labels}
 
-Lista de labels TS que corresponden a tejido corporal (no organos especificos).
-Se asignan al indice 30 (Tejido blando).
+Lista de labels TS que corresponden a tejido corporal (no órganos específicos).
+Se asignan al índice 30 (Tejido blando).
 
 \subsubsection{tissues}
 
-Lista completa de 53+ tejidos con: indice, nombre, densidad, rango HU, color, composicion MCNP.
+Lista completa de 53+ tejidos con: índice, nombre, densidad, rango HU, color, composición MCNP.
 
-\subsection{Ejemplo de Composicion MCNP}
+\subsection{Ejemplo de Composición MCNP}
 
-Para Higado (indice 90, densidad 1.05 g/cm$^3$):
+Para Higado (índice 90, densidad 1.05 g/cm$^3$):
 
-\begin{verbatim}
+\begin{lstlisting}
 "mcnp_material": {
     "id": 5,
     "composition": {
@@ -2735,19 +1661,19 @@ Para Higado (indice 90, densidad 1.05 g/cm$^3$):
         "19000": 0.002    // Potasio (K)
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Algoritmo de Mapeo}
 
-\begin{verbatim}
+\begin{lstlisting}
 function _map_ts_to_phantom(ts_labelmap):
     1. Inicializar phantom = 1 (Aire) para todos los voxeles
-    2. Asignar 30 (Tejido_blando) donde ts_labelmap esta en body_labels
+    2. Asignar 30 (Tejido_blando) donde ts_labelmap está en body_labels
     3. Para cada entrada en ts_label_to_phantom:
          mascara = (ts_labelmap == ts_label)
          phantom[mascara] = indice_phantom
     4. Retornar phantom
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Correcciones de Bugs (Julio 2026)}
 
@@ -2769,7 +1695,7 @@ Se detectaron y corrigieron errores donde tejidos blandos estaban asignados a Hu
 \end{tabular}
 \end{table}
 
-Impacto: 22 estructuras anatomicas mal asignadas, causando sobre-estimacion de atenuacion y
+Impacto: 22 estructuras anatómicas mal asignadas, causando sobre-estimación de atenuación y
 distorsion de la dosis MCNP.
 
 \subsection{Clase TissueConfig}
@@ -2780,23 +1706,19 @@ Singleton que carga y cachea \texttt{tissue\_config.json}:
 \centering
 \begin{tabular}{l l}
 \toprule
-\textbf{Metodo} & \textbf{Descripcion} \\
+\textbf{Metodo} & \textbf{Descripción} \\
 \midrule
 get\_tissue(index) & Datos completos del tejido \\
 get\_tissue\_density(index) & Densidad en g/cm$^3$ \\
 get\_tissue\_hu\_range(index) & Rango de HU caracteristico \\
-get\_mcnp\_material(index) & Composicion elemental MCNP \\
+get\_mcnp\_material(index) & Composición elemental MCNP \\
 generate\_mcnp\_material\_card(index) & Genera tarjeta M para MCNP \\
-get\_ts\_mapping() & Dict: label TS $\to$ indice phantom \\
+get\_ts\_mapping() & Dict: label TS $\to$ índice phantom \\
 get\_body\_labels() & Set de labels corporales \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 
 \begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
@@ -2805,11 +1727,11 @@ get\_body\_labels() & Set de labels corporales \\
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Labels TS mapeados & Sin labels sin correspondencia & Warning \\
 Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
+Integridad phantom & Todos los índices esperados presentes & Critico \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -2820,163 +1742,52 @@ Integridad phantom & Todos los indices esperados presentes & Critico \\
 % 10. CREACION DE TUMOR
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 10. CREACION DE TUMOR
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Labels TS mapeados & Sin labels sin correspondencia & Warning \\
-Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 10. CREACION DE TUMOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Labels TS mapeados & Sin labels sin correspondencia & Warning \\
-Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 10. CREACION DE TUMOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Labels TS mapeados & Sin labels sin correspondencia & Warning \\
-Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 10. CREACION DE TUMOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Labels TS mapeados & Sin labels sin correspondencia & Warning \\
-Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 10. CREACION DE TUMOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Labels TS mapeados & Sin labels sin correspondencia & Warning \\
-Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 10. CREACION DE TUMOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Labels TS mapeados & Sin labels sin correspondencia & Warning \\
-Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 10. CREACION DE TUMOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Labels TS mapeados & Sin labels sin correspondencia & Warning \\
-Densidad vs HU & Discrepancia $< 10\%$ & Warning \\
-Integridad phantom & Todos los indices esperados presentes & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 10. CREACION DE TUMOR
-% ============================================================
-\section{Creacion de Tumor (4 modos)}
+\section{Creación de Tumor (4 modos)}
 \label{sec:tumor}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -2991,14 +1802,14 @@ TS & TotalSegmentator \\
 \end{tabular}
 
 Para calcular la dosis en el tumor hepatico es necesario definir su contorno. El pipeline soporta
-4 modos de creacion de tumor, desde una esfera sintetica hasta segmentacion automatica con IA.
-Cada modo esta disenado para un escenario clinico diferente y se configura desde
+4 modos de creación de tumor, desde una esfera sintetica hasta segmentación automática con IA.
+Cada modo está disenado para un escenario clinico diferente y se configura desde
 \texttt{pipeline\_config.jsonc}. Opcionalmente se crea un segmento de ``higado sano'' como
 diferencia entre el higado completo y el tumor.
 
-\subsection{Configuracion}
+\subsection{Configuración}
 
-\begin{verbatim}
+\begin{lstlisting}
 "tumor": {
     "mode": "synthetic",                // synthetic | load_file |
                                         // manual | ts_liver_lesions
@@ -3009,10 +1820,10 @@ diferencia entre el higado completo y el tumor.
     "load_segment_name": "Tumor_Cargado",
     "manual_segment_name": "Tumor_Manual",
     "ts_liver_lesions_segment_name": "Tumor_TS",
-    "ts_liver_lesions_min_volume_cc": 1.0,  // volumen minimo de lesion
+    "ts_liver_lesions_min_volume_cc": 1.0,  // volumen mínimo de lesion
     "timeout_minutes": 0                // timeout (0 = sin limite)
 }
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Modo 1: Synthetic (esfera sintetica)}
 
@@ -3028,7 +1839,7 @@ Crea una esfera de radio $R$ mm dentro del parenquima hepatico.
           \end{equation}
           \vardef{$c_x, c_y, c_z$}{Coordenadas del centroide del higado}
           \vardef{$N$}{Numero total de voxeles hepaticos}
-    \item Si el centroide cae fuera del higado, buscar el voxel hepatico mas cercano.
+    \item Si el centroide cae fuera del higado, buscar el voxel hepatico más cercano.
     \item Crear mascara esferica con distancia euclidiana en mm:
           \begin{equation}\label{eq:esfera}
               M_{\text{esfera}}(x,y,z) = \mathbb{1}\left[
@@ -3056,7 +1867,7 @@ Crea una esfera de radio $R$ mm dentro del parenquima hepatico.
     \item Cargar NIfTI con \texttt{slicer.util.loadNodeFromFile()}.
     \item Convertir a mascara binaria.
     \item Si las dimensiones no coinciden con el CT, re-muestrear con BRAINSResample
-          (interpolacion NearestNeighbor).
+          (interpolación NearestNeighbor).
     \item Enmascarar dentro del higado: $M_{\text{tumor}} = M_{\text{NIfTI}} \cap M_{\text{higado}}$.
     \item Agregar como segmento con nombre configurable.
 \end{enumerate}
@@ -3071,7 +1882,7 @@ Crea una esfera de radio $R$ mm dentro del parenquima hepatico.
     \item Medico hace clic en APROBAR.
 \end{enumerate}
 
-\subsection{Modo 4: TS Liver Lesions (automatico con IA)}
+\subsection{Modo 4: TS Liver Lesions (automático con IA)}
 
 \begin{enumerate}
     \item Ejecutar TS con \texttt{task=``liver\_lesions''} sobre el CT.
@@ -3092,17 +1903,13 @@ En todos los modos, opcionalmente se crea ``higado\_sano'' como diferencia:
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
 Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
@@ -3118,170 +1925,52 @@ Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
 % 11. VALIDACION MEDICA
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 11. VALIDACION MEDICA
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
-Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
-Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
-Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 11. VALIDACION MEDICA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
-Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
-Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
-Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 11. VALIDACION MEDICA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
-Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
-Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
-Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 11. VALIDACION MEDICA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
-Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
-Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
-Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 11. VALIDACION MEDICA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
-Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
-Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
-Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 11. VALIDACION MEDICA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
-Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
-Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
-Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 11. VALIDACION MEDICA
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Volumen del tumor & $V_{\text{tumor}} \geq 0.5$ cm$^3$ & Warning \\
-Tumor dentro del higado & $M_{\text{tumor}} \subseteq M_{\text{higado}}$ & Critico \\
-Tumor no vacio & $N_{\text{vox,tumor}} > 0$ & Critico \\
-Lesiones detectadas (TS) & $N_{\text{lesiones}} \geq 1$ & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 11. VALIDACION MEDICA
-% ============================================================
-\section{Validacion Medica}
+\section{Validación Medica}
 \label{sec:validacion}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -3292,36 +1981,36 @@ TS & TotalSegmentator \\
 \bottomrule
 \end{tabular}
 
-Hay decisiones que ningun algoritmo puede tomar. La validacion medica es un punto de control
+Hay decisiones que ningun algoritmo puede tomar. La validación medica es un punto de control
 obligatorio donde un medico especialista debe aprobar explicitamente cada etapa critica del
-pipeline antes de continuar. El pipeline tiene dos puntos de validacion: uno tras la
-segmentacion anatomica (TotalSegmentator) y otro tras la creacion del tumor. Ambos usan
+pipeline antes de continuar. El pipeline tiene dos puntos de validación: uno tras la
+segmentación anatómica (TotalSegmentator) y otro tras la creación del tumor. Ambos usan
 dialogos NO modales que permiten al medico navegar las imagenes libremente mientras decide.
 No existe ``auto-approve'' bajo ninguna circunstancia.
 
-\subsection{Validacion de Segmentacion}
+\subsection{Validación de Segmentación}
 
 Se ejecuta inmediatamente despues de TotalSegmentator:
 
-\begin{verbatim}
+\begin{lstlisting}
 Tras TotalSegmentator
     |
     v
 setup_medical_views(segnode)  <- segmentaciones visibles en 3D
     |
     v
-show_validation_dialog("segmentacion")
+show_validation_dialog("segmentación")
     |
     +-- APROBAR -> continua pipeline
     +-- RECHAZAR -> pipeline detenido (RuntimeError)
-\end{verbatim}
+\end{lstlisting}
 
-\subsection{Validacion de Tumor}
+\subsection{Validación de Tumor}
 \label{sec:validacion_tumor}
 
 Se ejecuta despues de crear el tumor:
 
-\begin{verbatim}
+\begin{lstlisting}
 Tras crear tumor
     |
     v
@@ -3332,7 +2021,7 @@ show_tumor_validation_dialog(context=mode)
     |
     +-- APROBAR -> continua (higado sano, body, labelmap)
     +-- RECHAZAR -> pipeline detenido
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Caracteristicas del Dialogo}
 
@@ -3355,21 +2044,17 @@ Consecuencia rechazo & \texttt{raise RuntimeError} \\
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
 Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
+Validación en checkpoint & Forzada incluso al restaurar & Critico \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -3380,163 +2065,52 @@ Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
 % 12. BODY SEGMENTATION
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 12. BODY SEGMENTATION
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
-Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 12. BODY SEGMENTATION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
-Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 12. BODY SEGMENTATION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
-Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 12. BODY SEGMENTATION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
-Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 12. BODY SEGMENTATION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
-Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 12. BODY SEGMENTATION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
-Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 12. BODY SEGMENTATION
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Respuesta del dialogo & APROBAR o RECHAZAR & Critico \\
-Tiempo en dialogo & $< 30$ min & Warning \\
-Validacion en checkpoint & Forzada incluso al restaurar & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 12. BODY SEGMENTATION
-% ============================================================
-\section{Segmentacion Corporal (Body)}
+\section{Segmentación Corporal (Body)}
 \label{sec:body}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -3547,12 +2121,12 @@ TS & TotalSegmentator \\
 \bottomrule
 \end{tabular}
 
-La labelmap dosimetrica necesita un contorno externo que defina donde termina el cuerpo del
+La labelmap dosimétrica necesita un contorno externo que defina donde termina el cuerpo del
 paciente y comienza el aire. Este paso ejecuta TotalSegmentator con \texttt{task=``body''} para
 obtener una mascara binaria del contorno externo, que luego se usa como ``contenedor'' en la
-exportacion de labelmap: todos los voxeles dentro del cuerpo que no pertenecen a ningun organo
-especifico se asignan como tejido blando (indice 30), garantizando que no queden voxeles sin
-material asignado para la simulacion MCNP.
+exportación de labelmap: todos los voxeles dentro del cuerpo que no pertenecen a ningun órgano
+específico se asignan como tejido blando (índice 30), garantizando que no queden voxeles sin
+material asignado para la simulación MCNP.
 
 \subsection{Algoritmo}
 
@@ -3562,25 +2136,21 @@ material asignado para la simulacion MCNP.
     \item Si falla, continuar sin body (warning).
 \end{enumerate}
 
-\subsection{Integracion con la Labelmap}
+\subsection{Integración con la Labelmap}
 
 En \texttt{labelmap\_exporter.py}, el body se incorpora al final:
 
 \begin{enumerate}
-    \item Primero se asignan todos los organos (higado, pulmon, etc.).
-    \item Luego se asigna body como tejido blando (indice 30) donde no hay organos:
+    \item Primero se asignan todos los órganos (higado, pulmon, etc.).
+    \item Luego se asigna body como tejido blando (índice 30) donde no hay órganos:
           \begin{equation}\label{eq:body_labelmap}
               \text{body\_region} = (M_{\text{body}} > 0) \land
               \lnot \text{any\_organ}
           \end{equation}
 \end{enumerate}
 
-Esto garantiza que no haya solapamiento: los organos tienen prioridad.
+Esto garantiza que no haya solapamiento: los órganos tienen prioridad.
 
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 
 \begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
@@ -3589,9 +2159,9 @@ Esto garantiza que no haya solapamiento: los organos tienen prioridad.
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
+Body contiene órganos & Ningun órgano fuera de body\_mask & Critico \\
 Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
 Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
 \bottomrule
@@ -3604,163 +2174,52 @@ Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
 % 13. EXPORTAR LABELMAP
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 13. EXPORTAR LABELMAP
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
-Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 13. EXPORTAR LABELMAP
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
-Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 13. EXPORTAR LABELMAP
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
-Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 13. EXPORTAR LABELMAP
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
-Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 13. EXPORTAR LABELMAP
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
-Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 13. EXPORTAR LABELMAP
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
-Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 13. EXPORTAR LABELMAP
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Body contiene organos & Ningun organo fuera de body\_mask & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Warning \\
-Body no vacio & $\sum(\text{body\_mask}) > 0$ & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 13. EXPORTAR LABELMAP
-% ============================================================
-\section{Exportacion de Labelmap Dosimetrica}
+\section{Exportación de Labelmap Dosimétrica}
 \label{sec:labelmap}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -3772,9 +2231,9 @@ TS & TotalSegmentator \\
 \bottomrule
 \end{tabular}
 
-Convertir la segmentacion completa (organos + tumor + body) en un archivo NIfTI y NRRD donde
-cada voxel tiene un valor entero que corresponde al indice del tejido en
-\texttt{tissue\_config.json}. Esta labelmap es la entrada del Modulo 2 (generacion de entrada
+Convertir la segmentación completa (órganos + tumor + body) en un archivo NIfTI y NRRD donde
+cada voxel tiene un valor entero que corresponde al índice del tejido en
+\texttt{tissue\_config.json}. Esta labelmap es la entrada del Modulo 2 (generación de entrada
 MCNP).
 
 \subsection{Algoritmo Detallado}
@@ -3784,9 +2243,9 @@ MCNP).
 Se busca el archivo en \texttt{SlicerDosim/Resources/Config/tissue\_config.json}
 o path absoluto configurable.
 
-\subsubsection{Paso 2: Construir mapping nombre \texorpdfstring{$\to$}{a} indice}
+\subsubsection{Paso 2: Construir mapping nombre \texorpdfstring{$\to$}{a} índice}
 
-Para cada segmento $s$ en la segmentacion:
+Para cada segmento $s$ en la segmentación:
 
 \begin{enumerate}
     \item Si el ID del segmento es un numero (label TS original), lookup en
@@ -3794,30 +2253,30 @@ Para cada segmento $s$ en la segmentacion:
     \item Si no, lookup por nombre en \texttt{DEFAULT\_NAME\_TO\_PHANTOM}.
     \item Si no, detectar hueso por palabras clave (\texttt{``rib''}, \texttt{``vertebra''},
           \texttt{``scapula''}, \texttt{``sternum''}, \texttt{``bone''}, \texttt{``costal''}).
-    \item Si no, asignar indice libre 2--256.
+    \item Si no, asignar índice libre 2--256.
 \end{enumerate}
 
 \subsubsection{Paso 3: Acumular en labelmap 3D}
 
-\begin{verbatim}
+\begin{lstlisting}
 final_labelmap = zeros((Nz, Ny, Nx), dtype=int16)
 any_organ = zeros((Nz, Ny, Nx), dtype=bool)
 
-for cada segmento s con indice p:
+for cada segmento s con índice p:
     mask = extraer_mascara(s)
-    # Resolver solapamientos: gana el indice mas alto
+    # Resolver solapamientos: gana el índice más alto
     new_region = (mask > 0) & ((final_labelmap == 0) | (p > final_labelmap))
     final_labelmap[new_region] = p
     any_organ[new_region] = True
-\end{verbatim}
+\end{lstlisting}
 
 \subsubsection{Paso 4: Incorporar body segmentation}
 
-\begin{verbatim}
+\begin{lstlisting}
 body_mask = extraer_mascara(body_segmentation_node)
 body_region = (body_mask > 0) & not any_organ
 final_labelmap[body_region] = 30  # Tejido_blando
-\end{verbatim}
+\end{lstlisting}
 
 \subsubsection{Paso 5: Verificar integridad}
 
@@ -3825,12 +2284,12 @@ final_labelmap[body_region] = 30  # Tejido_blando
 \centering
 \begin{tabular}{l l}
 \toprule
-\textbf{Verificacion} & \textbf{Que detecta} \\
+\textbf{Verificación} & \textbf{Que detecta} \\
 \midrule
-Valores unicos & Todos los indices esperados presentes \\
-Overlap voxels & Solapamiento entre organos (ideal: 0) \\
+Valores únicos & Todos los índices esperados presentes \\
+Overlap voxels & Solapamiento entre órganos (ideal: 0) \\
 Voxels sin asignar & Dentro del body sin tejido asignado \\
-Body vs organos & Body no solapa con ningun organo \\
+Body vs órganos & Body no solapa con ningun órgano \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -3851,17 +2310,13 @@ NRRD & .nrrd & 3D Slicer (formato nativo) \\
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
 Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
@@ -3876,163 +2331,52 @@ Indices esperados & Todos presentes en labelmap & Warning \\
 % 14. CHECKPOINT SYSTEM
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 14. CHECKPOINT SYSTEM
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
-Indices esperados & Todos presentes en labelmap & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 14. CHECKPOINT SYSTEM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
-Indices esperados & Todos presentes en labelmap & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 14. CHECKPOINT SYSTEM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
-Indices esperados & Todos presentes en labelmap & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 14. CHECKPOINT SYSTEM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
-Indices esperados & Todos presentes en labelmap & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 14. CHECKPOINT SYSTEM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
-Indices esperados & Todos presentes en labelmap & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 14. CHECKPOINT SYSTEM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
-Indices esperados & Todos presentes en labelmap & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 14. CHECKPOINT SYSTEM
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Overlap voxels & $N_{\text{overlap}} = 0$ & Critico \\
-Voxels sin asignar & $N_{\text{sin-asignar}} = 0$ & Critico \\
-Indices esperados & Todos presentes en labelmap & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 14. CHECKPOINT SYSTEM
-% ============================================================
-\section{Checkpoint System --- Persistencia y Reanudacion}
+\section{Checkpoint System --- Persistencia y Reanudación}
 \label{sec:checkpoint}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -4045,17 +2389,17 @@ TS & TotalSegmentator \\
 \end{tabular}
 
 En un pipeline de dosimetria que puede ejecutarse durante 15--60 minutos, las interrupciones son
-inevitables: el usuario cierra Slicer, la computadora se reinicia, una segmentacion falla por
+inevitables: el usuario cierra Slicer, la computadora se reinicia, una segmentación falla por
 falta de memoria. El sistema de checkpoints resuelve este problema guardando el estado completo
 del pipeline despues de \textbf{cada paso exitoso} en un archivo JSON estructurado. Al reiniciar,
-el orquestador \texttt{PipelineMod1} detecta automaticamente el ultimo checkpoint y reanuda desde
-el primer paso pendiente, restaurando nodos, parametros y visualizacion sin perdida de progreso.
+el orquestador \texttt{PipelineMod1} detecta automaticamente el último checkpoint y reanuda desde
+el primer paso pendiente, restaurando nodos, parámetros y visualización sin perdida de progreso.
 
 \subsection{Estructura del Archivo de Checkpoint}
 
 Se guarda en \texttt{output\_dir/checkpoints/pipeline\_checkpoint.json}:
 
-\begin{verbatim}
+\begin{lstlisting}
 {
     "pipeline_name": "PipelineMod1",
     "version": 4,
@@ -4084,7 +2428,7 @@ Se guarda en \texttt{output\_dir/checkpoints/pipeline\_checkpoint.json}:
         }
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Propiedades Completas del Checkpoint}
 
@@ -4092,15 +2436,15 @@ Se guarda en \texttt{output\_dir/checkpoints/pipeline\_checkpoint.json}:
 \centering
 \begin{tabular}{l l l}
 \toprule
-\textbf{Propiedad} & \textbf{Tipo} & \textbf{Descripcion} \\
+\textbf{Propiedad} & \textbf{Tipo} & \textbf{Descripción} \\
 \midrule
 pipeline\_name & string & Identificador del pipeline \\
 version & int & Control de compatibilidad entre versiones \\
 start\_time & datetime & Fecha/hora de inicio original \\
 last\_update & datetime & Actualizado en cada paso \\
 steps & array & Array con estados individuales de cada paso \\
-metadata & dict & Archivos intermedios para restauracion \\
-data & dict & Datos de restauracion por paso (nombres de nodos, paths) \\
+metadata & dict & Archivos intermedios para restauración \\
+data & dict & Datos de restauración por paso (nombres de nodos, paths) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -4111,16 +2455,16 @@ data & dict & Datos de restauracion por paso (nombres de nodos, paths) \\
 \centering
 \begin{tabular}{l l l}
 \toprule
-\textbf{Estado} & \textbf{Significado} & \textbf{Accion al reanudar} \\
+\textbf{Estado} & \textbf{Significado} & \textbf{Acción al reanudar} \\
 \midrule
 \texttt{completed} & Ejecutado exitosamente & Se salta al reanudar \\
-\texttt{in\_progress} & En ejecucion o fallo & Se re-ejecuta al reanudar \\
+\texttt{in\_progress} & En ejecución o fallo & Se re-ejecuta al reanudar \\
 \texttt{pending} & No iniciado & Se ejecuta normalmente \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Flujo de Restauracion}
+\subsection{Flujo de Restauración}
 
 \begin{enumerate}
     \item Al iniciar el pipeline, verificar si existe \texttt{pipeline\_checkpoint.json}.
@@ -4129,12 +2473,12 @@ data & dict & Datos de restauracion por paso (nombres de nodos, paths) \\
     \item Buscar el primer paso con estado \texttt{pending} o \texttt{in\_progress}.
     \item Reanudar desde ese paso, manteniendo los pasos \texttt{completed}.
     \item Restaurar nodos Slicer desde \texttt{data} guardados en checkpoint.
-    \item Restaurar visualizacion medica con \texttt{setup\_medical\_views()}.
+    \item Restaurar visualización medica con \texttt{setup\_medical\_views()}.
 \end{enumerate}
 
-\subsection{Restauracion de Estado}
+\subsection{Restauración de Estado}
 
-Cuando un paso ya esta completado, \texttt{\_checkpoint\_step()} salta la ejecucion pero llama a
+Cuando un paso ya está completado, \texttt{\_checkpoint\_step()} salta la ejecución pero llama a
 \texttt{\_restore\_step\_state()} para que el pipeline tenga disponibles los nodos necesarios:
 
 \begin{table}[H]
@@ -4169,23 +2513,19 @@ El pipeline guarda la escena \texttt{.mrb} independientemente del checkpoint JSO
 
 
 \begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
 Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
 Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
 Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
+Validación medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -4196,177 +2536,52 @@ Validacion medica forzada & Forzada incluso si checkpoint indica completed & Cri
 % 15. AI SUPERVISOR
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 15. AI SUPERVISOR
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
-Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
-Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
-Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 15. AI SUPERVISOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
-Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
-Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
-Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 15. AI SUPERVISOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
-Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
-Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
-Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 15. AI SUPERVISOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
-Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
-Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
-Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 15. AI SUPERVISOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
-Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
-Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
-Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 15. AI SUPERVISOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
-Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
-Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
-Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 15. AI SUPERVISOR
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Archivo JSON valido & \texttt{json.load()} exitoso & Critico \\
-Version de checkpoint & \texttt{state[``version''] == CHECKPOINT\_VERSION} & Critico \\
-Nodos restaurados & \texttt{slicer.util.getNode()} exitoso & Warning \\
-Escena .mrb cargable & \texttt{slicer.util.loadScene()} exitoso & Warning \\
-Validacion medica forzada & Forzada incluso si checkpoint indica completed & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 15. AI SUPERVISOR
-% ============================================================
-\section{AI Supervisor --- Verificacion Automatica Post-Paso}
+\section{AI Supervisor --- Verificación Automática Post-Paso}
 \label{sec:ai}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -4378,9 +2593,9 @@ TS & TotalSegmentator \\
 \end{tabular}
 
 El AI Supervisor es un revisor inteligente que analiza el resultado de cada paso del pipeline
-y detecta anomalias antes de continuar. No reemplaza la validacion medica, sino que la
-complementa con verificaciones automaticas inmediatas. Utiliza reglas duras (pre-verificacion)
-y opcionalmente consulta a un modelo de lenguaje (DeepSeek via OpenRouter) para analisis mas
+y detecta anomalias antes de continuar. No reemplaza la validación medica, sino que la
+complementa con verificaciones automáticas inmediatas. Utiliza reglas duras (pre-verificación)
+y opcionalmente consulta a un modelo de lenguaje (DeepSeek via OpenRouter) para analisis más
 profundo.
 
 \subsection{Verificaciones por Paso --- Tabla Completa}
@@ -4389,24 +2604,24 @@ profundo.
 \centering
 \begin{tabular}{l l l l}
 \toprule
-\textbf{Paso} & \textbf{Verificacion} & \textbf{Condicion de fallo} & \textbf{Accion} \\
+\textbf{Paso} & \textbf{Verificación} & \textbf{Condición de fallo} & \textbf{Acción} \\
 \midrule
 Carga DICOM & Dimensiones, modalidades & CT o PET no detectados & Error \\
-Calibracion PET & Actividad total $A_{\text{total}}$ & $A_{\text{total}} \leq 0$ Bq & Error \\
-Eliminar camilla & Fraccion eliminada $f_{\text{rem}}$ & $f_{\text{rem}} > 0.5$ & Warning \\
+Calibración PET & Actividad total $A_{\text{total}}$ & $A_{\text{total}} \leq 0$ Bq & Error \\
+Eliminar camilla & Fracción eliminada $f_{\text{rem}}$ & $f_{\text{rem}} > 0.5$ & Warning \\
 Registro PET$\to$CT & NCC entre PET y CT & NCC $< 0.6$ & Warning \\
 TotalSegmentator & Segmentos $N_{\text{seg}}$ & $N_{\text{seg}} < 20$ & Error \\
-Validacion medica & Respuesta del dialogo & Sin interaccion & Error \\
-Creacion tumor & Volumen $V_{\text{tumor}}$ & $V_{\text{tumor}} < 0.5$ cm$^3$ & Warning \\
-Body segmentation & Cobertura de organos & Organos fuera del body & Error \\
+Validación medica & Respuesta del dialogo & Sin interacción & Error \\
+Creación tumor & Volumen $V_{\text{tumor}}$ & $V_{\text{tumor}} < 0.5$ cm$^3$ & Warning \\
+Body segmentation & Cobertura de órganos & Organos fuera del body & Error \\
 Export labelmap & Overlap voxels & Overlap $> 0$ & Error \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Flujo de Operacion}
+\subsection{Flujo de Operación}
 
-\begin{verbatim}
+\begin{lstlisting}
 Fin de paso N
     |
     v
@@ -4415,11 +2630,11 @@ AI Supervisor: analizar resultado
     +-- Normal -> continuar
     +-- Warning -> log + continuar
     +-- Error  -> detener pipeline
-\end{verbatim}
+\end{lstlisting}
 
-\subsection{Configuracion}
+\subsection{Configuración}
 
-\begin{verbatim}
+\begin{lstlisting}
 "ai_supervisor": {
     "fail_on_warning": false,    // true = detener pipeline en warning
     "log_level": "warning",      // "info", "warning", "error"
@@ -4433,28 +2648,24 @@ AI Supervisor: analizar resultado
         "export_labelmap": true
     }
 }
-\end{verbatim}
+\end{lstlisting}
 
-\subsection{Pre-verificacion Inmediata (Reglas Duras)}
+\subsection{Pre-verificación Inmediata (Reglas Duras)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{l l l}
 \toprule
-\textbf{Regla} & \textbf{Que detecta} & \textbf{Accion} \\
+\textbf{Regla} & \textbf{Que detecta} & \textbf{Acción} \\
 \midrule
-Metodo simple (threshold) & Segmentacion insuficiente & Warning \\
-Pocos segmentos ($\leq 2$) & Threshold sin etiquetado de organos & Warning \\
-Voxels fuera del cuerpo & Segmentacion incluye aire/camilla & Alerta \\
-Actividad total cero & Calibracion PET fallida & Error \\
+Metodo simple (threshold) & Segmentación insuficiente & Warning \\
+Pocos segmentos ($\leq 2$) & Threshold sin etiquetado de órganos & Warning \\
+Voxels fuera del cuerpo & Segmentación incluye aire/camilla & Alerta \\
+Actividad total cero & Calibración PET fallida & Error \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 
 \begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
@@ -4463,7 +2674,7 @@ Actividad total cero & Calibracion PET fallida & Error \\
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
 Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
@@ -4478,163 +2689,52 @@ Pre-verificaciones & Todas las reglas evaluadas & Critico \\
 % 16. VISUALIZACION 3D
 % ============================================================
 
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
+
+\newpage
+
+% ============================================================
+% 16. VISUALIZACION 3D
+% ============================================================
 \end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
-Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
-Pre-verificaciones & Todas las reglas evaluadas & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 16. VISUALIZACION 3D
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
-Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
-Pre-verificaciones & Todas las reglas evaluadas & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 16. VISUALIZACION 3D
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
-Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
-Pre-verificaciones & Todas las reglas evaluadas & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 16. VISUALIZACION 3D
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
-Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
-Pre-verificaciones & Todas las reglas evaluadas & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 16. VISUALIZACION 3D
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
-Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
-Pre-verificaciones & Todas las reglas evaluadas & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 16. VISUALIZACION 3D
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
-Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
-Pre-verificaciones & Todas las reglas evaluadas & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 16. VISUALIZACION 3D
-% ============================================================
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Log de supervisor & \texttt{ai\_supervisor.log} escrito & Critico \\
-Tiempo de respuesta IA & $< 30$ s (timeout DeepSeek) & Warning \\
-Pre-verificaciones & Todas las reglas evaluadas & Critico \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% 16. VISUALIZACION 3D
-% ============================================================
-\section{Visualizacion 3D Automatica}
+\section{Visualización 3D Automática}
 \label{sec:vis}
 
-\subsection*{Acronimos usados en esta seccion}
+\subsection*{Acronimos usados en esta sección}
 \begin{tabular}{ll}
 \toprule
 \textbf{Acronimo} & \textbf{Significado} \\
@@ -4647,11 +2747,11 @@ TS & TotalSegmentator \\
 \end{tabular}
 
 Configurar la interfaz de 3D Slicer para mostrar las imagenes y segmentaciones en un layout
-4-up optimizado para visualizacion medica: axial, sagital, coronal y vista 3D. La funcion
+4-up optimizado para visualización medica: axial, sagital, coronal y vista 3D. La función
 \texttt{setup\_medical\_views()} se llama tras cada paso critico del pipeline para que el
-medico pueda navegar e inspeccionar los resultados sin configuracion manual.
+medico pueda navegar e inspeccionar los resultados sin configuración manual.
 
-\subsection{Momentos de Activacion}
+\subsection{Momentos de Activación}
 
 \begin{table}[H]
 \centering
@@ -4661,19 +2761,19 @@ medico pueda navegar e inspeccionar los resultados sin configuracion manual.
 \midrule
 Tras carga DICOM & Mostrar CT y PET iniciales \\
 Tras registro PET$\to$CT & Mostrar PET re-muestreado sobre CT \\
-Tras fusion CT+PET & Mostrar las 3 imagenes (CT, PET, fusion) \\
+Tras fusión CT+PET & Mostrar las 3 imagenes (CT, PET, fusión) \\
 Tras TotalSegmentator & Mostrar segmentaciones sobre CT \\
-Tras validacion & Mostrar resultado final \\
+Tras validación & Mostrar resultado final \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Funcion setup\_medical\_views()}
+\subsection{Función setup\_medical\_views()}
 
 \begin{enumerate}
     \item Configurar layout 4-up:
           \texttt{layoutManager.setLayout(SlicerLayoutFourUpView)}.
-    \item Sincronizar vistas (crosshair, posicion de slice).
+    \item Sincronizar vistas (crosshair, posición de slice).
     \item Configurar foreground y background en cada slice:
           \begin{itemize}
               \item Background: CT (window/level abdomen: $L=40$ HU, $W=400$ HU).
@@ -4682,25 +2782,20 @@ Tras validacion & Mostrar resultado final \\
           \end{itemize}
     \item Activar volumen rendering 3D con RayCast para CT y PET.
     \item Resetear focal point al centro del paciente.
-    \item Activar slice linking (navegacion sincronizada).
+    \item Activar slice linking (navegación sincronizada).
 \end{enumerate}
 
 
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
-
-\begin{tcolorbox}[aiSupervisor]
 \subsection*{Control de Calidad (AI Supervisor)}
 
 \begin{table}[H]
 \centering
 \begin{tabular}{llc}
 \toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
+\textbf{Verificación} & \textbf{Metrica} & \textbf{Umbral} \\
 \midrule
 Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
+Slice linking & Navegación sincronizada activada & Warning \\
 Volume rendering & RayCast activo para CT y PET & Warning \\
 \bottomrule
 \end{tabular}
@@ -4713,21 +2808,12 @@ Volume rendering & RayCast activo para CT y PET & Warning \\
 % ============================================================
 \appendix
 
-\end{tcolorbox}
+\newpage
 
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
-Volume rendering & RayCast activo para CT y PET & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
+% ============================================================
+% ANEXO FUNDAMENTOS FISICOS
+% ============================================================
+\appendix
 
 \newpage
 
@@ -4736,21 +2822,12 @@ Volume rendering & RayCast activo para CT y PET & Warning \\
 % ============================================================
 \appendix
 
-\end{tcolorbox}
+\newpage
 
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
-Volume rendering & RayCast activo para CT y PET & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
+% ============================================================
+% ANEXO FUNDAMENTOS FISICOS
+% ============================================================
+\appendix
 
 \newpage
 
@@ -4759,21 +2836,12 @@ Volume rendering & RayCast activo para CT y PET & Warning \\
 % ============================================================
 \appendix
 
-\end{tcolorbox}
+\newpage
 
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
-Volume rendering & RayCast activo para CT y PET & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
+% ============================================================
+% ANEXO FUNDAMENTOS FISICOS
+% ============================================================
+\appendix
 
 \newpage
 
@@ -4782,98 +2850,13 @@ Volume rendering & RayCast activo para CT y PET & Warning \\
 % ============================================================
 \appendix
 
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
-Volume rendering & RayCast activo para CT y PET & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 \newpage
 
 % ============================================================
 % ANEXO FUNDAMENTOS FISICOS
 % ============================================================
 \appendix
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
-Volume rendering & RayCast activo para CT y PET & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% ANEXO FUNDAMENTOS FISICOS
-% ============================================================
-\appendix
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
-Volume rendering & RayCast activo para CT y PET & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% ANEXO FUNDAMENTOS FISICOS
-% ============================================================
-\appendix
-
-\end{tcolorbox}
-
-
-\begin{table}[H]
-\centering
-\begin{tabular}{llc}
-\toprule
-\textbf{Verificacion} & \textbf{Metrica} & \textbf{Umbral} \\
-\midrule
-Layout activo & Layout 4-up configurado & Critico \\
-Slice linking & Navegacion sincronizada activada & Warning \\
-Volume rendering & RayCast activo para CT y PET & Warning \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\newpage
-
-% ============================================================
-% ANEXO FUNDAMENTOS FISICOS
-% ============================================================
-\appendix
-\section{Fundamentos Fisicos del \texorpdfstring{$^{90}$Y}{Y-90}}
+\section{Fundamentos Físicos del \texorpdfstring{$^{90}$Y}{Y-90}}
 
 \subsection*{Acronimos usados en este apendice}
 \begin{tabular}{ll}
@@ -4903,11 +2886,11 @@ El $^{90}$Y es un emisor $\beta^-$ puro con las siguientes caracteristicas:
 \textbf{Propiedad} & \textbf{Valor} & \textbf{Unidad} \\
 \midrule
 Vida media $T_{1/2}$ & 64.1 & horas \\
-Constante de desintegracion $\lambda$ & $3.00 \times 10^{-6}$ & s$^{-1}$ \\
+Constante de desintegración $\lambda$ & $3.00 \times 10^{-6}$ & s$^{-1}$ \\
 Vida media $\tau$ & 332,916 & s \\
-Energia maxima $\beta^-$ $E_{\max}$ & 2.28 & MeV \\
+Energia máxima $\beta^-$ $E_{\max}$ & 2.28 & MeV \\
 Energia media $\beta^-$ $\bar{E}_\beta$ & 0.9336 & MeV \\
-Alcance maximo en tejido & $\sim 11$ & mm \\
+Alcance máximo en tejido & $\sim 11$ & mm \\
 Alcance medio & $\sim 2.5$ & mm \\
 \bottomrule
 \end{tabular}
@@ -4922,12 +2905,12 @@ La dosis absorbida $D$ se define como la energia depositada por unidad de masa:
 \end{equation}
 
 Para $^{90}$Y en dosimetria interna, la dosis en un voxel depende de la actividad acumulada,
-la energia liberada por desintegracion ($\bar{E}_\beta$), la fraccion de energia absorbida
+la energia liberada por desintegración ($\bar{E}_\beta$), la fracción de energia absorbida
 localmente (esencialmente 1 para $\beta^-$ de $^{90}$Y) y la masa del voxel.
 
 \subsection{Modelo MIRD (Partition Model)}
 
-El modelo MIRD de particion provee estimaciones analiticas rapidas:
+El modelo MIRD de partición provee estimaciones analiticas rapidas:
 
 \begin{align}
     T/N &= \frac{\text{actividad\_PET\_tumor}}{\text{actividad\_PET\_higado}} \\
@@ -4945,10 +2928,10 @@ El modelo MIRD de particion provee estimaciones analiticas rapidas:
 \centering
 \begin{tabular}{lll}
 \toprule
-\textbf{Variable} & \textbf{Descripcion} & \textbf{Unidad} \\
+\textbf{Variable} & \textbf{Descripción} & \textbf{Unidad} \\
 \midrule
-$T/N$ & Tumor-to-Normal ratio (razon de captacion) & adimensional \\
-SF & Shunt Fraction (fraccion que escapa al pulmon) & adimensional \\
+$T/N$ & Tumor-to-Normal ratio (razon de captación) & adimensional \\
+SF & Shunt Fraction (fracción que escapa al pulmon) & adimensional \\
 $\text{FU}_{\text{normal}}$ & Fraction of Uptake en higado sano & adimensional \\
 $\text{FU}_{\text{tumor}}$ & Fraction of Uptake en tumor & adimensional \\
 $V_{\text{higado}}$ & Volumen del higado & cm$^3$ \\
@@ -4961,8 +2944,8 @@ $D_{\text{higado}}$ & Dosis absorbida en higado sano & Gy \\
 $D_{\text{tumor}}$ & Dosis absorbida en tumor & Gy \\
 $D$ & Dosis absorbida generica & Gy \\
 $\bar{E}_\beta$ & Energia media de la particula beta & MeV \\
-$\lambda$ & Constante de desintegracion & s$^{-1}$ \\
-$\tau$ & Vida media del isotopo & s \\
+$\lambda$ & Constante de desintegración & s$^{-1}$ \\
+$\tau$ & Vida media del isótopo & s \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -5000,7 +2983,7 @@ $\tau$ & Vida media del isotopo & s \\
     \item Chiesa, C., et al. ``The dosimetric journey of $^{90}$Y
           radioembolization: from MIRD to voxel dosimetry.''
           \textit{EJNMMI Physics}, 2017.
-    \item Documentacion del proyecto 3Dosim: pipeline\_mod1.py,
+    \item Documentación del proyecto 3Dosim: pipeline\_mod1.py,
           pet\_dicom\_reader.py, couch\_remover.py,
           pet\_registration.py, fusion\_dialog.py, segmentation.py,
           tumor\_creator.py, validation.py, labelmap\_exporter.py,

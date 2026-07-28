@@ -193,7 +193,7 @@ Guarda el archivo `.mrb` con todos los nodos de dosis, isodosis y DVH para inspe
 | `pet_dicom_reader.py` | Lectura de actividad PET DICOM raw |
 | `mctal_parser.py` | Parser de archivos MCTAL MCNP |
 | `dosimetry.py` | Conversión MeV/cm³ → Gy (ruta MCTAL) |
-| `dose_kernel.py` | Carga y normalización de kernel.mat |
+| `dose_kernel.py` | Carga de kernel.mat (sin normalizar) |
 | `fft_dose.py` | Convolución FFT optimizada |
 | `dvh_analysis.py` | Cálculo de DVH y métricas |
 | `radiobiology.py` | BED, EUD, EQD2, NTCP, TCP |

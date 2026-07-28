@@ -1,0 +1,101 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{Resumen}{2}{Doc-Start}%
+\contentsline {section}{Glosario de Acronimos}{2}{Doc-Start}%
+\contentsline {section}{\numberline {1}Visión General --- Arquitectura del Módulo 2}{8}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Contexto Clínico}{8}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Pipeline de 6 Pasos}{8}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Parametros de Configuración}{9}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Relación con Modulo 1 y Modulo 3}{10}{subsection.1.4}%
+\contentsline {subsection}{\numberline {1.5}Equivalencia MATLAB a Python}{10}{subsection.1.5}%
+\contentsline {section}{\numberline {2}Carga de Escena 3D Slicer}{11}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Contexto}{11}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Archivo .mrb}{11}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Carga desde pipeline\_mod2.py}{11}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}scan\_nodes() --- Identificar Nodos}{12}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Coordenadas IJK a RAS}{12}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Matriz IJK$\to $RAS en Detalle}{13}{subsection.2.6}%
+\contentsline {subsection}{\numberline {2.7}Ejemplo de Extracción de Parametros}{13}{subsection.2.7}%
+\contentsline {subsection}{\numberline {2.8}Validación de Prerequisitos}{13}{subsection.2.8}%
+\contentsline {subsection}{\numberline {2.9}Manejo de Errores}{14}{subsection.2.9}%
+\contentsline {section}{\numberline {3}Asignación de Materiales}{14}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Contexto}{14}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Indices de Tejidos Base (Phantom, índices 1--100)}{15}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Indices ICRP-110 (Completos, índices 101--153)}{15}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Carga desde tissue\_config.json}{15}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Segment Map (TotalSegmentator $\to $ Indices Locales)}{16}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Refinamiento por HU}{16}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.7}Materiales en el Input MCNP}{17}{subsection.3.7}%
+\contentsline {section}{\numberline {4}Geometría Voxelizada MCNP}{18}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Estrategia de Geometria Voxelizada}{18}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Celda Mundo (Envolvente)}{19}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Celda Lattice}{19}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Celdas Voxel con LIKE n BUT}{20}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Compresion RLE}{20}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Reorientación de Ejes (flip\_rows y flip\_z)}{21}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}Precision de Cuantización}{21}{subsection.4.7}%
+\contentsline {subsection}{\numberline {4.8}Superficies Especiales}{22}{subsection.4.8}%
+\contentsline {subsection}{\numberline {4.9}Estructura Completa en el .i}{22}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}Consideraciones de Rendimiento}{23}{subsection.4.10}%
+\contentsline {section}{\numberline {5}Definición de la Fuente (Source)}{23}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Contexto}{23}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Espectro de Energias --- Y-90 ($^{90}$Y)}{24}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Espectro Lu-177 y I-131}{24}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Tarjeta SDEF}{25}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Archivo de Fuente Externo (.src)}{25}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Muestreo desde Labelmap}{26}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.7}Actividad y Peso}{26}{subsection.5.7}%
+\contentsline {subsection}{\numberline {5.8}Tarjetas Relacionadas}{26}{subsection.5.8}%
+\contentsline {subsection}{\numberline {5.9}Parametros de Fuente}{27}{subsection.5.9}%
+\contentsline {section}{\numberline {6}Tallies y Detectores MCNP}{27}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Contexto}{28}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}TMESH --- Tally de Grilla 3D}{28}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}BUG CORREGIDO --- TMESH nx vs nx-1}{28}{subsubsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.3}Conversion de Fluencia a Dosis (DE4/DF4)}{28}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}*F8 --- Detectores Puntuales por Organo}{29}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}F6:e --- Energia Depositada Total}{30}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Tarjetas de Corte (CUT)}{30}{subsection.6.6}%
+\contentsline {subsection}{\numberline {6.7}Conversion de Unidades}{30}{subsection.6.7}%
+\contentsline {subsection}{\numberline {6.8}Resumen de Tallies}{30}{subsection.6.8}%
+\contentsline {subsection}{\numberline {6.9}Parametros Globales de Simulación}{30}{subsection.6.9}%
+\contentsline {subsection}{\numberline {6.10}Verificación de Conservación de Energía}{31}{subsection.6.10}%
+\contentsline {section}{\numberline {7}Generación del Archivo .i}{31}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Contexto}{32}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Flujo de Generación}{32}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Parametros de Entrada}{32}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Las 12 Secciones en Detalle}{33}{subsection.7.4}%
+\contentsline {subsubsection}{\numberline {7.4.1}Sección 1: Cabecera}{33}{subsubsection.7.4.1}%
+\contentsline {subsubsection}{\numberline {7.4.2}Sección 2: Bloque de Celdas}{33}{subsubsection.7.4.2}%
+\contentsline {subsubsection}{\numberline {7.4.3}Sección 3: Bloque de Superficies}{33}{subsubsection.7.4.3}%
+\contentsline {subsubsection}{\numberline {7.4.4}Sección 4: Tarjetas de Datos}{33}{subsubsection.7.4.4}%
+\contentsline {subsubsection}{\numberline {7.4.5}Sección 5: Materiales}{34}{subsubsection.7.4.5}%
+\contentsline {subsubsection}{\numberline {7.4.6}Sección 6: Fuente SDEF}{34}{subsubsection.7.4.6}%
+\contentsline {subsubsection}{\numberline {7.4.7}Sección 7: Tallies TMESH}{34}{subsubsection.7.4.7}%
+\contentsline {subsubsection}{\numberline {7.4.8}Sección 8: Tallies *F8}{34}{subsubsection.7.4.8}%
+\contentsline {subsubsection}{\numberline {7.4.9}Sección 9: Tally F6}{35}{subsubsection.7.4.9}%
+\contentsline {subsubsection}{\numberline {7.4.10}Sección 10: Print}{35}{subsubsection.7.4.10}%
+\contentsline {subsubsection}{\numberline {7.4.11}Sección 11: Archivo de Fuente Externo}{35}{subsubsection.7.4.11}%
+\contentsline {subsubsection}{\numberline {7.4.12}Sección 12: Corte de Geometria (Opcional)}{35}{subsubsection.7.4.12}%
+\contentsline {subsection}{\numberline {7.5}Formato del Archivo}{35}{subsection.7.5}%
+\contentsline {subsection}{\numberline {7.6}Validación Post-Generación}{35}{subsection.7.6}%
+\contentsline {subsection}{\numberline {7.7}Archivos de Salida}{36}{subsection.7.7}%
+\contentsline {section}{\numberline {8}Pipeline Completo --- Integración del Modulo 2}{36}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Contexto}{37}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Interfaces}{37}{subsection.8.2}%
+\contentsline {subsubsection}{\numberline {8.2.1}Entrada (desde Modulo 1)}{37}{subsubsection.8.2.1}%
+\contentsline {subsubsection}{\numberline {8.2.2}Salida (hacia Modulo 3)}{38}{subsubsection.8.2.2}%
+\contentsline {subsection}{\numberline {8.3}Diagrama de Flujo Detallado}{38}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.4}Dependencias entre Secciones del .i}{39}{subsection.8.4}%
+\contentsline {subsection}{\numberline {8.5}Manejo de Errores y Estados}{40}{subsection.8.5}%
+\contentsline {subsubsection}{\numberline {8.5.1}Estados del Pipeline}{40}{subsubsection.8.5.1}%
+\contentsline {subsubsection}{\numberline {8.5.2}Errores Comunes}{40}{subsubsection.8.5.2}%
+\contentsline {subsection}{\numberline {8.6}Integración con el Resto del Sistema}{40}{subsection.8.6}%
+\contentsline {subsection}{\numberline {8.7}Comandos de Ejecución}{41}{subsection.8.7}%
+\contentsline {subsubsection}{\numberline {8.7.1}Desde 3D Slicer (SlicerDosim)}{41}{subsubsection.8.7.1}%
+\contentsline {subsubsection}{\numberline {8.7.2}Desde Linea de Comandos (Standalone)}{41}{subsubsection.8.7.2}%
+\contentsline {subsection}{\numberline {8.8}Checkpoints del Pipeline}{41}{subsection.8.8}%
+\contentsline {section}{Apendice: Constantes Fisicas}{42}{table.caption.8}%
+\contentsline {subsection}{\numberline {8.9}Isotopos}{43}{subsection.8.9}%
+\contentsline {subsection}{\numberline {8.10}Densidades de Referencia}{43}{subsection.8.10}%
+\contentsline {subsection}{\numberline {8.11}Espectro Y-90 (Detallado)}{43}{subsection.8.11}%
+\contentsline {subsection}{\numberline {8.12}Factores de Conversion}{43}{subsection.8.12}%
+\contentsline {section}{Referencias}{44}{subsection.8.12}%

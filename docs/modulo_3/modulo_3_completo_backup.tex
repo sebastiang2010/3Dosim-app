@@ -1,72 +1,19 @@
 \documentclass[12pt,a4paper]{article}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage[spanish]{babel}
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{hyperref}
-\usepackage{geometry}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
-\usepackage{float}
-\usepackage{caption}
-\usepackage{booktabs}
-\usepackage{longtable}
-\usepackage{array}
-\usepackage{verbatim}
-\usepackage[most]{tcolorbox}
-\geometry{margin=2.5cm}
-\setlength{\headheight}{13.6pt}
-% ============================================================
-% PALETA DE COLORES 3Dosim
-% ============================================================
-\definecolor{cPrimary}{RGB}{30,64,124}      % azul oscuro titulos
-\definecolor{cSecondary}{RGB}{70,130,180}   % azul claro subtitulos
-\definecolor{cAccent}{RGB}{220,50,50}        % rojo AI Supervisor / alertas
-\definecolor{cBg}{RGB}{245,245,245}          % gris muy claro fondo
-\definecolor{cDarkBg}{RGB}{230,230,230}      % gris fondo tablas
 
-% ============================================================
-% FORMATO DE SECCIONES CON COLORES
-% ============================================================
-\titleformat*{\section}{\normalfont\Large\bfseries\color{cPrimary}}
-\titleformat*{\subsection}{\normalfont\large\bfseries\color{cSecondary}}
-\titleformat*{\subsubsection}{\normalfont\normalsize\bfseries\color{cPrimary}}
-\pagestyle{fancy}
-\fancyhf{}
+% Estilo compartido (paquetes, colores, hyperref, listings, AI Supervisor)
+\input{../estilo_3dosim}
+
+% Encabezado especifico del modulo
 \fancyhead[L]{\small 3Dosim --- Módulo 3}
 \fancyhead[R]{\small Análisis Dosimétrico}
-\fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-\newcommand{\vardef}[2]{\noindent\textbf{#1}: #2\\}
-\setlength{\parskip}{0.5em}
+
+% Portada
 \title{\textbf{Módulo 3: Análisis Dosimétrico}\\[0.5cm]
        \large De la Simulación Monte Carlo al Reporte Clínico\\[0.3cm]
        \normalsize Documentación Técnica --- Revisión v4.0}
 \author{Proyecto 3Dosim --- Dosimetría Hepática con $^{90}$Y}
 \date{Julio 2026}
-% ============================================================
-% CAJA COLOREADA PARA AI SUPERVISOR
-% ============================================================
-\tcbset{
-  aiSupervisor/.style = {
-    colback=cBg,
-    colframe=cAccent,
-    boxrule=0.7pt,
-    arc=3pt,
-    left=4mm,
-    right=4mm,
-    top=3mm,
-    bottom=3mm,
-    fonttitle=\bfseries\large,
-    title=Control de Calidad (AI Supervisor),
-    coltitle=white,
-    colbacktitle=cAccent,
-    attach boxed title to top left={yshift=-3mm,xshift=5mm},
-    boxed title style={colback=cAccent,arc=2pt}
-  }
-}
+
 \begin{document}
 \maketitle
 \thispagestyle{empty}
@@ -79,18 +26,16 @@
 \section*{Resumen}
 \addcontentsline{toc}{section}{Resumen}
 
-Este modulo forma parte del pipeline completo \textbf{3Dosim} para dosimetria hepatica con Yttrium-90.
-Su objetivo es transformar imagenes DICOM (CT anatomico + PET funcional) en una \textbf{labelmap dosimetrica}
--- un volumen 3D donde cada voxel se clasifica segun su tipo de tejido siguiendo la nomenclatura ICRP-110/ICRU-44.
-Esta labelmap constituye la entrada fundamental para el Modulo 2, donde se genera el input de simulacion Monte Carlo (MCNP).
+Este módulo es el tercero del pipeline \textbf{3Dosim} para dosimetría hepática con Yttrium-90.
+Su objetivo es procesar los resultados de la simulación Monte Carlo (archivo MCTAL de MCNP6) o, alternativamente, la convolución con un kernel de dosis precalculado, para producir \textbf{mapas de dosis absorbida 3D en Gray (Gy)}, histogramas dosis-volumen (DVH), índices radiobiológicos (BED, EUD, EQD2) y un reporte clínico en PDF.
 
 \vspace{0.5em}
 \noindent
-\textbf{Pregunta que resuelve:} \textit{Cual es la forma mas precisa y automatica de identificar y clasificar cada tejido del paciente para poder calcular la dosis absorbida por voxel?}
+\textbf{Pregunta que resuelve:} \textit{¿Cómo convertir los resultados crudos de MCNP (MeV/cm³/partícula) o la convolución kernel en métricas clínicamente accionables (dosis por voxel, DVH, índices de control tumoral)?}
 
 \vspace{0.3em}
 \noindent
-\textbf{Resultado principal:} Labelmap NIfTI/NRRD con 53+ materiales ICRP-110 indexados, lista para MCNP.
+\textbf{Resultado principal:} Mapa de dosis en Gy (NRRD), tabla DVH por ROI, índices radiobiológicos (BED, EUD, EQD2) y reporte clínico PDF.
 
 
 % =============================================================================
@@ -218,7 +163,7 @@ El Módulo 3 toma los resultados de la simulación Monte Carlo (archivo MCTAL) o
 
 El pipeline del Módulo 3 se orquesta secuencialmente:
 
-\begin{verbatim}
+\begin{lstlisting}
   PASO 1: load_scene          -- Cargar escena .mrb desde Módulo 1
   PASO 2: read_pet_activity   -- Leer actividad PET (DICOM raw o CLI)
   PASO 3: parse_mctal         -- Parsear archivo MCTAL (ruta MC)
@@ -229,9 +174,11 @@ El pipeline del Módulo 3 se orquesta secuencialmente:
   PASO 8: visualize_slicer    -- Isodosis + DVH interactivo en Slicer
   PASO 9: export_report       -- Reporte clínico PDF
   PASO 10: save_scene         -- Guardar escena final .mrb
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Dos Rutas de Cálculo de Dosis}
+
+El Módulo 3 ofrece dos rutas para calcular la dosis absorbida. La ruta Monte Carlo (MCTAL) procesa la salida de MCNP6, mientras que la ruta Kernel (FFT) convoluciona la actividad PET con un kernel de dosis precalculado para obtener resultados en segundos. La siguiente tabla compara ambas aproximaciones:
 
 \begin{tabular}{p{4cm} p{5cm} p{5cm}}
 \toprule
@@ -272,7 +219,7 @@ Salida: escena final & \texttt{resultados\_test/scenes/3Dosim\_dosis\_final.mrb}
 \texttt{pet\_dicom\_reader.py} & Lectura de actividad PET DICOM raw \\
 \texttt{mctal\_parser.py} & Parser de archivos MCTAL MCNP \\
 \texttt{dosimetry.py} & Conversión MeV/cm$^3$ $\to$ Gy (ruta MCTAL) \\
-\texttt{dose\_kernel.py} & Carga y normalización de kernel.mat \\
+\texttt{dose\_kernel.py} & Carga de kernel.mat (sin normalizar) \\
 \texttt{fft\_dose.py} & Convolución FFT optimizada \\
 \texttt{dvh\_analysis.py} & Cálculo de DVH y métricas \\
 \texttt{radiobiology.py} & BED, EUD, EQD2, NTCP, TCP \\
@@ -308,7 +255,6 @@ Reporte PDF generado & Archivo no existe o $<$ 10 KB \\
 % SECCIÓN 2: LECTURA DE ACTIVIDAD PET
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -331,6 +277,7 @@ Reporte PDF generado & Archivo no existe o $<$ 10 KB \\
 % =============================================================================
 % SECCIÓN 2: LECTURA DE ACTIVIDAD PET
 % =============================================================================
+\end{tcolorbox}
 \section{Lectura de Actividad PET desde DICOM Raw}
 
 \begin{quote}
@@ -399,7 +346,7 @@ $$A_{\text{total}} = \sum_{k=1}^{N_s} \sum_{i=1}^{N_x} \sum_{j=1}^{N_y} A_{\text
 
 \subsection{Algoritmo de Implementación}
 
-\begin{verbatim}
+\begin{lstlisting}
 1. Listar archivos DICOM PET del directorio (orden por InstanceNumber)
 2. Para cada slice k:
    a. Leer con pydicom.dcmread()
@@ -411,9 +358,11 @@ $$A_{\text{total}} = \sum_{k=1}^{N_s} \sum_{i=1}^{N_x} \sum_{j=1}^{N_y} A_{\text
 3. Acumular actividad_vox en array 3D (z, y, x)
 4. Calcular actividad_total = sum(actividad_3d) * volumen_voxel
 5. Reportar en Bq, GBq, mCi, Bq/mL
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Rangos Normales de Actividad}
+
+La actividad administrada al paciente determina la dosis absorbida y los tiempos de simulación MCNP. La tabla siguiente presenta los rangos típicos para radioembolización hepática con $^{90}$Y y otras terapias con radionúclidos:
 
 \begin{tabular}{p{4cm} p{2.5cm} p{2cm} p{5cm}}
 \toprule
@@ -458,7 +407,6 @@ Contraste tumor/hígado & T/N $<$ 1.5 (poco contraste) \\
 % SECCIÓN 3: PARSING DE ARCHIVO MCTAL
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -481,6 +429,7 @@ Contraste tumor/hígado & T/N $<$ 1.5 (poco contraste) \\
 % =============================================================================
 % SECCIÓN 3: PARSING DE ARCHIVO MCTAL
 % =============================================================================
+\end{tcolorbox}
 \section{Parsing de Archivo MCTAL de MCNP}
 
 \begin{quote}
@@ -518,7 +467,7 @@ Cada tally en MCTAL contiene:
 
 \subsection{Estructura del Archivo MCTAL}
 
-\begin{verbatim}
+\begin{lstlisting}
  tally type n    (1 = tally 1)
    particles = p  (photons)
    ...
@@ -537,7 +486,7 @@ Cada tally en MCTAL contiene:
    vals
        1.2345E-03  0.0123   2.3456E-03  0.0156   ...
        3.4567E-03  0.0189   ...
-\end{verbatim}
+\end{lstlisting}
 
 \begin{tabular}{p{4cm} p{11cm}}
 \toprule
@@ -633,7 +582,6 @@ Parsing time $<$ 30 s & Timeout \\
 % SECCIÓN 4: CONVERSIÓN MeV/cm³ A GRAY
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -656,6 +604,7 @@ Parsing time $<$ 30 s & Timeout \\
 % =============================================================================
 % SECCIÓN 4: CONVERSIÓN MeV/cm³ A GRAY
 % =============================================================================
+\end{tcolorbox}
 \section{Conversión de MeV/cm$^3$ a Gray}
 
 \begin{quote}
@@ -753,13 +702,18 @@ La ruta Kernel \textbf{NO multiplica por $\tau$ ni por $A$} después de la convo
 
 \subsubsection{Flujo Exacto MATLAB}
 
-\begin{verbatim}
+\begin{lstlisting}
 % MATLAB original (modulo_3/convkernel.m)
 Kernel = Kernel / sum(Kernel(:));        % normalizar
 DosisK = imfilter(A, Kernel, ...);       % convolucion
 DosisK = DosisK .* IND_liver_tumor;      % enmascarar
 % NO hay DosisK * t   (tau ya incluido en kernel.mat)
-\end{verbatim}
+\end{lstlisting}
+
+\paragraph{Nota:} La implementación en Python (\texttt{fft\_dose.py}) \textbf{no aplica}
+la normalización de la línea~1. El kernel se usa tal cual del archivo \texttt{kernel.mat}
+(parámetro \texttt{normalize=False} en \texttt{get\_kernel()}). Esto preserva la escala
+absoluta de dosis, ya que \texttt{kernel.mat} ya incluye el factor $\tau \times 10^9$.
 
 donde:
 \begin{itemize}
@@ -770,10 +724,10 @@ donde:
 
 \subsubsection{Fórmula}
 
-$$D_{\text{Gy}} = \text{FFT}^{-1}\big[\text{FFT}(A_{\text{GBq}}) \cdot \text{FFT}(K_{\text{norm}})\big] \times \text{mask}$$
+$$D_{\text{Gy}} = \text{FFT}^{-1}\big[\text{FFT}(A_{\text{GBq}}) \cdot \text{FFT}(K)\big] \times \text{mask}$$
 
 \vardef{$A_{\text{GBq}}$}{Actividad por voxel [GBq]}
-\vardef{$K_{\text{norm}}$}{Kernel normalizado (suma = 1) [1/cm$^3$]}
+\vardef{$K$}{Kernel de dosis (sin normalizar a suma~1) [---]}
 \vardef{$\text{mask}$}{Máscara binaria hígado+tumor+peritumoral [---]}
 
 \subsection{Comparación de Rutas}
@@ -815,7 +769,6 @@ Actividad total $>$ 0 & Actividad = 0 (dosis = 0) \\
 % SECCIÓN 5: DVH
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -837,6 +790,7 @@ Actividad total $>$ 0 & Actividad = 0 (dosis = 0) \\
 % =============================================================================
 % SECCIÓN 5: DVH
 % =============================================================================
+\end{tcolorbox}
 \section{Dose-Volume Histogram (DVH)}
 
 \begin{quote}
@@ -897,7 +851,7 @@ Parámetros:
   \item Incluye voxeles con dosis = 0 (percentiles sobre \textbf{todos} los voxeles).
 \end{itemize}
 
-\begin{verbatim}
+\begin{lstlisting}
 1. Obtener máscara binaria de la ROI desde la labelmap
 2. Extraer dosis de todos los voxeles dentro de la máscara
 3. Crear vector dosis_threshold = linspace(0, Dmax*1.05, 200)
@@ -905,7 +859,7 @@ Parámetros:
      V(D) = 100 * sum(dosis_vox >= D) / len(dosis_vox)
 5. Almacenar curva (D, V)
 6. Extraer metricas: D98, D95, D70, D50, D5, D2, V30, V70
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Métricas Clínicas}
 
@@ -993,7 +947,6 @@ Puntos DVH continuos & Saltos $>$ 10\% en la curva \\
 % SECCIÓN 6: MODELOS RADIOBIOLÓGICOS
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -1015,6 +968,7 @@ Puntos DVH continuos & Saltos $>$ 10\% en la curva \\
 % =============================================================================
 % SECCIÓN 6: MODELOS RADIOBIOLÓGICOS
 % =============================================================================
+\end{tcolorbox}
 \section{Radiobiología: BED, EUD y EQD2}
 
 \begin{quote}
@@ -1211,7 +1165,6 @@ Consistencia entre ROIs & BED(hígado) $>$ BED(tumor) si $D_{\text{liver}} < D_{
 % SECCIÓN 7: MODELO MIRD DE PARTICIÓN
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -1232,6 +1185,7 @@ Consistencia entre ROIs & BED(hígado) $>$ BED(tumor) si $D_{\text{liver}} < D_{
 % =============================================================================
 % SECCIÓN 7: MODELO MIRD DE PARTICIÓN
 % =============================================================================
+\end{tcolorbox}
 \section{Modelo MIRD de Partición}
 
 \begin{quote}
@@ -1333,7 +1287,7 @@ $$k = 0.9337 \times 1.602\times10^{-13} \times 3600 \times 10^6 = 48.98\ \text{J
 
 \subsection{Algoritmo de Implementación}
 
-\begin{verbatim}
+\begin{lstlisting}
 1. Obtener volumenes de higado sano y tumor desde la labelmap
 2. Calcular masas: m = V x rho (rho = 1.06 g/cm^3 para ambos)
 3. Obtener T/N desde PET:
@@ -1343,7 +1297,7 @@ $$k = 0.9337 \times 1.602\times10^{-13} \times 3600 \times 10^6 = 48.98\ \text{J
 4. Si no hay PET: T/N default = 3.0
 5. Calcular FU_normal y FU_tumor
 6. Calcular D_higado y D_tumor
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Ejemplo Numérico}
 
@@ -1400,7 +1354,6 @@ Actividad $>$ 0 & $A = 0$ (dosis cero) \\
 % SECCIÓN 8: ISODOSIS Y VISUALIZACIÓN EN SLICER
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -1423,6 +1376,7 @@ Actividad $>$ 0 & $A = 0$ (dosis cero) \\
 % =============================================================================
 % SECCIÓN 8: ISODOSIS Y VISUALIZACIÓN EN SLICER
 % =============================================================================
+\end{tcolorbox}
 \section{Isodosis y Visualización en 3D Slicer}
 
 \begin{quote}
@@ -1520,7 +1474,7 @@ El DVH se visualiza usando el módulo nativo \textbf{Plots} de Slicer:
 
 \subsection{Layout de Visualización}
 
-\begin{verbatim}
+\begin{lstlisting}
 +------------------------------------------------------------+
 |              3D Slicer --- 3Dosim Dosis Final               |
 +------------+------------+------------+---------------------+
@@ -1537,7 +1491,7 @@ El DVH se visualiza usando el módulo nativo \textbf{Plots} de Slicer:
 |      |  4 curvas: Hig, Tum, Peri, Body         |           |
 |      +-----------------------------------------+           |
 +------------------------------------------------------------+
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Guardado de Escena Final}
 
@@ -1573,7 +1527,6 @@ Coordenadas consistentes & Nodo dosis fuera de alineación con CT \\
 % SECCIÓN 9: PIPELINE COMPLETO
 % =============================================================================
 
-\end{tcolorbox}
 
 
 \begin{tabular}{p{5cm} p{10cm}}
@@ -1595,6 +1548,7 @@ Coordenadas consistentes & Nodo dosis fuera de alineación con CT \\
 % =============================================================================
 % SECCIÓN 9: PIPELINE COMPLETO
 % =============================================================================
+\end{tcolorbox}
 \section{Pipeline Completo --- Módulo 3: Dosimetría}
 
 \begin{quote}
@@ -1625,7 +1579,7 @@ TMESH & Tally MESH (grilla de dosis en MCNP) \\
 
 \subsection{Integración Mod1 $\to$ Mod3}
 
-\begin{verbatim}
+\begin{lstlisting}
 Modulo 1 (PREPARACION)          Modulo 3 (DOSIMETRIA)
 ----------------------          ----------------------
 
@@ -1658,7 +1612,7 @@ Archivo MCTAL ------------------>   Parse MCTAL
                                         v
                                   Reporte PDF
                                   Escena final .mrb
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Los 10 Pasos del Pipeline}
 
@@ -1761,10 +1715,10 @@ El módulo \textbf{SlicerDosimMod3} dentro de 3D Slicer ejecuta el pipeline auto
 \end{enumerate}
 
 \textbf{Configuración del módulo:}
-\begin{verbatim}
+\begin{lstlisting}
 Slicer -> Edit -> Settings -> Modules -> Additional paths:
 C:\programas\3Dosim\3Dosim_v4\slicer_modules\SlicerDosim\Modules\Scripted
-\end{verbatim}
+\end{lstlisting}
 
 
 \begin{tcolorbox}[aiSupervisor]
@@ -1798,6 +1752,7 @@ C:\programas\3Dosim\3Dosim_v4\slicer_modules\SlicerDosim\Modules\Scripted
 % =============================================================================
 % APÉNDICE A: CONSTANTES FÍSICAS DEL Y-90
 % =============================================================================
+\end{tcolorbox}
 \section*{Apéndice A: Constantes Físicas del $^{90}$Y}
 \addcontentsline{toc}{section}{Apéndice A: Constantes Físicas del Y-90}
 
@@ -1829,7 +1784,6 @@ Constante de tasa de dosis & $\dot{D}$ & 0.0371 & h$^{-1}$ \\
 \bottomrule
 \end{longtable}
 
-\end{tcolorbox}
 
 
 \begin{longtable}{p{0.5cm} p{4cm} p{4.5cm} p{5cm}}
