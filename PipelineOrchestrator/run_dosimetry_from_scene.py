@@ -118,6 +118,16 @@ except Exception:
     generate_latex_report = None
     _HAS_LATEX = False
 
+# Constantes compartidas de los gráficos DVH
+# (chart Slicer = PNG exportado = figuras PDF/LaTeX: mismos colores, puntos y ejes)
+from PipelineOrchestrator.dvh_plot_shared import (
+    DVH_COLORS,
+    DVH_N_POINTS,
+    DVH_Y_MAX,
+    DVH_X_MAX_FACTOR,
+    get_dvh_color,
+)
+
 # ======================================================================
 # DEBUG: primer output inmediato
 # ======================================================================
@@ -597,7 +607,6 @@ def compute_dvh(
     dose_gy: np.ndarray,
     labelmap: np.ndarray,
     structure_idx: int,
-    bins: int = 200,
 ) -> dict:
     """
     Computa DVH para una estructura.
@@ -612,9 +621,9 @@ def compute_dvh(
           - 'd98_gy': dosis al 98% del volumen
           - 'd70_gy': dosis al 70%
           - 'd50_gy': dosis al 50%
-          - 'dose_bins': array de dosis para DVH
-          - 'volume_hist': histograma de volumen vs dosis
-          - 'cumulative_vol': histograma acumulativo
+          - 'dose_bins_gy': eje de dosis (Gy) de la curva DVH
+          - 'volume_hist_pct': volumen por intervalo de dosis (%)
+          - 'cumulative_vol_pct': volumen acumulado (%) — mismo algoritmo que los plots
     """
     mask = labelmap == structure_idx
     n_voxels = np.sum(mask)
@@ -667,24 +676,14 @@ def compute_dvh(
     v30_pct = float((doses >= 30).sum() / n_total * 100) if n_total > 0 else 0.0
     v70_pct = float((doses >= 70).sum() / n_total * 100) if n_total > 0 else 0.0
 
-    # DVH histograma
-    # Usar Dmax real (no percentil 99.5) para capturar TODA la curva DVH
-    # El percentil 99.5 cortaba hasta 57% del rango en higado (excluyendo voxeles
-    # de alta dosis cerca del tumor que son clinicamente importantes)
-    dose_max_hist = max_dose
-    if dose_max_hist <= 0:
-        dose_max_hist = 1.0  # evitar division por cero
-
-    hist, edges = np.histogram(
-        doses, bins=bins, range=(0, dose_max_hist * 1.05)
-    )
-    # hist: conteo de voxeles por bin
-    # cumulative: fraccion de volumen que recibe ≥ dosis
-    cumulative = np.cumsum(hist[::-1])[::-1]
-    cumulative_vol = cumulative / n_voxels * 100  # porcentaje
-
-    # Centros de bin para graficar
-    dose_bins = (edges[:-1] + edges[1:]) / 2
+    # DVH curva acumulativa (algoritmo MATLAB f_HDV.m — mismo que los plots
+    # Slicer, DVH_plot.png, figuras LaTeX y PDF). La tabla de valores del JSON
+    # debe coincidir con los graficos: el analisis refleja lo que ve el usuario.
+    d_vals, a_vals = compute_dvh_curve(doses, n_points=200)
+    # volume_hist_pct: volumen por intervalo de dosis (diferencial del acumulado)
+    dose_hist = np.zeros(len(a_vals))
+    dose_hist[:-1] = np.maximum(a_vals[:-1] - a_vals[1:], 0.0)
+    dose_hist[-1] = a_vals[-1]
 
     return {
         "structure_idx": int(structure_idx),
@@ -702,9 +701,9 @@ def compute_dvh(
         "d2_gy": d2,
         "v30_pct": v30_pct,
         "v70_pct": v70_pct,
-        "dose_bins_gy": dose_bins.tolist(),
-        "volume_hist_pct": (hist / n_voxels * 100).tolist(),
-        "cumulative_vol_pct": cumulative_vol.tolist(),
+        "dose_bins_gy": d_vals.tolist(),
+        "volume_hist_pct": dose_hist.tolist(),
+        "cumulative_vol_pct": a_vals.tolist(),
     }
 
 
@@ -821,6 +820,28 @@ def compute_mird(
     return resultado
 
 
+def compute_dvh_curve(doses, n_points=200):
+    """
+    Computa curva DVH acumulativa (algoritmo MATLAB f_HDV.m).
+
+    Args:
+        doses: array 1D de dosis (Gy) por voxel de una estructura.
+        n_points: numero de puntos de la curva (200 = plots Slicer,
+                  1000 = curvas PDF).
+
+    Returns:
+        (d_vals, a_vals): eje de dosis (Gy) y volumen acumulado (%).
+    """
+    n = len(doses)
+    Dmax = float(np.max(doses))
+    delta = Dmax / n_points
+    d_vals = np.arange(0, Dmax + delta, delta)
+    a_vals = np.zeros(len(d_vals))
+    for i, d in enumerate(d_vals):
+        a_vals[i] = np.sum(doses >= d) * 100.0 / n
+    return d_vals, a_vals
+
+
 # ======================================================================
 # 7. DVH plots en Slicer (algoritmo MATLAB f_HDV.m)
 # ======================================================================
@@ -842,10 +863,23 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
     import slicer
     import vtk
 
+    # Limpiar charts/tablas/series DVH previos guardados en la escena .mrb.
+    # Si no se limpian, el chart viejo (con data de otra corrida/actividad)
+    # queda como "DVH_Chart" y el nuevo se renombra "DVH_Chart_1", haciendo
+    # que el timer _reassign_dvh_chart apunte al chart equivocado.
+    try:
+        for _cls in ("vtkMRMLPlotChartNode", "vtkMRMLPlotSeriesNode", "vtkMRMLTableNode"):
+            for _node in slicer.mrmlScene.GetNodesByClass(_cls):
+                _name = _node.GetName() or ""
+                if _name.startswith("DVH_Chart") or _name.startswith("DVH_Table") or _name.startswith("DVH_"):
+                    slicer.mrmlScene.RemoveNode(_node)
+    except Exception as _e_clean:
+        logger.warning(f"[DVH] Error limpiando nodos DVH previos: {_e_clean}")
+
     structures = [
-        ("Hígado", LIVER_INDEX, (0.2, 0.4, 1.0)),     # azul
-        ("Tumor", TUMOR_INDEX, (1.0, 0.2, 0.2)),       # rojo
-        ("Peritumoral", PRETUMOR_INDEX, (0.8, 0.6, 0.0)), # amarillo
+        ("Hígado", LIVER_INDEX, get_dvh_color("Hígado")),
+        ("Tumor", TUMOR_INDEX, get_dvh_color("Tumor")),
+        ("Peritumoral", PRETUMOR_INDEX, get_dvh_color("Peritumoral")),
     ]
 
     chart_node = slicer.mrmlScene.AddNewNodeByClass(
@@ -879,17 +913,11 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         if n == 0 or np.max(doses) <= 0:
             continue
 
-        # --- Algoritmo MATLAB f_HDV.m exacto (~200 puntos) ---
-        Dmax = float(np.max(doses))
-        npts = 200
-        delta = Dmax / npts
-        d_vals = np.arange(0, Dmax + delta, delta)
-        a_vals = np.zeros(len(d_vals))
-        for i, d in enumerate(d_vals):
-            a_vals[i] = np.sum(doses >= d) * 100.0 / n
-        # ----------------------------------------------------
+        # Algoritmo MATLAB f_HDV.m (idéntico a f_HDV.m, DVH_N_POINTS puntos)
+        d_vals, a_vals = compute_dvh_curve(doses, n_points=DVH_N_POINTS)
 
-        # Crear tabla con datos DVH (API Slicer 5.8)
+        # Crear tabla con solo columnas numéricas (sin vtkStringArray)
+        # Regla tareas-md: eliminar columnas de texto, solo numéricas
         table_node = slicer.mrmlScene.AddNewNodeByClass(
             "vtkMRMLTableNode", f"DVH_Table_{name}"
         )
@@ -898,15 +926,11 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         col_x.SetName("Dose (Gy)")
         col_y = vtk.vtkFloatArray()
         col_y.SetName("Volume (%)")
-        col_label = vtk.vtkStringArray()
-        col_label.SetName("Label")
         for i in range(len(d_vals)):
             col_x.InsertNextValue(float(d_vals[i]))
             col_y.InsertNextValue(float(a_vals[i]))
-            col_label.InsertNextValue(f"{d_vals[i]:.1f} Gy / {a_vals[i]:.1f}%")
         table.AddColumn(col_x)
         table.AddColumn(col_y)
-        table.AddColumn(col_label)
 
         # Crear serie que referencia la tabla
         series = slicer.mrmlScene.AddNewNodeByClass(
@@ -915,8 +939,9 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         series.SetAndObserveTableNodeID(table_node.GetID())
         series.SetXColumnName("Dose (Gy)")
         series.SetYColumnName("Volume (%)")
-        series.SetLabelColumnName("Label")
-        series.SetPlotType(slicer.vtkMRMLPlotSeriesNode.PlotTypeLine)
+        series.SetPlotType(slicer.vtkMRMLPlotSeriesNode.PlotTypeScatter)
+        series.SetLineStyle(slicer.vtkMRMLPlotSeriesNode.LineStyleSolid)
+        series.SetMarkerStyle(slicer.vtkMRMLPlotSeriesNode.MarkerStyleNone)
         series.SetColor(*color)
         series.SetLineWidth(2)
 
@@ -924,16 +949,16 @@ def _create_dvh_plots_slicer(dose_gy, labelmap, spacing, show_gui=True):
         series_nodes.append(series)
         dvh_curves.append((name, d_vals, a_vals))
 
-        logger.info(f"  DVH creado: {name} ({n} voxels, Dmax={Dmax:.1f} Gy)")
+        logger.info(f"  DVH creado: {name} ({n} voxels, Dmax={np.max(doses):.1f} Gy)")
 
     # Escalar ejes (Slicer default no es correcto)
     if global_dmax > 0:
         if hasattr(chart_node, "SetXAxisRange"):
-            chart_node.SetXAxisRange(0, global_dmax * 1.05)
-            logger.info(f"  DVH X-axis range: 0 - {global_dmax * 1.05:.1f} Gy")
+            chart_node.SetXAxisRange(0, global_dmax * DVH_X_MAX_FACTOR)
+            logger.info(f"  DVH X-axis range: 0 - {global_dmax * DVH_X_MAX_FACTOR:.1f} Gy")
         if hasattr(chart_node, "SetYAxisRange"):
-            chart_node.SetYAxisRange(0, 105)
-            logger.info("  DVH Y-axis range: 0 - 105 (lineal)")
+            chart_node.SetYAxisRange(0, DVH_Y_MAX)
+            logger.info(f"  DVH Y-axis range: 0 - {DVH_Y_MAX} (lineal)")
 
     # Asignar chart al PlotViewNode (API correcta Slicer 5.8:
     # plotWidget.plotView() devuelve qMRMLPlotView (Qt), NO vtkMRMLPlotViewNode.
@@ -971,7 +996,7 @@ def _export_dvh_png(dvh_curves, filepath):
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        colors = {"Hígado": (0.2, 0.4, 1.0), "Tumor": (1.0, 0.2, 0.2), "Peritumoral": (0.8, 0.6, 0.0)}
+        colors = DVH_COLORS
 
         fig, ax = plt.subplots(figsize=(10, 6))
         x_max = 0
@@ -986,8 +1011,8 @@ def _export_dvh_png(dvh_curves, filepath):
         ax.set_title("Cumulative Dose Volume Histogram", fontweight="bold")
         # Escala Y lineal (sin log)
         ax.set_yscale("linear")
-        ax.set_xlim(0, x_max * 1.05 if x_max > 0 else 100)
-        ax.set_ylim(0, 105)
+        ax.set_xlim(0, x_max * DVH_X_MAX_FACTOR if x_max > 0 else 100)
+        ax.set_ylim(0, DVH_Y_MAX)
         ax.grid(True, which="both", alpha=0.3)
         ax.legend()
         fig.tight_layout()
@@ -1517,8 +1542,7 @@ def generate_pdf_report(
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
 
-            dvh_colors = {"Hígado": (0.145, 0.388, 0.922), "Tumor": (0.863, 0.149, 0.149),
-                          "Peritumoral": (0.851, 0.467, 0.024)}
+            dvh_colors = DVH_COLORS
 
             fig, ax = plt.subplots(figsize=(7.5, 4.5))
             for name, d_vals, a_vals in dvh_curves:
@@ -1527,9 +1551,9 @@ def generate_pdf_report(
             ax.set_xlabel("Dose (Gy)", fontsize=12, fontweight="bold")
             ax.set_ylabel("Volume (%)", fontsize=12, fontweight="bold")
             ax.set_title("Cumulative DVH", fontsize=14, fontweight="bold", pad=10)
-            ax.set_yscale("log")
-            ax.set_ylim(0.1, 110)
-            ax.set_xlim(0, max((float(d[-1]) for _, d, _ in dvh_curves), default=100) * 1.05)
+            ax.set_yscale("linear")
+            ax.set_ylim(0, DVH_Y_MAX)
+            ax.set_xlim(0, max((float(d[-1]) for _, d, _ in dvh_curves), default=100) * DVH_X_MAX_FACTOR)
             ax.grid(True, which="both", alpha=0.3, linestyle="--")
             ax.legend(fontsize=11, loc="upper right", framealpha=0.9)
             ax.spines["top"].set_visible(False)
@@ -2272,7 +2296,8 @@ def main():
         # Popup no-modal
         popup = _show_popup(
             "3Dosim — Kernel convolution",
-            "Convolucionando kernel de dosis 3D...\n\n3Dosim esta trabajando, NO cierre Slicer.\n\n"
+            "<b>Convolucionando kernel de dosis 3D...</b><br><br>"
+            "3Dosim esta trabajando, NO cierre Slicer.<br><br>"
             "Cuando termine se cerrara este cartel automaticamente.",
             args.no_slicer,
         )
@@ -2418,8 +2443,8 @@ def main():
         # Popup no-modal
         mctal_popup = _show_popup(
             "3Dosim — Parseando MCTAL",
-            f"Parseando archivo MCTAL ({mctal_size_mb:.0f} MB)...\n\n"
-            f"3Dosim esta trabajando, NO cierre Slicer.\n\n"
+            f"<b>Parseando archivo MCTAL ({mctal_size_mb:.0f} MB)...</b><br><br>"
+            f"3Dosim esta trabajando, NO cierre Slicer.<br><br>"
             f"Cuando termine se cerrara este cartel automaticamente.",
             args.no_slicer,
         )
@@ -2820,8 +2845,6 @@ def main():
     logger.info("\n--- Paso 8b: Generar PDF report ---")
     # Recolectar curvas DVH para el PDF desde structures del results
     dvh_curves_for_pdf = []
-    dvh_pdf_colors = {"higado": (0.2, 0.4, 1.0), "tumor": (1.0, 0.2, 0.2),
-                      "pretumor": (0.8, 0.6, 0.0)}
     dvh_pdf_labels = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
     if not args.no_pdf:
         try:
@@ -2835,12 +2858,7 @@ def main():
                 n = len(doses)
                 if n == 0 or np.max(doses) <= 0:
                     continue
-                Dmax = float(np.max(doses))
-                delta = Dmax / 1000.0
-                d_vals = np.arange(0, Dmax + delta, delta)
-                a_vals = np.zeros(len(d_vals))
-                for i, d in enumerate(d_vals):
-                    a_vals[i] = np.sum(doses >= d) * 100.0 / n
+                d_vals, a_vals = compute_dvh_curve(doses, n_points=DVH_N_POINTS)
                 dvh_curves_for_pdf.append((dvh_pdf_labels.get(name, name), d_vals, a_vals))
 
             pdf_path = generate_pdf_report(results, OUTPUT_DIR_DEFAULT, dvh_curves_for_pdf)
@@ -3267,12 +3285,15 @@ if __name__ == "__main__":
         # Mostrar dialogo en Slicer si esta disponible
         try:
             import slicer
-            from qt import QMessageBox
-            QMessageBox.critical(
-                None, "3Dosim — Error Fatal",
-                f"Error no controlado:\n\n{_fatal}\n\n"
-                f"Revise la consola de Slicer para detalles.\n"
-                f"Slicer se cerrara en 60 segundos."
+            from PipelineOrchestrator.utils import show_summary_dialog
+            _fatal_msg = str(_fatal).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+            show_summary_dialog(
+                "3Dosim — Error Fatal",
+                "<b style='font-size:16px; color:#e74c3c;'>Error no controlado</b><br><br>"
+                f"{_fatal_msg}<br><br>"
+                f"Revise la consola de Slicer para detalles.<br>"
+                f"Slicer se cerrara en 60 segundos.",
+                accent_color="#e74c3c",
             )
             # Esperar y cerrar
             import time as _t

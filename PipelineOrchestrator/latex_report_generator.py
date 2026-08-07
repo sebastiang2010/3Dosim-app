@@ -24,6 +24,12 @@ from typing import Optional
 
 import numpy as np
 
+from PipelineOrchestrator.dvh_plot_shared import (
+    DVH_Y_MAX,
+    DVH_X_MAX_FACTOR,
+    get_dvh_color,
+)
+
 logger = logging.getLogger("LaTeXReport")
 
 try:
@@ -122,41 +128,53 @@ def _plot_dvh_figures(
     dvh_curves: list[tuple[str, np.ndarray, np.ndarray]],
     figures_dir: str,
 ) -> None:
-    """Genera PNG individuales + combinado para las curvas DVH."""
+    """Genera PNG individuales + combinado para las curvas DVH.
+
+    Colores y rangos de ejes compartidos con el chart de Slicer y el PNG
+    exportado (ver dvh_plot_shared.py): mismos colores por estructura,
+    eje Y 0-DVH_Y_MAX % y eje X 0..Dmax*DVH_X_MAX_FACTOR.
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    colors = ["#1B2A4A", "#E63946", "#2E86AB", "#2D6A4F", "#E09F3E", "#9B5DE5"]
+    def _x_max() -> float:
+        m = 0.0
+        for _, d_vals, _ in dvh_curves:
+            if len(d_vals) > 0:
+                m = max(m, float(d_vals[-1]))
+        return m * DVH_X_MAX_FACTOR if m > 0 else 100
 
     # DVH combinado
     plt.figure(figsize=(8, 5))
-    for i, (name, d_vals, a_vals) in enumerate(dvh_curves):
+    for name, d_vals, a_vals in dvh_curves:
         if len(d_vals) == 0 or len(a_vals) == 0:
             continue
-        c = colors[i % len(colors)]
-        plt.plot(d_vals, a_vals, color=c, linewidth=2, label=name)
+        plt.plot(d_vals, a_vals, color=get_dvh_color(name), linewidth=2, label=name)
     plt.xlabel("Dosis [Gy]", fontsize=12)
     plt.ylabel("Volumen [%]", fontsize=12)
     plt.title("DVH - Curvas Dosis-Volumen", fontsize=14, fontweight="bold")
     plt.grid(True, alpha=0.3)
+    plt.xlim(0, _x_max())
+    plt.ylim(0, DVH_Y_MAX)
     plt.legend(fontsize=10)
     plt.tight_layout()
     plt.savefig(os.path.join(figures_dir, "dvh_combined.png"), dpi=200)
     plt.close()
 
     # DVH individuales
-    for i, (name, d_vals, a_vals) in enumerate(dvh_curves):
+    for name, d_vals, a_vals in dvh_curves:
         if len(d_vals) == 0 or len(a_vals) == 0:
             continue
         safe_name = name.lower().replace(" ", "_").replace("í", "i").replace("ó", "o")
         plt.figure(figsize=(7, 4.5))
-        c = colors[i % len(colors)]
-        plt.plot(d_vals, a_vals, color=c, linewidth=2.5)
+        plt.plot(d_vals, a_vals, color=get_dvh_color(name), linewidth=2.5)
         plt.xlabel("Dosis [Gy]", fontsize=12)
         plt.ylabel("Volumen [%]", fontsize=12)
         plt.title(f"DVH - {name}", fontsize=14, fontweight="bold")
         plt.grid(True, alpha=0.3)
+        plt.xlim(0, _x_max())
+        plt.ylim(0, DVH_Y_MAX)
         plt.tight_layout()
         plt.savefig(os.path.join(figures_dir, f"dvh_{safe_name}.png"), dpi=200)
         plt.close()

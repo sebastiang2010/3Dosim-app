@@ -60,7 +60,7 @@
     "timeout_minutes": 0
   },
   "paths": {
-    "ct_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\CT",
+    "ct_dir": "C:/MAT/3Dosim/pacientes-/pacientes/Paciente_2/CT",
     "pet_dir": "C:\\MAT\\3Dosim\\pacientes-\\pacientes\\Paciente_2\\PET",
     "source_file_path": "C:/programas/3Dosim/3Dosim_v4/mcnp-source"
   },

@@ -137,6 +137,7 @@ def track_time(description: str, timeout: int = 5):
         # Cerrar dialog si se abrio
         if dialog is not None:
             try:
+                _progress_timers.pop(id(dialog), None)
                 dialog.close()
                 dialog.deleteLater()
                 from qt import QApplication
@@ -146,6 +147,11 @@ def track_time(description: str, timeout: int = 5):
         mensaje = f"  {description} — {elapsed:.0f}s, completado."
         logger.info(mensaje)
         show_progress(mensaje)
+
+
+# Timers de dialogo de progreso vivos, para evitar su recoleccion sin usar atributos
+# arbitrarios (PythonQt no acepta dlg.<atributo> en QWidgets envueltos).
+_progress_timers: dict = {}
 
 
 def _show_progress_dialog(description: str):
@@ -189,7 +195,7 @@ def _show_progress_dialog(description: str):
         timer.setInterval(50)
         timer.timeout.connect(lambda: QApplication.processEvents())
         timer.start()
-        dlg._progress_timer = timer  # Referencia para que no se recolecte
+        _progress_timers[id(dlg)] = timer  # Referencia para que no se recolecte
 
         return dlg
     except Exception:
@@ -272,7 +278,8 @@ def close_save_scene_dialog(dialog):
 
 
 def show_popup(title: str, text: str, no_slicer: bool = False):
-    """Muestra dialogo no-modal simple en Slicer.
+    """
+    Muestra dialogo no-modal simple en Slicer.
 
     Args:
         title: Titulo de la ventana.
@@ -280,7 +287,7 @@ def show_popup(title: str, text: str, no_slicer: bool = False):
         no_slicer: Si True, retorna None sin mostrar (para modo headless).
 
     Returns:
-        QDialog o None si Qt no esta disponible.
+        QDialog o None si Qt no está disponible.
     """
     if no_slicer:
         return None
@@ -293,11 +300,185 @@ def show_popup(title: str, text: str, no_slicer: bool = False):
                            Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         dlg.setModal(False)
         layout = QVBoxLayout(dlg)
-        layout.addWidget(QLabel(text))
+        msg = QLabel(text)
+        msg.setWordWrap(True)
+        # Estilo unificado con Modulo 1 (save_scene / labelmap)
+        msg.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+        layout.addWidget(msg)
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()
         slicer.app.processEvents()
+        return dlg
+    except Exception:
+        return None
+
+def show_confirmation_dialog(title: str, question_html: str, instructions_html: str = "", yes_label: str = "APROBAR", no_label: str = "RECHAZAR") -> bool:
+    """Muestra un cuadro de dialogo modal con botones de confirmación.
+
+    Args:
+        title: Título de la ventana.
+        question_html: Pregunta o mensaje principal (HTML).
+        instructions_html: Texto de instrucciones adicional (HTML).
+        yes_label: Texto del botón de aprobación.
+        no_label: Texto del botón de rechazo.
+
+    Returns:
+        True si el usuario aprueba, False si rechaza.
+    """
+    try:
+        from qt import QLabel, QVBoxLayout, QDialog, QPushButton, QHBoxLayout, Qt
+        import slicer
+        app = slicer.app
+        main = slicer.util.mainWindow()
+        dialog = QDialog(main)
+        dialog.setWindowTitle(title)
+        dialog.setMinimumWidth(450)
+        dialog.setModal(False)
+        dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowStaysOnTopHint)
+        layout = QVBoxLayout()
+        layout.setSpacing(12)
+        # Pregunta
+        pregunta_label = QLabel(f'<h3 style="color:#2c3e50; text-align:center;">{question_html}</h3>')
+        pregunta_label.setAlignment(1)  # Qt.AlignCenter
+        layout.addWidget(pregunta_label)
+        # Instrucciones
+        if instructions_html:
+            instr_label = QLabel(f'<p style="color:#555; text-align:center; font-size:12px;">{instructions_html}</p>')
+            instr_label.setAlignment(1)
+            instr_label.setWordWrap(True)
+            layout.addWidget(instr_label)
+        # Botones
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(20)
+        btn_yes = QPushButton(yes_label)
+        btn_no = QPushButton(no_label)
+        btn_yes.setStyleSheet(
+            "QPushButton { background:#27ae60; color:white; font-weight:bold;"
+            "  padding:14px 20px; font-size:14px; border-radius:6px; min-width:140px; }"
+            "QPushButton:hover { background:#2ecc71; }"
+        )
+        btn_no.setStyleSheet(
+            "QPushButton { background:#c0392b; color:white; font-weight:bold;"
+            "  padding:14px 20px; font-size:14px; border-radius:6px; min-width:140px; }"
+            "QPushButton:hover { background:#e74c3c; }"
+        )
+        btn_row.addStretch()
+        btn_row.addWidget(btn_yes)
+        btn_row.addWidget(btn_no)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+        dialog.setLayout(layout)
+        resultado = [None]
+        def on_yes():
+            resultado[0] = True
+            dialog.close()
+        def on_no():
+            resultado[0] = False
+            dialog.close()
+        def on_dialog_closed(exit_code):
+            if resultado[0] is None:
+                resultado[0] = False
+        btn_yes.clicked.connect(on_yes)
+        btn_no.clicked.connect(on_no)
+        dialog.finished.connect(on_dialog_closed)
+        # Centrar
+        dialog.adjustSize()
+        main_rect = main.geometry
+        dlg_rect = dialog.geometry
+        dialog.move(
+            main_rect.x() + (main_rect.width() - dlg_rect.width()) // 2,
+            main_rect.y() + (main_rect.height() - dlg_rect.height()) // 2,
+        )
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        # Event loop
+        while resultado[0] is None:
+            app.processEvents()
+        return resultado[0]
+    except Exception:
+        # Fallback to console
+        respuesta = input(f"{title} - {question_html} (si/no): ").strip().lower()
+        return respuesta in ("si", "s", "yes", "y")
+
+
+def _shade_hex(color: str, factor: float = 0.85):
+    """Oscurece un color hex (#rrggbb) multiplicando cada canal por factor."""
+    color = color.lstrip("#")
+    if len(color) != 6:
+        return color
+    try:
+        r = int(color[0:2], 16)
+        g = int(color[2:4], 16)
+        b = int(color[4:6], 16)
+        r = max(0, min(255, int(r * factor)))
+        g = max(0, min(255, int(g * factor)))
+        b = max(0, min(255, int(b * factor)))
+        return f"#{r:02x}{g:02x}{b:02x}"
+    except ValueError:
+        return color
+
+
+def show_summary_dialog(title: str, body_html: str, button_label: str = "Cerrar",
+                        accent_color: str = "#2ecc71", modal: bool = True,
+                        width: int = 500):
+    """Muestra un QDialog informativo estilizado (patron Modulo 1).
+
+    Replica exactamente el aspecto de _show_labelmap_dialog de Modulo 1:
+    titulo verde <b style='font-size:16px; color:#2ecc71;'> en el cuerpo,
+    info en color #2c3e50 con padding 15px, y boton redondeado #2ecc71
+    con hover #27ae60.
+
+    Args:
+        title: Titulo de la ventana.
+        body_html: Cuerpo del dialogo (acepta HTML: <b>, <br>, <code>, ...).
+        button_label: Texto del boton de cierre.
+        accent_color: Color del boton (hex, ej. #2ecc71). Para el verde por
+            defecto el hover es #27ae60 (igual que Mod1); otros colores se
+            oscurecen un 15%.
+        modal: True bloquea el pipeline (exec_); False lo muestra no-modal.
+        width: Ancho minimo del dialogo.
+
+    Returns:
+        QDialog o None si Qt no esta disponible.
+    """
+    try:
+        from qt import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, Qt, QApplication
+        import slicer
+        dlg = QDialog(slicer.util.mainWindow())
+        dlg.setWindowTitle(title)
+        dlg.setModal(modal)
+        dlg.setMinimumWidth(width)
+        dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowStaysOnTopHint)
+        layout = QVBoxLayout(dlg)
+        info = QLabel(body_html)
+        info.setWordWrap(True)
+        info.setTextFormat(Qt.RichText)
+        info.setStyleSheet("font-size: 13px; padding: 15px; color: #2c3e50;")
+        layout.addWidget(info)
+        close_btn = QPushButton(button_label)
+        hover_color = "#27ae60" if accent_color.lower() == "#2ecc71" else _shade_hex(accent_color)
+        close_btn.setStyleSheet(
+            "QPushButton {"
+            f"  background-color: {accent_color}; color: white;"
+            "  border: none; border-radius: 8px;"
+            "  padding: 10px 24px; font-size: 14px; font-weight: bold;"
+            "}"
+            f"QPushButton:hover {{ background-color: {hover_color}; }}"
+        )
+        close_btn.clicked.connect(lambda: dlg.accept())
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+        if modal:
+            dlg.exec_()
+        else:
+            dlg.show()
+            dlg.raise_()
+            dlg.activateWindow()
+            QApplication.processEvents()
         return dlg
     except Exception:
         return None

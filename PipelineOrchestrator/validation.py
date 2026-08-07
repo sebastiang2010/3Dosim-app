@@ -80,134 +80,26 @@ def validate_segmentation(context="segmentacion"):
 
 
 def _show_validation_dialog(titulo="Segmentacion", context="segmentacion") -> bool:
+    """Muestra un dialogo de confirmación estandarizado.
+
+    Utiliza el dialogo compartido `show_confirmation_dialog` para mantener
+    una apariencia y comportamiento consistentes entre todos los módulos.
     """
-    Muestra dialogo NO MODAL — Slicer COMPLETAMENTE operativo.
-    El medico navega libremente (slices, ocultar PET, rotar 3D, etc.)
-
-    Args:
-        titulo: Titulo del dialogo.
-        context: "fusion" o "segmentacion" — cambia texto de instrucciones.
-
-    Returns:
-        True si el medico aprueba, False si rechaza.
-    """
-    try:
-        from qt import QLabel, QVBoxLayout, QDialog, QPushButton, QHBoxLayout, QEventLoop, Qt
-        import slicer
-
-        app = slicer.app
-        main = slicer.util.mainWindow()
-
-        # Dialogo NO MODAL pero siempre visible encima de Slicer
-        dialog = QDialog(main)
-        dialog.setWindowTitle(f"3Dosim — Validar {titulo}")
-        dialog.setMinimumWidth(450)
-        dialog.setModal(False)
-        dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowStaysOnTopHint)
-
-        layout = QVBoxLayout()
-        layout.setSpacing(12)
-
-        if context == "fusion":
-            pregunta = '&iquest;La fusion CT+PET es correcta?'
-            instrucciones = (
-                'Navegue los cortes axial/sagital/coronal.<br>'
-                'Verifique que PET y CT coincidan anatomicamente.<br>'
-                'Use el slider de opacidad del PET si es necesario.'
-            )
-        else:
-            pregunta = '&iquest;La segmentacion es correcta?'
-            instrucciones = (
-                'Navegue los cortes axial/sagital/coronal.<br>'
-                'Verifique que los organos segmentados sean correctos.<br>'
-                'Use la vista 3D para inspeccionar la segmentacion.'
-            )
-
-        titulo_label = QLabel(
-            f'<h3 style="color:#2c3e50; text-align:center;">{pregunta}</h3>'
+    from PipelineOrchestrator.utils import show_confirmation_dialog
+    # Determinar pregunta e instrucciones según contexto
+    if context == "fusion":
+        question = "&iquest;La fusión CT+PET es correcta?"
+        instructions = (
+            "Navegue los cortes axial/sagital/coronal.<br>"
+            "Verifique que PET y CT coincidan anatomicamente.<br>"
+            "Use el slider de opacidad del PET si es necesario."
         )
-        titulo_label.setAlignment(1)  # Qt.AlignCenter
-        layout.addWidget(titulo_label)
-        
-        # Instrucciones
-        instr_label = QLabel(
-            f'<p style="color:#555; text-align:center; font-size:12px;">'
-            f'{instrucciones}</p>'
+    else:
+        question = "&iquest;La segmentación es correcta?"
+        instructions = (
+            "Navegue los cortes axial/sagital/coronal.<br>"
+            "Verifique que los órganos segmentados sean correctos.<br>"
+            "Use la vista 3D para inspeccionar la segmentación."
         )
-        instr_label.setAlignment(1)
-        instr_label.setWordWrap(True)
-        layout.addWidget(instr_label)
-
-        # Botones lado a lado
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(20)
-
-        btn_yes = QPushButton("APROBAR")
-        btn_no = QPushButton("RECHAZAR")
-
-        btn_yes.setStyleSheet(
-            "QPushButton { background:#27ae60; color:white; font-weight:bold;"
-            "  padding:14px 20px; font-size:14px; border-radius:6px; min-width:140px; }"
-            "QPushButton:hover { background:#2ecc71; }"
-        )
-        btn_no.setStyleSheet(
-            "QPushButton { background:#c0392b; color:white; font-weight:bold;"
-            "  padding:14px 20px; font-size:14px; border-radius:6px; min-width:140px; }"
-            "QPushButton:hover { background:#e74c3c; }"
-        )
-
-        btn_row.addStretch()
-        btn_row.addWidget(btn_yes)
-        btn_row.addWidget(btn_no)
-        btn_row.addStretch()
-        layout.addLayout(btn_row)
-
-        dialog.setLayout(layout)
-
-        resultado = [None]
-
-        def on_yes():
-            resultado[0] = True
-            dialog.close()
-
-        def on_no():
-            resultado[0] = False
-            dialog.close()
-
-        def on_dialog_closed(exit_code):
-            if resultado[0] is None:
-                resultado[0] = False
-
-        btn_yes.clicked.connect(on_yes)
-        btn_no.clicked.connect(on_no)
-        dialog.finished.connect(on_dialog_closed)
-
-        # Posicionar centrado sobre Slicer (geometry es propiedad en Slicer Qt)
-        dialog.adjustSize()
-        main_rect = main.geometry
-        dlg_rect = dialog.geometry
-        dialog.move(
-            main_rect.x() + (main_rect.width() - dlg_rect.width()) // 2,
-            main_rect.y() + (main_rect.height() - dlg_rect.height()) // 2,
-        )
-
-        logger.info("  VALIDACION MEDICA — dialogo NO MODAL, Slicer COMPLETAMENTE operativo")
-        logger.info("  Navegue slices, oculte PET, revise en 3D, luego APROBAR o RECHAZAR")
-
-        dialog.show()
-        dialog.raise_()
-        dialog.activateWindow()
-
-        # Event loop REAL de Qt: Slicer responde 100%, el medico
-        # puede navegar slices, modificar ROIs, rotar 3D, etc.
-        loop = QEventLoop()
-        dialog.finished.connect(lambda _: loop.quit())
-        loop.exec()
-
-        return resultado[0]
-
-    except ImportError:
-        # Fallback a consola
-        logger.info("  (Interfaz Qt no disponible, usando consola)")
-        respuesta = input("  La segmentacion es correcta? (si/no): ").strip().lower()
-        return respuesta in ("si", "s", "yes", "y")
+    # Llamar al dialogo genérico
+    return show_confirmation_dialog(f"3Dosim — Validar {titulo}", question, instructions)

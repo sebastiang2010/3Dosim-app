@@ -7,9 +7,8 @@ Este repo (`3Dosim_v4/`) es el repositorio activo de desarrollo, contenido dentr
 | Contexto | Valor |
 |----------|-------|
 | **Repo raíz** | `C:\programas\3Dosim/` — contenedor sin ramas propias |
-| **Repo activo** | `C:\programas\3Dosim/3Dosim_v4/` — rama `mod3` |
-| **Rama activa** | `mod3` (recién creada desde `carteles`, contiene todas las features) |
-| **Ramas legado** | `carteles` (features previas), `main` (estable) |
+| **Repo activo** | `C:\programas\3Dosim/3Dosim_v4/` — rama `main` |
+| **Rama activa** | `main` (mod3 + reporte + carteles unificadas, ya no existen) |
 | **Entry point real** | `launcher/app.py` (NO los módulos Slicer del dropdown) |
 | **Legacy** | `3Dosim_v_3.14/` — NO modificar |
 
@@ -412,6 +411,7 @@ Commit: `b6aa7a8` - "eliminar test extras fusion_test, fusion_simple, test_ts_st
 ## Reglas importantes
 
 - **NO modificar archivos dentro de `3Dosim_v_3.14/`** — esa versión es estable/legacy. Todo el desarrollo activo es en `3Dosim_v4/`.
+- **NO tocar `microestructura-app/`** (raíz: `C:\programas\3Dosim\microestructura-app\`) — es una app MATLAB separada, NO parte del proyecto 3Dosim. En particular **NUNCA modificar, regenerar o reempaquetar `app11.mlapp`** ni sus archivos internos (`app11/appdesigner/appModel.mat`, `app11/matlab/document.xml`, `paciente.mat`). Esa app se edita manualmente en MATLAB App Designer. (Revertido 2026-08-05.)
 - **Siempre citar referencias oficiales**: cuando consultes documentación oficial de Slicer (apidocs.slicer.org, readthedocs.io, discourse.slicer.org), al final de tu respuesta incluí los links exactos de las páginas que visitaste.
 
 ## Comandos utiles
@@ -1139,3 +1139,22 @@ Solo implementar una solución propia cuando se cumpla **alguna** de estas condi
 2. Consultar la documentación oficial y las referencias de la API especificadas en este archivo como fuente principal.
 3. **No recurrir a implementaciones alternativas** sin haber comprobado previamente la existencia de una solución oficial.
 4. Revisar de forma integral los tres módulos, verificando la consistencia entre ellos, eliminando código duplicado y asegurando que las interfaces y el flujo de datos sean coherentes.
+
+---
+
+## 2026-08-03 — Fix: AttributeError slicerdosimmod2 (módulo legacy registrado en Slicer 5.8.1)
+
+**Síntoma:** Al final de la corrida del pipeline Mod3, Slicer 5.8.1 lanzaba `AttributeError: slicerdosimmod2` al descargar módulos (el módulo legacy `SlicerDosimMod2` quedaba registrado y su `delattr(slicer.modules, "slicerdosimmod2")` fallaba porque el atributo nunca se creó en v4).
+
+**Causa raíz:** La build instalada (revisión **33241**) tenía en su ini activo `C:\Users\Sebastian\AppData\Local\slicer.org\Slicer 5.8.1\slicer.org\Slicer-33241.ini` las entradas:
+- `AdditionalPaths=..., C:/programas/3Dosim/3Dosim_v_3.14/3DSlicerModule/SlicerDosim/Modules/Scripted/SlicerDosimMod2`
+- `MostRecentlySelectedPath=C:/programas/3Dosim/3Dosim_v_3.14/.../SlicerDosimMod2`
+
+→ Alguien registró el módulo legacy v_3.14 como módulo adicional de la build 33241. El `.mrml` del escenario **no** era la fuente (solo `DataProbe` y `TotalSegmentator`).
+
+**Fix aplicado (2026-08-03 14:19):** Quitada la ruta `SlicerDosimMod2` de `AdditionalPaths` y vaciado `MostRecentlySelectedPath` en `Slicer-33241.ini`. Backup: `Slicer-33241.ini.bak-20260803_141904`. Verificado: 0 referencias `3Dosim`/`SlicerDosim` restantes.
+
+**Notas:**
+- `Slicer-28257.ini` (Roaming\NA-MIC, build anterior) NO tenía 3Dosim — era inocente.
+- Mecanismo exacto del error: `slicerqt.py::unsetSlicerModule` (l.195–209) → `delattr(slicer.modules, moduleName.lower())` en l.203.
+- Pendiente: confirmar en próxima corrida que el `AttributeError` desaparece.

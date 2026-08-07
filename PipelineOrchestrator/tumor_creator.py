@@ -646,7 +646,7 @@ def _show_manual_tumor_dialog():
     """Dialogo NO MODAL para segmentacion manual del tumor."""
     from qt import (
         QLabel, QVBoxLayout, QDialog, QPushButton,
-        QHBoxLayout, QEventLoop,
+        QHBoxLayout,
     )
     import slicer
 
@@ -729,9 +729,12 @@ def _show_manual_tumor_dialog():
     dialog.adjustSize()
     dialog.show()
 
-    loop = QEventLoop()
-    dialog.finished.connect(lambda _: loop.quit())
-    loop.exec()
+    # Event loop via processEvents (patron documentado en AGENTS.md):
+    # setModal(False) + show() + loop de processEvents(). QEventLoop().exec()
+    # puede colgar el dialogo en el PythonQt de Slicer. Si cierra con la X,
+    # on_dialog_closed pone resultado[0]=False y el loop termina.
+    while resultado[0] is None:
+        app.processEvents()
 
     if not resultado[0]:
         raise RuntimeError(

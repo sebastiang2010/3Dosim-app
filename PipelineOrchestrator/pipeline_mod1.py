@@ -855,11 +855,28 @@ class PipelineMod1:
             tag_suffix = f" [{tag}]" if tag else ""
             logger.info(f"  Escena{tag_suffix} -> {filepath}")
             logger.info(f"  Guardando escena (puede tomar hasta 2 min si la escena es grande)...")
-            slicer.util.saveScene(filepath)
+            old_tmp = os.environ.get("TMP", "")
+            old_temp = os.environ.get("TEMP", "")
+            try:
+                short_tmp = r"C:\tmp"
+                os.makedirs(short_tmp, exist_ok=True)
+                os.environ["TMP"] = short_tmp
+                os.environ["TEMP"] = short_tmp
+                success = slicer.util.saveScene(filepath)
+            finally:
+                os.environ["TMP"] = old_tmp
+                os.environ["TEMP"] = old_temp
             dt = time.time() - t0
-            logger.info(f"    Escena guardada en {dt:.1f}s")
+            if success:
+                new_size = os.path.getsize(filepath)
+                logger.info(f"    Escena guardada en {dt:.1f}s ({new_size/1024/1024:.0f} MB)")
+                return filepath
+            else:
+                logger.warning(f"    saveScene devolvio False ({dt:.1f}s)")
+                return None
         except Exception as e:
             logger.warning(f"  No se pudo guardar escena: {e}")
+            return None
         finally:
             close_save_scene_dialog(dialog)
 

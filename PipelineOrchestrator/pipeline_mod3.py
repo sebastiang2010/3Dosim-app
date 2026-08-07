@@ -26,6 +26,7 @@ from PipelineOrchestrator.views import setup_medical_views, load_pipeline_config
 from PipelineOrchestrator.comandos import ConsolaComandos
 from PipelineOrchestrator import ai_supervisor
 from PipelineOrchestrator.latex_report_generator import generate_latex_report
+from PipelineOrchestrator.dvh_plot_shared import DVH_N_POINTS
 
 # ─── Reutilizar funciones de run_dosimetry_from_scene ────────────────────────
 from PipelineOrchestrator.run_dosimetry_from_scene import (
@@ -39,6 +40,7 @@ from PipelineOrchestrator.run_dosimetry_from_scene import (
     compute_mird,
     generate_pdf_report,
     _create_dvh_plots_slicer,
+    compute_dvh_curve,
     # Constantes
     LIVER_INDEX,
     TUMOR_INDEX,
@@ -946,11 +948,6 @@ class PipelineMod3:
 
         spacing = self.spacing
         struct_labels_pdf = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
-        dvh_colors_pdf = {
-            "higado": (0.2, 0.4, 1.0),
-            "tumor": (1.0, 0.2, 0.2),
-            "pretumor": (0.8, 0.6, 0.0),
-        }
 
         self.results_data["structures"] = {}
         self.dvh_curves_for_pdf = []
@@ -1004,12 +1001,7 @@ class PipelineMod3:
             doses = self.dose_gy[mask]
             n_doses = len(doses)
             if n_doses > 0 and np.max(doses) > 0:
-                Dmax = float(np.max(doses))
-                delta = Dmax / 1000.0
-                d_vals = np.arange(0, Dmax + delta, delta)
-                a_vals = np.zeros(len(d_vals))
-                for i, d in enumerate(d_vals):
-                    a_vals[i] = np.sum(doses >= d) * 100.0 / n_doses
+                d_vals, a_vals = compute_dvh_curve(doses, n_points=DVH_N_POINTS)
                 pdf_label = struct_labels_pdf.get(name, name)
                 self.dvh_curves_for_pdf.append((pdf_label, d_vals, a_vals))
 

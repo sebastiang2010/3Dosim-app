@@ -582,34 +582,23 @@ class PipelineMod2:
     # ==================================================================
 
     def _show_mcnp_summary_dialog(self):
-        """Muestra dialogo NO modal con resumen MCNP y comando de ejecucion."""
+        """Muestra dialogo estilizado (patron Modulo 1) con resumen MCNP y comando de ejecucion."""
+        if not self.mcnp_output_path or not os.path.exists(self.mcnp_output_path):
+            logger.warning("No hay archivo MCNP para mostrar en dialogo")
+            return
+        file_size_kb = os.path.getsize(self.mcnp_output_path) / 1024
+        file_name = os.path.basename(self.mcnp_output_path)
         try:
-            import slicer
-            from qt import QMessageBox
+            from PipelineOrchestrator.utils import show_summary_dialog
 
-            if not self.mcnp_output_path or not os.path.exists(self.mcnp_output_path):
-                logger.warning("No hay archivo MCNP para mostrar en dialogo")
-                return
-
-            file_size_kb = os.path.getsize(self.mcnp_output_path) / 1024
-            file_name = os.path.basename(self.mcnp_output_path)
-
-            # Construir comando de ejecucion MCNP
             mcnp_exe = "mcnp5"  # o mcnp6
-            exec_cmd = (
-                f"{mcnp_exe} i={file_name} name=3Dosim."
-            )
-
-            msg_box = QMessageBox(slicer.util.mainWindow())
-            msg_box.setWindowTitle("3Dosim - MCNP Generado")
-            msg_box.setIcon(QMessageBox.Information)
-            msg_box.setTextFormat(1)  # Qt.RichText
+            exec_cmd = f"{mcnp_exe} i={file_name} name=3Dosim."
 
             labelmap_name = self.segmentation_node.GetName() if self.segmentation_node else "N/A"
             ct_name = self.ct_node.GetName() if self.ct_node else "N/A"
 
             html = (
-                f"<b>Archivo MCNP generado correctamente</b><br><br>"
+                f"<b style='font-size:16px; color:#2ecc71;'>Archivo MCNP generado correctamente</b><br><br>"
                 f"<b>Archivo:</b> {file_name}<br>"
                 f"<b>Ubicacion:</b> {self.mcnp_dir}<br>"
                 f"<b>Tamano:</b> {file_size_kb:.1f} KB<br><br>"
@@ -628,12 +617,7 @@ class PipelineMod2:
                 f"{exec_cmd}"
                 f"</code>"
             )
-            msg_box.setText(html)
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.setModal(False)
-            msg_box.show()
-            msg_box.raise_()
-            msg_box.activateWindow()
+            show_summary_dialog("3Dosim — MCNP Generado", html)
             logger.info("  Dialogo de resumen MCNP mostrado")
         except Exception as e:
             logger.warning(f"No se pudo mostrar dialogo MCNP: {e}")
