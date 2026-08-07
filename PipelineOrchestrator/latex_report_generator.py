@@ -98,6 +98,27 @@ def _fmt2e(value: float) -> str:
     return f"{value:.2e}"
 
 
+def _show_pdf_locked_dialog(pdf_path: str) -> None:
+    """Muestra un cartel avisando que el PDF esta abierto en un visor.
+
+    Usa slicer.util.warningDisplay cuando se corre dentro de 3D Slicer;
+    si no hay slicer disponible (modo standalone/headless), solo loguea.
+    """
+    try:
+        import slicer  # noqa: PLC0415
+
+        slicer.util.warningDisplay(
+            f"El archivo\n{pdf_path}\n"
+            "esta abierto en un visor de PDF (SumatraPDF, Adobe, etc.).\n\n"
+            "El reporte se guardara con un nombre alternativo "
+            "(agregando fecha y hora).\n"
+            "Cierrelo en el visor para que la proxima vez use el nombre original.",
+            "3Dosim - PDF bloqueado",
+        )
+    except ImportError:
+        logger.warning(f"  PDF destino abierto en visor: {pdf_path}")
+
+
 def _get_jinja_env() -> jinja2.Environment:
     """Retorna Environment de Jinja2 con delimitadores LaTeX-safe."""
     loader = jinja2.FileSystemLoader(TEMPLATE_DIR)
@@ -387,6 +408,23 @@ def generate_latex_report(
         })
     mird_activity_gbq = float(mird_data.get("activity_gbq", activity_gbq))
 
+    # ── MIRD partition model (MATLAB cargo_mctal.m) ──
+    mird_partition = {
+        "t_n": float(mird_data.get("t_n", 0)),
+        "densidad_g_cm3": float(mird_data.get("densidad_g_cm3", 1.06)),
+        "sf": float(mird_data.get("sf", 0)),
+        "volumen_liver_cm3": float(mird_data.get("volumen_liver_cm3", 0)),
+        "volumen_tumor_cm3": float(mird_data.get("volumen_tumor_cm3", 0)),
+        "m_liver_kg": float(mird_data.get("m_liver_kg", 0)),
+        "m_tumor_kg": float(mird_data.get("m_tumor_kg", 0)),
+        "fu_normal": float(mird_data.get("fu_normal", 0)),
+        "fu_tumor": float(mird_data.get("fu_tumor", 0)),
+        "d_liver_mird_gy": float(mird_data.get("d_liver_mird_gy", 0)),
+        "d_tumor_mird_gy": float(mird_data.get("d_tumor_mird_gy", 0)),
+        "k_mird": float(mird_data.get("k_mird", 48.98)),
+    }
+    has_mird_partition = mird_partition["t_n"] > 0 and mird_partition["d_tumor_mird_gy"] > 0
+
     # ── Generar figuras DVH ──────────────────────────────────────
     if dvh_curves:
         _plot_dvh_figures(dvh_curves, figures_dir)
@@ -491,6 +529,8 @@ def generate_latex_report(
         # ── MIRD ──
         "mird_list": mird_list,
         "mird_activity_gbq": mird_activity_gbq,
+        "mird_partition": mird_partition,
+        "has_mird_partition": has_mird_partition,
         # ── DVH ──
         "has_dvh": has_dvh,
         "dvh_combined_rel": dvh_combined_rel,
@@ -542,7 +582,21 @@ pause
 
     # ── Copiar PDF a output_dir ──────────────────────────────────
     final_pdf = os.path.join(output_dir, "dosimetria_report_latex.pdf")
-    shutil.copy2(pdf_path, final_pdf)
+    try:
+        shutil.copy2(pdf_path, final_pdf)
+    except PermissionError:
+        # El PDF destino puede estar abierto en un visor (SumatraPDF/Adobe)
+        # en Windows, lo que bloquea la escritura. Avisar al usuario y
+        # reintentar con un nombre con timestamp para no perder el reporte.
+        logger.warning(f"  PDF destino bloqueado (abierto en visor?): {final_pdf}")
+        logger.warning("  Reintentando con nombre alternativo con timestamp...")
+        try:
+            _show_pdf_locked_dialog(final_pdf)
+        except Exception:
+            pass
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        final_pdf = os.path.join(output_dir, f"dosimetria_report_latex_{stamp}.pdf")
+        shutil.copy2(pdf_path, final_pdf)
     size_kb = os.path.getsize(final_pdf) / 1024
     logger.info(f"  Reporte LaTeX copiado a: {final_pdf} ({size_kb:.0f} KB)")
     return final_pdf

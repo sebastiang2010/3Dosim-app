@@ -246,6 +246,30 @@ Compartimento & Voxeles & Dosis media (Gy) \\
 \end{tabular}
 \end{table}
 
+\BLOCK{if has_mird_partition}
+\begin{table}[h!]
+\centering
+\caption{Par\'ametros del partition model (c\'alculo MIRD).}
+\begin{tabular}{lc}
+\toprule
+Par\'ametro & Valor \\
+\midrule
+  Relaci\'on tumor/h\'igado ($T_N$) & \VAR{mird_partition.t_n | fmt3} \\
+  Densidad del h\'igado (g/cm\textsuperscript{3}) & \VAR{mird_partition.densidad_g_cm3 | fmt2} \\
+  Volumen del h\'igado (cm\textsuperscript{3}) & \VAR{mird_partition.volumen_liver_cm3 | fmt2} \\
+  Volumen del tumor (cm\textsuperscript{3}) & \VAR{mird_partition.volumen_tumor_cm3 | fmt2} \\
+  Masa del h\'igado (kg) & \VAR{mird_partition.m_liver_kg | fmt3} \\
+  Masa del tumor (kg) & \VAR{mird_partition.m_tumor_kg | fmt3} \\
+  Fracci\'on de actividad h\'igado ($FU_{normal}$) & \VAR{mird_partition.fu_normal | fmt3} \\
+  Fracci\'on de actividad tumor ($FU_{tumor}$) & \VAR{mird_partition.fu_tumor | fmt3} \\
+  Dosis MIRD h\'igado (Gy) & \VAR{mird_partition.d_liver_mird_gy | fmt2} \\
+  Dosis MIRD tumor (Gy) & \VAR{mird_partition.d_tumor_mird_gy | fmt2} \\
+  Constante $k$ & \VAR{mird_partition.k_mird | fmt2} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\BLOCK{endif}
+
 % ── Secci\'on 5: Histogramas Dosis-Volumen (DVH) ──────────────────
 \BLOCK{if has_dvh}
 \section{Histogramas Dosis-Volumen (DVH)}

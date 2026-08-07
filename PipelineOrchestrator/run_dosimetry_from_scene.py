@@ -780,14 +780,41 @@ def compute_mird(
     dose_gy: np.ndarray,
     labelmap: np.ndarray,
     activity_gbq: float,
+    pet_arr: Optional[np.ndarray] = None,
+    spacing_mm: Optional[tuple] = None,
 ) -> dict:
     """
     Calcula MIRD partition model para higado y tumor.
 
-    MATLAB cargo_mctal.m lineas 211-227.
+    Replica MATLAB cargo_mctal.m lineas 211-227 + f_T_N.m + f_volumen.m:
+
+      f_volumen: volumen = n_voxels * prod(vCT), con vCT en cm
+      f_T_N:
+        volumen_liver = f_volumen(90, ...)
+        volumen_tumor = f_volumen(100, ...)
+        T_N = (sum(PET(tumor))/volumen_tumor) / (sum(PET(liver))/volumen_liver)
+      partition model:
+        densidad = 1.06 g/cm3
+        m_liver = volumen_liver * 1.06/1000  [kg]
+        m_tumor  = volumen_tumor  * 1.06/1000 [kg]
+        k = 48.98 ; SF = 0
+        FU_normal = (1-SF) * volumen_liver / (T_N*volumen_tumor + volumen_liver)
+        FU_tumor  = (1-SF) * T_N*volumen_tumor / (T_N*volumen_tumor + volumen_liver)
+        D_liver_Gy = activity_gbq * k * FU_normal / m_liver
+        D_tumor_Gy = activity_gbq * k * FU_tumor  / m_tumor
+
+    Args:
+        dose_gy: dosis (Gy) por voxel.
+        labelmap: phantom con indices (LIVER_INDEX/TUMOR_INDEX/PRETUMOR_INDEX).
+        activity_gbq: actividad total (GBq).
+        pet_arr: opcional, array PET (nx,ny,nz) del mismo shape que labelmap.
+                 Solo se usa para calcular T_N (ratio de captacion tumor/higado).
+        spacing_mm: opcional, espaciado del labelmap (sx,sy,sz) en mm.
+                    Necesario para volumenes y masas.
+
+    Returns:
+        dict con medias por estructura + modelo de particion MIRD.
     """
-    # Volumenes
-    voxel_vol = 1.0  # se ajusta despues
     n_liver = np.sum(labelmap == LIVER_INDEX)
     n_tumor = np.sum(labelmap == TUMOR_INDEX)
     n_pretumor = np.sum(labelmap == PRETUMOR_INDEX)
@@ -799,6 +826,40 @@ def compute_mird(
 
     # K constante MIRD
     k = 48.98  # J-s
+    densidad = 1.06  # g/cm3 (higado, MATLAB)
+    sf = 0.0
+
+    # Volumenes (mm3 -> cm3)
+    voxel_vol = 1.0
+    if spacing_mm is not None and len(spacing_mm) == 3:
+        voxel_vol = float(np.prod(spacing_mm)) / 1000.0
+    volumen_liver_cm3 = float(n_liver) * voxel_vol
+    volumen_tumor_cm3 = float(n_tumor) * voxel_vol
+
+    # Masas (kg)
+    m_liver = volumen_liver_cm3 * densidad / 1000.0
+    m_tumor = volumen_tumor_cm3 * densidad / 1000.0
+
+    # T_N = ratio de captacion tumor/higado (f_T_N.m)
+    t_n = 0.0
+    if pet_arr is not None and pet_arr.shape == labelmap.shape and volumen_liver_cm3 > 0 and volumen_tumor_cm3 > 0:
+        sum_pet_liver = float(np.sum(pet_arr[labelmap == LIVER_INDEX]))
+        sum_pet_tumor = float(np.sum(pet_arr[labelmap == TUMOR_INDEX]))
+        if sum_pet_liver > 0:
+            t_n = (sum_pet_tumor / volumen_tumor_cm3) / (sum_pet_liver / volumen_liver_cm3)
+
+    # Fracciones de actividad (partition model)
+    fu_normal = 0.0
+    fu_tumor = 0.0
+    d_liver_mird_gy = 0.0
+    d_tumor_mird_gy = 0.0
+    if t_n > 0 and (t_n * volumen_tumor_cm3 + volumen_liver_cm3) > 0:
+        fu_normal = (1 - sf) * volumen_liver_cm3 / (t_n * volumen_tumor_cm3 + volumen_liver_cm3)
+        fu_tumor = (1 - sf) * t_n * volumen_tumor_cm3 / (t_n * volumen_tumor_cm3 + volumen_liver_cm3)
+        if m_liver > 0:
+            d_liver_mird_gy = activity_gbq * k * fu_normal / m_liver
+        if m_tumor > 0:
+            d_tumor_mird_gy = activity_gbq * k * fu_tumor / m_tumor
 
     resultado = {
         "activity_gbq": activity_gbq,
@@ -815,6 +876,18 @@ def compute_mird(
             "mean_dose_gy": round(d_pretumor_mean, 4),
         },
         "k_mird": k,
+        # ── Partition model (MATLAB cargo_mctal.m) ──
+        "densidad_g_cm3": densidad,
+        "sf": sf,
+        "volumen_liver_cm3": round(volumen_liver_cm3, 4),
+        "volumen_tumor_cm3": round(volumen_tumor_cm3, 4),
+        "m_liver_kg": round(m_liver, 6),
+        "m_tumor_kg": round(m_tumor, 6),
+        "t_n": round(t_n, 6),
+        "fu_normal": round(fu_normal, 6),
+        "fu_tumor": round(fu_tumor, 6),
+        "d_liver_mird_gy": round(d_liver_mird_gy, 4),
+        "d_tumor_mird_gy": round(d_tumor_mird_gy, 4),
     }
 
     return resultado
@@ -2277,6 +2350,8 @@ def main():
         logger.info("Modo standalone: solo parseo MCTAL")
         dims = (512, 512, 171)  # default
         labelmap = None
+        pet_node = None
+        spacing = None
         activity_bq = 3e9  # default 3 GBq
         activity_gbq = 3.0
 
@@ -2757,7 +2832,16 @@ def main():
     # ----------------------------------------------------------------
     logger.info("\n--- Paso 7: MIRD partition model ---")
     _log_consola("Paso 7/10: Calculando MIRD partition model...")
-    mird = compute_mird(dose_gy, labelmap, activity_gbq)
+    # PET re-leido del nodo (el array local se libero tras la convolucion)
+    pet_arr_mird = None
+    if not args.no_slicer and pet_node is not None and labelmap is not None:
+        try:
+            import slicer
+            pet_arr_mird = slicer.util.arrayFromVolume(pet_node).transpose(2, 1, 0).astype(np.float32)
+            pet_arr_mird = np.maximum(pet_arr_mird, 0)
+        except Exception:
+            pet_arr_mird = None
+    mird = compute_mird(dose_gy, labelmap, activity_gbq, pet_arr=pet_arr_mird, spacing_mm=spacing)
     results["mird"] = mird
     logger.info(f"  Hígado: {mird['liver']['mean_dose_gy']:.2f} Gy")
     logger.info(f"  Tumor:  {mird['tumor']['mean_dose_gy']:.2f} Gy")
@@ -2839,11 +2923,11 @@ def main():
     logger.info(f"  Reporte TXT: {report_txt_path}")
 
     # ----------------------------------------------------------------
-    # Generar PDF report
+    # Generar PDF report (solo LaTeX profesional)
     # ----------------------------------------------------------------
-    _log_consola("Paso 8/10: Generando reporte PDF...")
-    logger.info("\n--- Paso 8b: Generar PDF report ---")
-    # Recolectar curvas DVH para el PDF desde structures del results
+    _log_consola("Paso 8/10: Generando reporte PDF (LaTeX)...")
+    logger.info("\n--- Paso 8b: Generar PDF report (LaTeX) ---")
+    # Recolectar curvas DVH desde structures del results (usadas por el LaTeX)
     dvh_curves_for_pdf = []
     dvh_pdf_labels = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}
     if not args.no_pdf:
@@ -2860,25 +2944,13 @@ def main():
                     continue
                 d_vals, a_vals = compute_dvh_curve(doses, n_points=DVH_N_POINTS)
                 dvh_curves_for_pdf.append((dvh_pdf_labels.get(name, name), d_vals, a_vals))
-
-            pdf_path = generate_pdf_report(results, OUTPUT_DIR_DEFAULT, dvh_curves_for_pdf)
-            if pdf_path:
-                _log_consola_ok(f"PDF generado: {pdf_path}")
-                _ai_review("Reporte PDF generado", True, {"pdf_path": pdf_path})
-            else:
-                _log_consola_error("No se pudo generar PDF (matplotlib?)")
-                _ai_review("Reporte PDF", False, error="PDF generation devolvio None")
         except Exception as e:
-            _log_consola_error(f"Error generando PDF: {e}")
-            _ai_review("Reporte PDF", False, error=str(e))
-            logger.warning(f"  Error generando PDF: {e}")
-            import traceback
-            logger.warning(traceback.format_exc())
+            logger.warning(f"  Error recolectando curvas DVH: {e}")
     else:
         _log_consola("  PDF omitido (--no-pdf)")
 
     # PDF (LaTeX - profesional)
-    if _HAS_LATEX:
+    if _HAS_LATEX and not args.no_pdf:
         try:
             # Derivar patient_id desde el nombre de escena
             latex_patient_id = os.path.splitext(os.path.basename(scene_path))[0]
@@ -2959,8 +3031,8 @@ def main():
         label = {"higado": "Hígado", "tumor": "Tumor", "pretumor": "Peritumoral"}.get(name, name)
         _log_consola(f"  {label}: Dmedia={s.get('mean_dose_gy', 0):.2f} Gy, "
                      f"BED={s.get('bed_gy', 0):.2f} Gy")
-    pdf_full = os.path.join(OUTPUT_DIR_DEFAULT, "dosimetria_report.pdf")
-    _log_consola(f"  PDF: {pdf_full}")
+    pdf_full = os.path.join(OUTPUT_DIR_DEFAULT, "latex_report", "out", "dosimetria_report_latex.pdf")
+    _log_consola(f"  PDF (LaTeX): {pdf_full}")
     _log_consola("=" * 50)
 
     # Mantener Slicer abierto si --show O si hay consola interactiva

@@ -38,7 +38,6 @@ from PipelineOrchestrator.run_dosimetry_from_scene import (
     compute_dvh,
     compute_biophysical,
     compute_mird,
-    generate_pdf_report,
     _create_dvh_plots_slicer,
     compute_dvh_curve,
     # Constantes
@@ -1012,12 +1011,36 @@ class PipelineMod3:
         if self.dose_gy is None or self.labelmap_array is None:
             raise RuntimeError("Dosis Gy o labelmap no disponibles para MIRD")
 
-        mird = compute_mird(self.dose_gy, self.labelmap_array, self.activity_gbq)
+        # PET array opcional para T_N (ratio de captacion tumor/higado)
+        pet_arr = None
+        if self.pet_node is not None and getattr(self, "spacing", None) is not None:
+            try:
+                import slicer
+                pet_arr = slicer.util.arrayFromVolume(self.pet_node).transpose(2, 1, 0).astype(np.float32)
+                pet_arr = np.maximum(pet_arr, 0)
+            except Exception:
+                pet_arr = None
+
+        mird = compute_mird(
+            self.dose_gy,
+            self.labelmap_array,
+            self.activity_gbq,
+            pet_arr=pet_arr,
+            spacing_mm=self.spacing,
+        )
         self.results_data["mird"] = mird
 
         logger.info(f"  Hígado:       {mird['liver']['mean_dose_gy']:.2f} Gy")
         logger.info(f"  Tumor:        {mird['tumor']['mean_dose_gy']:.2f} Gy")
         logger.info(f"  Peritumoral:  {mird['pretumor']['mean_dose_gy']:.2f} Gy")
+        if mird.get("t_n", 0) > 0:
+            logger.info(
+                f"  MIRD partition: T_N={mird['t_n']:.3f}  "
+                f"V_liver={mird['volumen_liver_cm3']:.1f} cm3  "
+                f"V_tumor={mird['volumen_tumor_cm3']:.1f} cm3  "
+                f"FU_normal={mird['fu_normal']:.3f}  FU_tumor={mird['fu_tumor']:.3f}  "
+                f"D_liver={mird['d_liver_mird_gy']:.2f} Gy  D_tumor={mird['d_tumor_mird_gy']:.2f} Gy"
+            )
 
     # ── Helpers para reporte LaTeX ──
 
@@ -1177,24 +1200,7 @@ class PipelineMod3:
         self._report_txt_path = report_txt_path
         logger.info(f"  Reporte TXT: {report_txt_path}")
 
-        # PDF (legacy)
-        try:
-            pdf_path = generate_pdf_report(
-                self.results_data,
-                AI_PIPE_DIR,
-                self.dvh_curves_for_pdf,
-            )
-            if pdf_path:
-                self.pdf_path = pdf_path
-                logger.info(f"  Reporte PDF (legacy): {pdf_path}")
-            else:
-                logger.warning("  generate_pdf_report devolvio None")
-        except Exception as e:
-            logger.warning(f"  Error generando PDF legacy: {e}")
-            import traceback
-            logger.warning(traceback.format_exc())
-
-        # PDF (LaTeX - nuevo)
+        # PDF (LaTeX - unico reporte PDF generado)
         try:
             # generate_latex_report recibe el dict results_data completo
             latex_pdf_path = generate_latex_report(
